@@ -1,0 +1,170 @@
+# Asteridle Technical Debt
+
+Use this file as the source of truth for engineering improvements. Keep items small enough that one Codex run can implement and verify them.
+
+## Ready
+
+## Completed
+
+### Reduce Skill Tree DOM Churn
+
+Reduced full DOM rebuilds in the compact skill tree modal.
+
+Notes:
+- `SkillTreeModalController` now keeps the mounted board, node references, and tooltip layer for simple selection changes.
+- Selecting or dismissing a talent now updates selected node state and replaces only the tooltip layer instead of rebuilding the SVG lines and every node.
+- Removed talent tooltip selection from the shop render signature so selection does not invalidate the whole shop/modal render path.
+
+### Centralize Balance Tuning
+
+Moved combat, economy, reward, spawn, boss, saucer, drone, and ship tuning into one module.
+
+Notes:
+- Added `src/game/balance.ts` as the central tuning surface for economy costs, prestige, ship movement, weapons, drones, asteroid rewards/spawns, boss stats, saucer behavior, and collision damage.
+- Replaced duplicated tuning constants across simulation systems, save/offline income, prestige, and the Phaser shop UI with `balance` references.
+- Preserved existing behavior during extraction; progression tests and production build pass.
+
+### Improve PWA Cache Versioning
+
+Made service worker updates less likely to serve stale GitHub Pages builds.
+
+Notes:
+- Added a Vite-defined build id and registered `sw.js` with that id as a query parameter.
+- Changed the service worker cache name to derive from the registered worker URL instead of a permanently fixed cache name.
+- Scoped activation cleanup to old `asteridle-shell-*` caches and preserved network-first caching with offline app-shell fallback.
+
+### Version Saves Explicitly
+
+Moved save compatibility from a single version equality check toward explicit migrations.
+
+Notes:
+- Added documented `SAVE_VERSION_NOTES` for the current v1 save shape.
+- Split v1 save reading into `readSavedGameV1` and routed loading through `migrateSavedGameToCurrent`.
+- Added tests that verify v1 saves still round-trip through the migration path and unsupported versions fall back to a fresh game.
+
+### Keep Ready Backlogs Populated
+
+Kept implementation queues actionable before broad feature work.
+
+Notes:
+- Added smaller Ready feature slices to `BACKLOG.md` for warp core save data, unlock definitions, drawer shell, first drone gate, weapon gates, and shield state plumbing.
+- Left feature work in `BACKLOG.md` and kept engineering work in this file.
+- The next `develop-feature` can now start with a narrow data-model slice instead of a broad warp-core tree implementation.
+
+### Formalize Game Event Helpers
+
+Centralized reward and audio event creation.
+
+Notes:
+- Added typed `emitAudio` and `emitReward` helpers in `simulation/events.ts`.
+- Replaced direct `state.audioEvents.push` and `state.rewardEvents.push` usage across simulation systems and the boss summon UI path.
+- Direct event queue pushes now live only inside the helper module, keeping event emission consistent and serializable.
+
+### Extract Collision and Reward Resolution
+
+Completed the queued split of `gameLoop.ts` into smaller serializable simulation systems.
+
+Notes:
+- Added `collisions.ts` for bullet/asteroid/saucer/ship collision resolution, deflector collision, flak and missile splash, asteroid destruction, boss unlock rewards, saucer rewards, and ship death handling.
+- Kept reward and audio events as serializable pushes on `GameState`.
+- `gameLoop.ts` now stays focused on orchestration, idle income, asteroid movement/spawn maintenance, and achievement sync.
+
+### Extract Boss and Saucer Systems
+
+Continued splitting `gameLoop.ts` into smaller serializable simulation systems.
+
+Notes:
+- Added `enemies.ts` for pending boss spawn, boss movement/fire patterns, saucer spawn/movement/fire lifecycle, and shared boss/saucer damage constants.
+- Reused projectile helpers from `weapons.ts` for boss and saucer shots.
+- Kept saucer rewards and boss death/unlock resolution in the collision system for the next extraction slice.
+
+### Extract Drone Combat System
+
+Continued splitting `gameLoop.ts` into smaller serializable simulation systems.
+
+Notes:
+- Added `drones.ts` for drone orbit updates, target acquisition, weapon selection, target ranges, fire intervals, and per-frame drone bullet caps.
+- Reused projectile helpers from `weapons.ts` for all drone shots.
+- Preserved existing sentry/ranger/breaker behavior and kept `updateGame` as the orchestration entrypoint.
+
+### Extract Ship Movement System
+
+Continued splitting `gameLoop.ts` into smaller serializable simulation systems.
+
+Notes:
+- Added `shipMovement.ts` for ship movement, slingshot/aim movement, keyboard thrust, fire cooldowns, hyperspace movement, camera follow, and respawn countdown.
+- Added `particles.ts` for serializable particle updates and burst creation so movement and collision systems can share effects without renderer objects.
+- `updateGame` remains the single orchestration entrypoint and now imports ship movement, camera, and particle updates.
+
+### Extract Weapons and Projectile System
+
+Started splitting `gameLoop.ts` into smaller simulation systems.
+
+Notes:
+- Added `weapons.ts` for bullet creation, player weapon firing, projectile updates, screen culling, and missile homing steering.
+- `updateGame` remains the single orchestration entrypoint and now imports `updateBullets`.
+- Drone, boss, and saucer systems reuse the exported `fireBullet` helper without moving renderer objects into simulation logic.
+
+### Extract Skill Tree Modal Controller
+
+Completed the queued `GameScene` UI controller extraction work.
+
+Notes:
+- Extracted compact skill tree board rendering, connection lines, talent nodes, floating tooltip placement, SVG icon selection, and buy button wiring into `SkillTreeModalController`.
+- `GameScene` now only configures modal chrome, passes progression/crystal state, and keeps talent selection and purchase orchestration.
+- Removed stale skill tree helper code from `GameScene` while preserving the current mobile tooltip and drawer behavior.
+
+### Extract Info Modal Controller
+
+Continued breaking the large Phaser scene into focused UI controllers.
+
+Notes:
+- Extracted generic info modal body rendering for facts and bullet lists into `InfoModalController`.
+- Moved the shared `ModalContent` type next to that controller.
+- `GameScene` now only fills modal chrome and delegates info body DOM creation.
+
+### Extract Zone Map Modal Controller
+
+Continued breaking the large Phaser scene into focused UI controllers.
+
+Notes:
+- Extracted zone map DOM rendering, route line creation, node states, labels, and travel button wiring into `ZoneMapController`.
+- `GameScene` now only configures modal chrome and passes current/unlocked zone state plus the travel callback.
+- Preserved the current vertical constellation layout, locked/current zone states, and zone travel behavior.
+
+### Extract Audio Settings Controller
+
+Continued breaking the large Phaser scene into focused UI controllers.
+
+Notes:
+- Extracted audio settings storage, saved volume application, slider rendering, and settings toggle binding into `AudioSettingsController`.
+- `GameScene` now only opens/closes the settings modal and passes volume callbacks to audio systems.
+- Preserved existing SFX/music volume keys, defaults, slider ranges, and modal behavior.
+
+### Split GameScene UI Controllers
+
+Started breaking the large Phaser scene into focused UI controllers.
+
+Notes:
+- Extracted reward feed DOM rendering, reward priority, lifetime, and capping into `RewardFeedController`.
+- `GameScene` now only passes queued reward events to the controller.
+- Preserved current reward feed behavior and kept gameplay simulation state unchanged.
+
+### Add Simulation and Progression Tests
+
+Added a lightweight test runner and covered high-risk pure game logic.
+
+Notes:
+- Added `vitest` and a `pnpm run test` script.
+- Added tests for save/load normalization, crystal balance and spending, talent purchase requirements, boss zone unlock behavior, warp reset preservation, and asteroid reward variants.
+- Extracted crystal spending, talent purchasing, and warp reset creation into pure progression helpers that are reused by `GameScene`.
+- Tests stay independent from Phaser and browser rendering.
+
+### README Documentation Refresh
+
+Updated stale project documentation after major gameplay/UI changes.
+
+Notes:
+- Controls now document keyboard, mobile slingshot aiming, firing, map travel, drawers, and respawn timing.
+- Feature list now reflects zones, boss gates, talents, achievements, PWA installability, and priority feed.
+- Architecture notes now describe the simulation/Phaser/DOM separation more accurately.

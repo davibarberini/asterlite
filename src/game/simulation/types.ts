@@ -1,0 +1,233 @@
+export type Vec2 = {
+  x: number;
+  y: number;
+};
+
+export type AsteroidSize = 'large' | 'medium' | 'small';
+export type AsteroidVariant = 'common' | 'metallic' | 'crystal' | 'dense';
+export type BossType = 'sentinel' | 'crusher';
+export type DroneType = 'sentry' | 'ranger' | 'breaker';
+export type TalentId =
+  | 'refineryYield'
+  | 'combatBounty'
+  | 'crystalSeam'
+  | 'salvageLoop'
+  | 'semiAutoOptics'
+  | 'semiAutoRange'
+  | 'semiAutoPierce'
+  | 'semiAutoCadence'
+  | 'semiAutoOverdrive'
+  | 'shotgunLoad'
+  | 'shotgunChoke'
+  | 'shotgunSpread'
+  | 'shotgunBarrage'
+  | 'shotgunSlag'
+  | 'missileGuidance'
+  | 'missileYield'
+  | 'missileReload'
+  | 'missileWarhead'
+  | 'missileShrapnel'
+  | 'missileChain';
+export type TalentRanks = Record<TalentId, number>;
+export type WeaponMode = 'cannon' | 'spread' | 'piercing';
+export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet';
+
+export type ShipState = {
+  position: Vec2;
+  velocity: Vec2;
+  rotation: number;
+  radius: number;
+  hp: number;
+  maxHp: number;
+  armor: number;
+  alive: boolean;
+  invulnerableFor: number;
+  respawnFor: number;
+  fireCooldown: number;
+  hyperspaceCooldown: number;
+};
+
+export type DroneState = {
+  id: number;
+  type: DroneType;
+  position: Vec2;
+  angle: number;
+  orbitRadius: number;
+  fireCooldown: number;
+};
+
+export type AsteroidState = {
+  id: number;
+  position: Vec2;
+  velocity: Vec2;
+  rotation: number;
+  rotationSpeed: number;
+  radius: number;
+  size: AsteroidSize;
+  variant: AsteroidVariant;
+  hp: number;
+  maxHp: number;
+  shape: number[];
+  bossType?: BossType;
+  bossZoneIndex?: number;
+  bossFireCooldown?: number;
+};
+
+export type PendingBossState = {
+  bossType: BossType;
+  bossZoneIndex: number;
+  spawnIn: number;
+  position: Vec2;
+  velocity: Vec2;
+};
+
+export type BulletState = {
+  id: number;
+  owner: 'player' | 'drone' | 'saucer' | 'boss';
+  position: Vec2;
+  velocity: Vec2;
+  age: number;
+  radius: number;
+  damage: number;
+  pierceLeft: number;
+  kind: BulletKind;
+  homingTargetId: number | null;
+};
+
+export type SaucerState = {
+  id: number;
+  position: Vec2;
+  velocity: Vec2;
+  radius: number;
+  fireCooldown: number;
+  alive: boolean;
+};
+
+export type ParticleState = {
+  id: number;
+  position: Vec2;
+  velocity: Vec2;
+  age: number;
+  ttl: number;
+  size: number;
+};
+
+export type GamePhase = 'playing' | 'respawning';
+
+export type GameAudioEvent =
+  | { type: 'playerShoot' }
+  | { type: 'droneShoot' }
+  | { type: 'saucerShoot' }
+  | { type: 'bossShoot' }
+  | { type: 'asteroidHit' }
+  | { type: 'asteroidDestroyed'; size: AsteroidSize }
+  | { type: 'saucerDestroyed' }
+  | { type: 'shipHit' }
+  | { type: 'shipDestroyed' }
+  | { type: 'shipRespawned' }
+  | { type: 'hyperspace' }
+  | { type: 'spaceTravel' }
+  | { type: 'bossSummoned' }
+  | { type: 'bossDefeated' }
+  | { type: 'zoneUnlocked' }
+  | { type: 'warpReset' }
+  | { type: 'purchase' };
+
+export type GameRewardKind = 'payout' | 'achievement' | 'boss' | 'unlock' | 'system';
+
+export type GameRewardEvent = {
+  text: string;
+  kind?: GameRewardKind;
+};
+
+export type AchievementStats = {
+  asteroidsDestroyed: number;
+  moneyEarned: number;
+  crystalsCollected: number;
+  saucersDestroyed: number;
+  deaths: number;
+  prestigeWarps: number;
+  hyperspaceUses: number;
+};
+
+export type AchievementId =
+  | 'firstBlood'
+  | 'rockBreaker'
+  | 'beltPatrol'
+  | 'fieldSweeper'
+  | 'annihilator'
+  | 'pocketChange'
+  | 'steadyIncome'
+  | 'creditBaron'
+  | 'sectorTycoon'
+  | 'galacticMint'
+  | 'crystalTouch'
+  | 'seamProspector'
+  | 'crystalRunner'
+  | 'shardMagnate'
+  | 'refineryBoot'
+  | 'oreFlow'
+  | 'megaFoundry'
+  | 'titanSmelter'
+  | 'hullPatch'
+  | 'reinforcedFrame'
+  | 'dreadnought'
+  | 'lightPlating'
+  | 'ablativeShell'
+  | 'hotRod'
+  | 'afterburner'
+  | 'wingLead'
+  | 'swarmOps'
+  | 'droneArmada'
+  | 'deepScan'
+  | 'warpVeteran';
+
+export type ProgressionState = {
+  passiveIncomeLevel: number;
+  shipDamageLevel: number;
+  shipSpeedLevel: number;
+  deflectorLevel: number;
+  droneDamageLevel: number;
+  droneFireRateLevel: number;
+  droneCounts: Record<DroneType, number>;
+  talentRanks: TalentRanks;
+  weaponMode: WeaponMode;
+  spreadUnlocked: boolean;
+  piercingUnlocked: boolean;
+  mapUnlocked: boolean;
+  travelLevel: number;
+  currentZoneIndex: number;
+  unlockedZoneIndex: number;
+  bossDefeats: number;
+  prestigeCores: number;
+  maxHp: number;
+  armor: number;
+  dronesPurchased: number;
+  achievementStats: AchievementStats;
+  unlockedAchievements: Record<AchievementId, boolean>;
+};
+
+export type GameState = {
+  width: number;
+  height: number;
+  camera: Vec2;
+  money: number;
+  crystals: number;
+  lastRepairCost: number;
+  lastOfflineEarnings: number;
+  deathPenaltyFor: number;
+  droneRebootFor: number;
+  phase: GamePhase;
+  ship: ShipState;
+  drones: DroneState[];
+  progression: ProgressionState;
+  asteroids: AsteroidState[];
+  bullets: BulletState[];
+  particles: ParticleState[];
+  audioEvents: GameAudioEvent[];
+  rewardEvents: GameRewardEvent[];
+  pendingBoss: PendingBossState | null;
+  saucer: SaucerState | null;
+  saucerTimer: number;
+  nextId: number;
+};

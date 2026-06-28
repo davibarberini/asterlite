@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="skill-refinery" viewBox="0 0 24 24">
+    <path d="M4 19V9l5 3V9l5 3V6h5v13H4Z"/>
+    <path d="M7 16h2M12 16h2M17 16h2"/>
+  </symbol>
+  <symbol id="skill-bounty" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="7"/>
+    <path d="M12 7v10M9 10c0-1.3 1.2-2 3-2 1.5 0 2.7.5 3.2 1.2M15 14c0 1.3-1.2 2-3 2-1.7 0-3-.6-3.4-1.5"/>
+  </symbol>
+  <symbol id="skill-crystal" viewBox="0 0 24 24">
+    <path d="M12 3 19 10 12 21 5 10 12 3Z"/>
+    <path d="M5 10h14M12 3l-2 7 2 11 2-11-2-7Z"/>
+  </symbol>
+  <symbol id="skill-salvage" viewBox="0 0 24 24">
+    <path d="M12 5v14M5 12h14"/>
+    <path d="M7 7l10 10M17 7 7 17" opacity=".55"/>
+  </symbol>
+  <symbol id="skill-targeting" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="7"/>
+    <path d="M12 5v4M12 15v4M5 12h4M15 12h4"/>
+    <circle cx="12" cy="12" r="1.7"/>
+  </symbol>
+  <symbol id="skill-shotgun" viewBox="0 0 24 24">
+    <path d="M5 18 19 6"/>
+    <path d="M10 13l5 5M13 10l5 5M7 16l3 3"/>
+    <circle cx="18" cy="5" r="1.5"/>
+  </symbol>
+  <symbol id="skill-missile" viewBox="0 0 24 24">
+    <path d="M7 18 16 4l4 4-14 9-2 3 3-2Z"/>
+    <path d="M13 7l4 4M6 17l-2 3"/>
+  </symbol>
+  <symbol id="skill-generic" viewBox="0 0 24 24">
+    <path d="M12 3v18M3 12h18M6 6l12 12M18 6 6 18"/>
+  </symbol>
+</svg>

@@ -1,0 +1,112 @@
+import type { GameState, Vec2 } from '../types';
+import type { InputActions } from '../../input/actions';
+import { createAsteroid, getAsteroidSpawnPosition, getAsteroidTargetCount } from './asteroids';
+import { resolveCollisions } from './collisions';
+import { updateDrones } from './drones';
+import { updateBosses, updatePendingBoss, updateSaucer } from './enemies';
+import { updateParticles } from './particles';
+import { updateCamera, updateShipMovement } from './shipMovement';
+import { updateBullets } from './weapons';
+import { emitReward } from '../events';
+import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
+import { getRefineryMilestoneMultiplier } from '../../progression/idleBonuses';
+import {
+  getAchievementMultiplier,
+  getEffectiveMaxHp,
+  recordMoneyEarned,
+  syncAchievements,
+  ACHIEVEMENT_BONUS_LABELS
+} from '../../progression/achievements';
+import {
+  getDeathPenaltyMultiplier,
+  getRefineryIncomeMultiplier
+} from '../../progression/talentTree';
+import { balance } from '../../balance';
+export const updateGame = (state: GameState, input: InputActions, dt: number): void => {
+  state.width = Math.max(320, state.width);
+  state.height = Math.max(320, state.height);
+  state.deathPenaltyFor = Math.max(0, state.deathPenaltyFor - dt);
+  state.droneRebootFor = Math.max(0, state.droneRebootFor - dt);
+
+  updateShipMovement(state, input, dt);
+  updateCamera(state, dt);
+  updateIdleIncome(state, dt);
+  updateDrones(state, dt);
+  updateBullets(state, dt);
+  updatePendingBoss(state, dt);
+  updateAsteroids(state, dt);
+  updateBosses(state, dt);
+  updateSaucer(state, dt);
+  updateParticles(state, dt);
+  resolveCollisions(state);
+  maintainAsteroidField(state);
+  syncAchievements(state.progression, (def) => {
+    emitReward(state, `Conquista: ${def.name} (+${def.bonusPercent}% ${ACHIEVEMENT_BONUS_LABELS[def.bonusCategory]})`, 'achievement');
+    if (def.bonusCategory === 'maxHp') {
+      const effectiveMaxHp = getEffectiveMaxHp(state.progression);
+      const hpGain = effectiveMaxHp - state.ship.maxHp;
+      if (hpGain > 0) {
+        state.ship.maxHp = effectiveMaxHp;
+        state.ship.hp += hpGain;
+      }
+    }
+  });
+};
+
+const updateIdleIncome = (state: GameState, dt: number): void => {
+  if (!state.ship.alive) {
+    return;
+  }
+
+  const deathPenaltyMultiplier = state.deathPenaltyFor > 0 ? balance.economy.deathIncomeMultiplier * getDeathPenaltyMultiplier(state.progression) : 1;
+  const income =
+    state.progression.passiveIncomeLevel *
+    balance.economy.passiveIncomePerLevel *
+    getRefineryMilestoneMultiplier(state.progression.passiveIncomeLevel) *
+    getRefineryIncomeMultiplier(state.progression) *
+    getPrestigeMoneyMultiplier(state.progression) *
+    getAchievementMultiplier(state.progression, 'passive') *
+    getAchievementMultiplier(state.progression, 'money') *
+    deathPenaltyMultiplier *
+    dt;
+  state.money += income;
+  recordMoneyEarned(state.progression, income);
+};
+
+const updateAsteroids = (state: GameState, dt: number): void => {
+  state.asteroids.forEach((asteroid) => {
+    const nextPosition = {
+      x: asteroid.position.x + asteroid.velocity.x * dt,
+      y: asteroid.position.y + asteroid.velocity.y * dt
+    };
+    asteroid.position = asteroid.bossType ? nextPosition : wrapAroundCamera(state, nextPosition, asteroid.radius);
+    asteroid.rotation += asteroid.rotationSpeed * dt;
+  });
+};
+
+const maintainAsteroidField = (state: GameState): void => {
+  const targetCount = getAsteroidTargetCount(state);
+  while (state.asteroids.length < targetCount) {
+    state.asteroids.push(createAsteroid(state, 'large', getAsteroidSpawnPosition(state)));
+  }
+};
+
+const wrapAroundCamera = (state: GameState, position: Vec2, margin: number): Vec2 => {
+  const halfWidth = state.width / 2 + margin + balance.asteroids.wrapExtraMargin;
+  const halfHeight = state.height / 2 + margin + balance.asteroids.wrapExtraMargin;
+  let { x, y } = position;
+
+  if (x < state.camera.x - halfWidth) {
+    x = state.camera.x + halfWidth;
+  } else if (x > state.camera.x + halfWidth) {
+    x = state.camera.x - halfWidth;
+  }
+
+  if (y < state.camera.y - halfHeight) {
+    y = state.camera.y + halfHeight;
+  } else if (y > state.camera.y + halfHeight) {
+    y = state.camera.y - halfHeight;
+  }
+
+  return { x, y };
+};

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Asteridle">
+  <rect width="512" height="512" rx="96" fill="#020609"/>
+  <g opacity="0.72">
+    <circle cx="116" cy="126" r="5" fill="#d8fff5"/>
+    <circle cx="388" cy="96" r="4" fill="#fff1a8"/>
+    <circle cx="420" cy="342" r="5" fill="#92dfff"/>
+    <circle cx="82" cy="380" r="3" fill="#d8fff5"/>
+    <circle cx="290" cy="70" r="3" fill="#83ffdc"/>
+  </g>
+  <path d="M256 70 344 408 256 338 168 408Z" fill="#071217" stroke="#d8fff5" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M256 112 314 350 256 303 198 350Z" fill="#83ffdc"/>
+  <path d="M256 112 314 350 256 303Z" fill="#d8fff5" opacity="0.45"/>
+  <circle cx="256" cy="252" r="34" fill="#020609" stroke="#fff1a8" stroke-width="14"/>
+  <path d="M128 226c36-70 92-104 168-104 46 0 85 12 118 36" fill="none" stroke="#83ffdc" stroke-width="10" stroke-linecap="round" opacity="0.45"/>
+</svg>
