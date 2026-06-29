@@ -10,6 +10,7 @@ import { updateBullets } from './weapons';
 import { emitAudio, emitReward } from '../events';
 import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
 import { getRefineryMilestoneMultiplier } from '../../progression/idleBonuses';
+import { WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getWarpUnlockNodeState } from '../../progression/warpUnlocks';
 import {
   getAchievementMultiplier,
   getEffectiveMaxHp,
@@ -54,6 +55,26 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
       }
     }
   });
+  syncAffordableWarpUnlockAnnouncements(state);
+};
+
+const syncAffordableWarpUnlockAnnouncements = (state: GameState): void => {
+  const availableCores = getAvailableWarpCores(state.progression);
+  const unlock = WARP_UNLOCK_DEFINITIONS.find(
+    (definition) =>
+      !state.progression.announcedAffordableWarpUnlockIds.includes(definition.id) &&
+      getWarpUnlockNodeState(state.progression, availableCores, definition.id) === 'available'
+  );
+
+  if (!unlock) {
+    return;
+  }
+
+  state.progression.announcedAffordableWarpUnlockIds = [
+    ...state.progression.announcedAffordableWarpUnlockIds,
+    unlock.id
+  ];
+  emitReward(state, `Technology available: ${unlock.title}`, 'unlock');
 };
 
 const updateBossDiscovery = (state: GameState): void => {

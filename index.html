@@ -35,6 +35,16 @@
         <section class="hud-panel hud-panel--center">
           <div id="status" class="status">Drag and release tension to slingshot. WASD / arrows also fly.</div>
         </section>
+        <section id="first-warp-goal" class="first-warp-goal is-hidden" aria-label="Current objective">
+          <div class="first-warp-goal__body">
+            <span class="first-warp-goal__kicker">Next</span>
+            <strong id="first-warp-goal-title">Draw out the gate boss</strong>
+          </div>
+          <div class="first-warp-goal__progress" aria-hidden="true">
+            <span id="first-warp-goal-progress"></span>
+          </div>
+          <span id="first-warp-goal-progress-text" class="first-warp-goal__progress-text">0/0</span>
+        </section>
         <div class="hud-right-cluster">
           <button class="map-toggle" id="map-toggle" type="button" aria-label="Open zone map" disabled>
             <span class="map-toggle__icon">⌖</span>

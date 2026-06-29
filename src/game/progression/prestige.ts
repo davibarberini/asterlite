@@ -22,6 +22,7 @@ export const createWarpResetState = (previousState: GameState, width: number, he
   const permanentProgression = createProgression();
   permanentProgression.prestigeCores = previousState.progression.prestigeCores + Math.max(0, Math.floor(coreGain));
   permanentProgression.ownedWarpUnlockIds = [...previousState.progression.ownedWarpUnlockIds];
+  permanentProgression.announcedAffordableWarpUnlockIds = [...previousState.progression.announcedAffordableWarpUnlockIds];
   permanentProgression.maxHp = previousState.progression.maxHp;
   permanentProgression.armor = previousState.progression.armor;
   permanentProgression.shipDamageLevel = previousState.progression.shipDamageLevel;

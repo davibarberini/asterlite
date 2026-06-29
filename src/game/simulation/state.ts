@@ -77,6 +77,7 @@ export const createProgression = (): ProgressionState => ({
   },
   prestigeCores: 0,
   ownedWarpUnlockIds: [],
+  announcedAffordableWarpUnlockIds: [],
   maxHp: 100,
   armor: 0,
   dronesPurchased: 0,

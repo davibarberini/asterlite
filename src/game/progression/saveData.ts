@@ -262,6 +262,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
     bossDiscovery: readBossDiscovery(value.bossDiscovery),
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
     ownedWarpUnlockIds,
+    announcedAffordableWarpUnlockIds: readWarpUnlockIds(value.announcedAffordableWarpUnlockIds),
     maxHp,
     armor,
     dronesPurchased: droneCounts.sentry + droneCounts.ranger + droneCounts.breaker,
@@ -403,7 +404,8 @@ export const saveGameState = (state: GameState): void => {
     lastSeenAt: Date.now(),
     progression: {
       ...state.progression,
-      ownedWarpUnlockIds: [...state.progression.ownedWarpUnlockIds]
+      ownedWarpUnlockIds: [...state.progression.ownedWarpUnlockIds],
+      announcedAffordableWarpUnlockIds: [...state.progression.announcedAffordableWarpUnlockIds]
     },
     ship: {
       position: { ...state.ship.position },

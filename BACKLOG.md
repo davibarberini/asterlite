@@ -4,6 +4,27 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### First Warp Goal UI
+
+Added a compact current objective chip for the first warp path.
+
+Notes:
+- The HUD now shows a small first-warp goal derived from serializable game state.
+- Early goals progress through first boss discovery, gate boss defeat, crystal collection, first warp reset, and `Drone Systems`.
+- The chip mutes itself while drawers or modals are open so it does not compete with active UI.
+- Added pure progression tests for the first-warp goal states.
+
+### Starting Loadout and Guided Onboarding
+
+Completed the first-run onboarding path around the initial permanent unlock.
+
+Notes:
+- New saves start with zero drones and only the basic cannon.
+- `Drone Systems` is the first Technology and gates the Drones tab plus semi-auto drone purchase.
+- Advanced drone families and weapon modes remain behind Technology route nodes.
+- Added one-time feed announcements when a Technology becomes affordable, capped to one new Technology notice per update.
+- Persisted announced Technology notices so saves and warp resets do not repeat stale prompts.
+
 ### Gameplay-Only Technologies Tree
 
 Refocused Technologies around gameplay unlocks instead of stat upgrades.
@@ -53,23 +74,6 @@ Notes:
 
 ## Ready
 
-### Starting Loadout and Guided Onboarding
-
-Make the early experience clearer and slower by starting without drones and guiding the player toward the first warp.
-
-Design:
-- Start with only the basic cannon so the player learns movement, aiming, and asteroid rewards manually.
-- Use the first drone-related warp unlock to introduce the Drones tab and simple semi-auto drone purchase together.
-- Delay advanced weapons and drones behind warp-core route nodes.
-- Use feed/modal copy sparingly to signal when a new permanent unlock is available.
-
-Acceptance:
-- New saves start with zero drones.
-- The Drones tab is hidden or locked until `Drone Systems` is owned.
-- After `Drone Systems`, the Drones tab allows buying simple semi-auto drones and distinguishes advanced locked-by-warp, owned, and buyable drone types.
-- The first warp route node is cheap enough to teach the system.
-- Feed announces newly affordable warp unlocks without cluttering combat.
-
 ### Warp Unlock Visual Polish
 
 Make the warp-core tree feel distinct from the crystal skill tree while retaining the same interaction model.
@@ -84,22 +88,6 @@ Acceptance:
 - Add node states for owned, available, locked, and unaffordable.
 - Keep the tree mostly vertical/linear on mobile.
 - Clicking outside the tooltip closes it.
-
-### First Warp Goal UI
-
-Add a compact objective chip that points the player toward the first meaningful warp reset.
-
-Design:
-- The chip should explain the current next step without becoming a tutorial panel.
-- Early run goals should progress through crystals, boss/map progress, and warp core gain.
-- The copy should be short enough for mobile and should avoid covering the playfield.
-- It should help the player understand why warp reset matters before the first reset.
-
-Acceptance:
-- Show a persistent but compact next-goal indicator during normal play.
-- Include first-run states such as earning crystals, reaching the minimum warp route point, and having enough crystals for at least one core.
-- Hide or reduce the chip when a drawer/modal is open.
-- Keep goal state derived from serializable game/progression state.
 
 ### Combat Readability Upgrade
 
@@ -244,13 +232,13 @@ Add optional run objectives that give short-term direction and rewards.
 Design:
 - Contracts should be small and readable during an idle/action run.
 - Examples: destroy crystal asteroids, survive a boss, clear dense asteroids, collect credits without dying.
-- Rewards should support crystals, credits, or temporary run boosts without breaking warp pacing.
+- Rewards should include small permanent improvements where appropriate, plus crystals, credits, or temporary run boosts without breaking warp pacing.
 
 Acceptance:
 - Add serializable active contract state.
 - Generate a small set of objectives appropriate to current zone/progression.
 - Show active contract progress in a compact UI surface.
-- Reward completion through existing currency/reward feed systems.
+- Reward completion through existing currency, permanent progression, and reward feed systems.
 
 ### Run Modifiers After Warp
 

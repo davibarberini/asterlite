@@ -225,6 +225,7 @@ export type ProgressionState = {
   bossDiscovery: BossDiscoveryState;
   prestigeCores: number;
   ownedWarpUnlockIds: WarpUnlockId[];
+  announcedAffordableWarpUnlockIds: WarpUnlockId[];
   maxHp: number;
   armor: number;
   dronesPurchased: number;

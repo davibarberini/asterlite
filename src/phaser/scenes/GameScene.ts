@@ -18,6 +18,7 @@ import {
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { getExplorationZone, getNextZone, isZoneUnlocked, zones } from '../../game/simulation/zones';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../../game/progression/prestige';
+import { getFirstWarpGoal } from '../../game/progression/firstWarpGoal';
 import {
   ACHIEVEMENT_BONUS_LABELS,
   ACHIEVEMENT_DEFINITIONS,
@@ -83,6 +84,10 @@ export class GameScene extends Phaser.Scene {
   private hpMeterEl!: HTMLElement;
   private hpEl!: HTMLElement;
   private statusEl!: HTMLElement;
+  private firstWarpGoalEl!: HTMLElement;
+  private firstWarpGoalTitleEl!: HTMLElement;
+  private firstWarpGoalProgressEl!: HTMLElement;
+  private firstWarpGoalProgressTextEl!: HTMLElement;
   private rewardFeed!: RewardFeedController;
   private shopPanelEl!: HTMLElement;
   private shopDrawerBackdropEl!: HTMLElement;
@@ -181,6 +186,10 @@ export class GameScene extends Phaser.Scene {
     this.hpMeterEl = document.getElementById('hp-meter')!;
     this.hpEl = document.getElementById('hp')!;
     this.statusEl = document.getElementById('status')!;
+    this.firstWarpGoalEl = document.getElementById('first-warp-goal')!;
+    this.firstWarpGoalTitleEl = document.getElementById('first-warp-goal-title')!;
+    this.firstWarpGoalProgressEl = document.getElementById('first-warp-goal-progress')!;
+    this.firstWarpGoalProgressTextEl = document.getElementById('first-warp-goal-progress-text')!;
     this.rewardFeed = new RewardFeedController(document.getElementById('reward-feed')!);
     this.audioSettings = new AudioSettingsController(document.getElementById('settings-toggle') as HTMLButtonElement, {
       setSfxVolume: (volume) => this.retroSound.setVolume(volume),
@@ -562,7 +571,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.syncVisibleShopTabs();
+    this.updateFirstWarpGoal();
     this.updateShop();
+  }
+
+  private updateFirstWarpGoal(): void {
+    const goal = getFirstWarpGoal(this.state);
+    this.firstWarpGoalEl.classList.toggle('is-hidden', goal === null);
+    this.firstWarpGoalEl.classList.toggle('is-muted', this.isBlockingDrawerOpen());
+    if (!goal) {
+      return;
+    }
+
+    this.setText(this.firstWarpGoalTitleEl, goal.title);
+    this.setText(this.firstWarpGoalProgressTextEl, goal.progressLabel);
+    this.firstWarpGoalProgressEl.style.setProperty('--goal-progress', `${Math.round(goal.progress * 100)}%`);
   }
 
   private updateDeathFade(): void {

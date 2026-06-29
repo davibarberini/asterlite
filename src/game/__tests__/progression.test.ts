@@ -4,6 +4,7 @@ import { getCrystalBalance, purchaseTalentRank, spendCrystals } from '../progres
 import { createProgression } from '../simulation/state';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../progression/prestige';
 import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
+import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
@@ -74,6 +75,7 @@ describe('save loading', () => {
       rareBossesFound: 1
     };
     savedState.progression.ownedWarpUnlockIds = ['droneSystems'];
+    savedState.progression.announcedAffordableWarpUnlockIds = ['droneSystems'];
     savedState.ship.position = { x: 180, y: 220 };
     savedState.ship.hp = 72;
 
@@ -93,6 +95,7 @@ describe('save loading', () => {
       rareBossesFound: 1
     });
     expect(loadedState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
+    expect(loadedState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems']);
     expect(loadedState.ship.position).toEqual({ x: 180, y: 220 });
     expect(loadedState.ship.hp).toBe(72);
   });
@@ -341,6 +344,35 @@ describe('warp unlock definitions', () => {
     expect(cost('shieldBubble')).toBeGreaterThan(cost('deflectorFrame'));
   });
 
+  it('announces newly affordable warp unlocks once through the reward feed', () => {
+    const state = createGameState(800, 600);
+    state.progression.prestigeCores = 1;
+
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems']);
+    expect(state.rewardEvents.filter((event) => event.text === 'Technology available: Drone Systems')).toHaveLength(1);
+
+    state.rewardEvents = [];
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems']);
+    expect(state.rewardEvents.some((event) => event.text === 'Technology available: Drone Systems')).toBe(false);
+  });
+
+  it('announces only the next newly affordable warp unlock per update', () => {
+    const state = createGameState(800, 600);
+    state.progression.prestigeCores = 5;
+    state.progression.ownedWarpUnlockIds = ['droneSystems'];
+    state.progression.announcedAffordableWarpUnlockIds = ['droneSystems'];
+
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon']);
+    expect(state.rewardEvents.some((event) => event.text === 'Technology available: Boss Beacon')).toBe(true);
+    expect(state.rewardEvents.some((event) => event.text === 'Technology available: Spread Battery')).toBe(false);
+  });
+
   it('installs available warp unlock effects directly into progression', () => {
     const progression = createProgression();
     progression.prestigeCores = 12;
@@ -358,6 +390,35 @@ describe('warp unlock definitions', () => {
     expect(progression.deflectorLevel).toBe(1);
     expect(progression.ownedWarpUnlockIds).toContain('bossBeacon');
     expect(progression.ownedWarpUnlockIds).toContain('droneSystems');
+  });
+});
+
+describe('first warp goal', () => {
+  it('guides new saves toward the first gate boss', () => {
+    const state = createGameState(800, 600);
+    state.progression.achievementStats.asteroidsDestroyed = 3;
+
+    const goal = getFirstWarpGoal(state);
+
+    expect(goal?.title).toBe('Draw out the gate boss');
+    expect(goal?.progressLabel).toContain(`${3}/${balance.bosses.firstGateAsteroids}`);
+  });
+
+  it('guides ready resets and first technology purchase without persisted UI state', () => {
+    const state = createGameState(800, 600);
+    state.progression.travelLevel = minimumPrestigeTravelLevel;
+    state.crystals = crystalsPerPrestigeCore;
+
+    expect(getFirstWarpGoal(state)?.title).toBe('Warp for your first core');
+
+    state.crystals = 0;
+    state.progression.prestigeCores = WARP_UNLOCK_BY_ID.droneSystems.cost;
+
+    expect(getFirstWarpGoal(state)?.title).toBe('Install Drone Systems');
+
+    state.progression.ownedWarpUnlockIds = ['droneSystems'];
+
+    expect(getFirstWarpGoal(state)).toBeNull();
   });
 });
 
@@ -721,6 +782,7 @@ describe('boss gates and warp reset', () => {
     state.crystals = 48;
     state.progression.prestigeCores = 2;
     state.progression.ownedWarpUnlockIds = ['droneSystems', 'bossBeacon', 'spreadBattery'];
+    state.progression.announcedAffordableWarpUnlockIds = ['droneSystems', 'bossBeacon'];
     state.progression.maxHp = 150;
     state.progression.shipDamageLevel = 2;
     state.progression.unlockedZoneIndex = 3;
@@ -735,6 +797,7 @@ describe('boss gates and warp reset', () => {
     expect(nextState.crystals).toBe(0);
     expect(nextState.progression.prestigeCores).toBe(5);
     expect(nextState.progression.ownedWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon', 'spreadBattery']);
+    expect(nextState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon']);
     expect(nextState.progression.maxHp).toBe(150);
     expect(nextState.progression.shipDamageLevel).toBe(2);
     expect(nextState.ship.maxHp).toBe(150);
