@@ -55,9 +55,20 @@ export const resolveCollisions = (state: GameState): void => {
         emitAudio(state, { type: 'saucerDestroyed' });
         burstParticles(state, state.saucer.position, 18, 190);
       }
-    } else if (state.ship.alive && state.ship.invulnerableFor <= 0 && distance(bullet.position, state.ship.position) < bullet.radius + state.ship.radius) {
+    } else {
+      if (tryRicochetBulletOffAsteroid(state, bullet, nextAsteroids, destroyedAsteroidIds, destroyedBulletIds)) {
+        continue;
+      }
+
+      if (!(state.ship.alive && state.ship.invulnerableFor <= 0 && distance(bullet.position, state.ship.position) < bullet.radius + getShipThreatRadius(state))) {
+        continue;
+      }
+
       destroyedBulletIds.add(bullet.id);
-      damageShip(state, bullet.owner === 'boss' ? balance.bosses.shipCollisionDamage : balance.saucer.bulletDamage);
+      if (absorbShieldBubbleHit(state, bullet.position, 90)) {
+        continue;
+      }
+      damageShip(state, bullet.damage);
     }
   }
 
@@ -76,9 +87,10 @@ export const resolveCollisions = (state: GameState): void => {
       if (
         !destroyedAsteroidIds.has(asteroid.id) &&
         !deflectedAsteroidIds.has(asteroid.id) &&
-        distance(state.ship.position, asteroid.position) < state.ship.radius + asteroid.radius * balance.asteroids.collisionRadiusMultiplier
+        asteroidHitsShipOrShield(state, asteroid)
       ) {
         collideShipWithAsteroid(state, asteroid, destroyedAsteroidIds, nextAsteroids);
+        deflectedAsteroidIds.add(asteroid.id);
         break;
       }
     }
@@ -91,6 +103,58 @@ export const resolveCollisions = (state: GameState): void => {
 
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
+};
+
+const tryRicochetBulletOffAsteroid = (
+  state: GameState,
+  bullet: GameState['bullets'][number],
+  nextAsteroids: GameState['asteroids'],
+  destroyedAsteroidIds: Set<number>,
+  destroyedBulletIds: Set<number>
+): boolean => {
+  if (bullet.kind !== 'ricochet' || bullet.owner !== 'boss') {
+    return false;
+  }
+
+  for (const asteroid of nextAsteroids) {
+    if (asteroid.bossType || destroyedAsteroidIds.has(asteroid.id)) {
+      continue;
+    }
+
+    const hitRadius = bullet.radius + asteroid.radius * balance.asteroids.bulletHitRadiusMultiplier;
+    if (distance(bullet.position, asteroid.position) > hitRadius) {
+      continue;
+    }
+
+    if (bullet.ricochetLeft <= 0) {
+      destroyedBulletIds.add(bullet.id);
+      burstParticles(state, bullet.position, 7, asteroid.radius * 0.8);
+      return true;
+    }
+
+    const normal = normalize({
+      x: bullet.position.x - asteroid.position.x,
+      y: bullet.position.y - asteroid.position.y
+    });
+    const fallbackNormal = Math.hypot(normal.x, normal.y) === 0
+      ? normalize({ x: -bullet.velocity.x || 1, y: -bullet.velocity.y })
+      : normal;
+    const dot = bullet.velocity.x * fallbackNormal.x + bullet.velocity.y * fallbackNormal.y;
+    bullet.velocity = {
+      x: bullet.velocity.x - 2 * dot * fallbackNormal.x,
+      y: bullet.velocity.y - 2 * dot * fallbackNormal.y
+    };
+    bullet.position = {
+      x: asteroid.position.x + fallbackNormal.x * (hitRadius + 3),
+      y: asteroid.position.y + fallbackNormal.y * (hitRadius + 3)
+    };
+    bullet.ricochetLeft -= 1;
+    emitAudio(state, { type: 'asteroidHit' });
+    burstParticles(state, bullet.position, 8, asteroid.radius);
+    return true;
+  }
+
+  return false;
 };
 
 const explodeMissile = (
@@ -162,7 +226,48 @@ const collideShipWithAsteroid = (
     return;
   }
 
+  if (absorbShieldBubbleHit(state, asteroid.position, asteroid.radius * 2.4)) {
+    repelAsteroidFromShip(state, asteroid);
+    return;
+  }
+
   damageShip(state, balance.collisions.asteroidDamage[asteroid.size]);
+};
+
+const getShipThreatRadius = (state: GameState): number =>
+  state.shieldBubble.active && !state.shieldBubble.broken
+    ? state.ship.radius + balance.ship.shieldBubbleRadius
+    : state.ship.radius;
+
+const asteroidHitsShipOrShield = (state: GameState, asteroid: GameState['asteroids'][number]): boolean =>
+  distance(state.ship.position, asteroid.position) <
+  getShipThreatRadius(state) + asteroid.radius * balance.asteroids.collisionRadiusMultiplier;
+
+const absorbShieldBubbleHit = (state: GameState, hitPosition: Vec2, particleSpread: number): boolean => {
+  if (!state.shieldBubble.active || state.shieldBubble.broken) {
+    return false;
+  }
+
+  state.shieldBubble.active = false;
+  state.shieldBubble.broken = true;
+  state.shieldBubble.rechargeFor = balance.ship.shieldBubbleRechargeSeconds;
+  state.shieldBubble.hitFlashFor = balance.ship.shieldBubbleHitFlashSeconds;
+  state.ship.invulnerableFor = Math.max(state.ship.invulnerableFor, balance.ship.shieldBubbleGraceSeconds);
+  emitAudio(state, { type: 'shipHit' });
+  burstParticles(state, hitPosition, 16, particleSpread);
+  return true;
+};
+
+const repelAsteroidFromShip = (state: GameState, asteroid: GameState['asteroids'][number]): void => {
+  const away = normalize({
+    x: asteroid.position.x - state.ship.position.x,
+    y: asteroid.position.y - state.ship.position.y
+  });
+  const impulse = 120 + asteroid.radius * 1.2;
+  asteroid.velocity.x += away.x * impulse;
+  asteroid.velocity.y += away.y * impulse;
+  asteroid.position.x = state.ship.position.x + away.x * (state.ship.radius + asteroid.radius * 0.92 + balance.ship.shieldBubbleRadius);
+  asteroid.position.y = state.ship.position.y + away.y * (state.ship.radius + asteroid.radius * 0.92 + balance.ship.shieldBubbleRadius);
 };
 
 const isInShipFrontArc = (state: GameState, target: Vec2): boolean => {
@@ -252,6 +357,7 @@ const destroyAsteroid = (
     const unlockedZone = getZoneByIndex(asteroid.bossZoneIndex);
     state.progression.unlockedZoneIndex = Math.max(state.progression.unlockedZoneIndex, asteroid.bossZoneIndex);
     state.progression.travelLevel = state.progression.unlockedZoneIndex;
+    state.progression.mapUnlocked = true;
     state.progression.bossDefeats += 1;
     emitAudio(state, { type: 'bossDefeated' });
     emitAudio(state, { type: 'zoneUnlocked' });

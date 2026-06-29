@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import type { AsteroidState, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
+import { balance } from '../../game/balance';
 
 const MAX_DETAILED_DRONES = 36;
 const MAX_SWARM_DOTS = 42;
@@ -96,6 +97,8 @@ export class VectorRenderer {
       this.drawDeflector(state, ship);
     }
 
+    this.drawShieldBubble(state, ship);
+
     if (thrusting) {
       const flameA = this.rotatePoint(-10 * viewScale, 6 * viewScale, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y));
       const flameB = this.rotatePoint((-24 - Math.random() * 9) * viewScale, 0, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y));
@@ -124,6 +127,58 @@ export class VectorRenderer {
     this.graphics.lineTo(nose.x, nose.y);
     this.graphics.lineTo(right.x, right.y);
     this.graphics.strokePath();
+  }
+
+  private drawShieldBubble(state: GameState, ship: ShipState): void {
+    const shield = state.shieldBubble;
+    if (!shield.active && !shield.broken && shield.hitFlashFor <= 0) {
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const shipX = this.toScreenX(state, ship.position.x);
+    const shipY = this.toScreenY(state, ship.position.y);
+    const radius = (ship.radius + balance.ship.shieldBubbleRadius) * viewScale;
+    const flash = Math.max(0, Math.min(1, shield.hitFlashFor / balance.ship.shieldBubbleHitFlashSeconds));
+
+    if (shield.active) {
+      this.graphics.lineStyle(2, 0x92dfff, 0.48 + flash * 0.32);
+      this.graphics.strokeCircle(shipX, shipY, radius + flash * 8 * viewScale);
+      this.graphics.lineStyle(1, 0xd8fff5, 0.2 + flash * 0.36);
+      this.graphics.strokeCircle(shipX, shipY, radius * 0.88);
+      return;
+    }
+
+    if (flash > 0) {
+      this.graphics.lineStyle(3, 0xd8fff5, 0.72 * flash);
+      this.graphics.strokeCircle(shipX, shipY, radius + (1 - flash) * 18 * viewScale);
+      this.graphics.lineStyle(1, 0x92dfff, 0.42 * flash);
+      this.graphics.strokeCircle(shipX, shipY, radius * 0.72);
+      return;
+    }
+
+    if (!shield.broken || shield.rechargeFor <= 0) {
+      return;
+    }
+
+    const rechargeProgress = 1 - Math.max(0, Math.min(1, shield.rechargeFor / balance.ship.shieldBubbleRechargeSeconds));
+    this.graphics.lineStyle(1, 0x92dfff, 0.14 + rechargeProgress * 0.18);
+    this.drawArcSegments(shipX, shipY, radius, -Math.PI / 2, Math.PI * 2 * rechargeProgress, 10);
+  }
+
+  private drawArcSegments(x: number, y: number, radius: number, startAngle: number, arcLength: number, segments: number): void {
+    if (arcLength <= 0) {
+      return;
+    }
+
+    const segmentCount = Math.max(1, Math.ceil(segments * (arcLength / (Math.PI * 2))));
+    for (let index = 0; index < segmentCount; index += 1) {
+      const segmentStart = startAngle + (index / segmentCount) * arcLength;
+      const segmentEnd = startAngle + ((index + 0.58) / segmentCount) * arcLength;
+      this.graphics.beginPath();
+      this.graphics.arc(x, y, radius, segmentStart, Math.min(startAngle + arcLength, segmentEnd));
+      this.graphics.strokePath();
+    }
   }
 
   private drawAsteroid(state: GameState, asteroid: AsteroidState): void {
@@ -229,8 +284,8 @@ export class VectorRenderer {
     const x = this.toScreenX(state, boss.position.x);
     const y = this.toScreenY(state, boss.position.y);
     const scale = (boss.radius / 70) * viewScale;
-    const primary = boss.bossType === 'sentinel' ? 0x83ffdc : 0xff8b6b;
-    const secondary = boss.bossType === 'sentinel' ? 0xd8fff5 : 0xfff1a8;
+    const primary = this.getBossPrimaryColor(boss.bossType);
+    const secondary = this.getBossSecondaryColor(boss.bossType);
     const hull = boss.bossType === 'sentinel'
       ? [
           { x: 34, y: 0 },
@@ -240,15 +295,24 @@ export class VectorRenderer {
           { x: -26, y: 18 },
           { x: 8, y: 24 }
         ]
-      : [
-          { x: 40, y: 0 },
-          { x: 12, y: -18 },
-          { x: -18, y: -30 },
-          { x: -48, y: -8 },
-          { x: -48, y: 8 },
-          { x: -18, y: 30 },
-          { x: 12, y: 18 }
-        ];
+      : boss.bossType === 'prism'
+        ? [
+            { x: 38, y: 0 },
+            { x: 12, y: -30 },
+            { x: -18, y: -20 },
+            { x: -38, y: 0 },
+            { x: -18, y: 20 },
+            { x: 12, y: 30 }
+          ]
+        : [
+            { x: 40, y: 0 },
+            { x: 12, y: -18 },
+            { x: -18, y: -30 },
+            { x: -48, y: -8 },
+            { x: -48, y: 8 },
+            { x: -18, y: 30 },
+            { x: 12, y: 18 }
+          ];
     const points = hull.map((point) => this.rotatePoint(point.x * scale, point.y * scale, boss.rotation, x, y));
 
     this.graphics.fillStyle(primary, 0.12);
@@ -292,6 +356,9 @@ export class VectorRenderer {
   }
 
   private getBulletColor(bullet: BulletState): number {
+    if (bullet.kind === 'ricochet') {
+      return 0xd9c7ff;
+    }
     if (bullet.owner === 'boss') {
       return 0xff8b6b;
     }
@@ -314,6 +381,26 @@ export class VectorRenderer {
       return 0x83ffdc;
     }
     return 0xf5fdff;
+  }
+
+  private getBossPrimaryColor(type: AsteroidState['bossType']): number {
+    if (type === 'sentinel') {
+      return 0x83ffdc;
+    }
+    if (type === 'prism') {
+      return 0xb48cff;
+    }
+    return 0xff8b6b;
+  }
+
+  private getBossSecondaryColor(type: AsteroidState['bossType']): number {
+    if (type === 'sentinel') {
+      return 0xd8fff5;
+    }
+    if (type === 'prism') {
+      return 0xd9c7ff;
+    }
+    return 0xfff1a8;
   }
 
   private drawDrones(state: GameState): void {
@@ -416,7 +503,7 @@ export class VectorRenderer {
     const y = Math.max(margin, Math.min(state.height - margin, rawY));
     const angle = Math.atan2(state.height / 2 - y, state.width / 2 - x);
     const pulse = 0.72 + Math.sin(pendingBoss.spawnIn * 10) * 0.18;
-    const color = pendingBoss.bossType === 'sentinel' ? 0x83ffdc : 0xff8b6b;
+    const color = this.getBossPrimaryColor(pendingBoss.bossType);
 
     this.graphics.fillStyle(color, 0.12 + pulse * 0.08);
     this.graphics.lineStyle(2, color, 0.8);

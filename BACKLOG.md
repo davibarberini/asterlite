@@ -2,143 +2,48 @@
 
 Use this file as the source of truth for future feature work. Keep items small enough that one Codex run can implement and verify them.
 
+## Completed
+
+### Core Upgrade and Tab Reveal Onboarding
+
+Reworked the early progression surface so the game introduces systems gradually.
+
+Notes:
+- Added the four starting upgrade tracks: shot damage, fire rate, hull, and income.
+- Added a base upgrade cap of 500 levels so Technologies can raise it later.
+- Renamed the Warp tab/tree surface to `Technologies` while keeping warp cores as the currency.
+- Hidden Drones, Skills, Weapons, Achievements, and Technologies tabs until their related progression state exists.
+- Moved crystal asteroid spawning out of the first zone so Skills appears later.
+- Added automatic first gate boss detection after the early asteroid kill target.
+- Added save/default handling and tests for fire rate progression.
+
+### Prism Ricochet Boss
+
+Added a new mid-route boss pattern for bullet-hell pressure.
+
+Notes:
+- Added the `Prism Warden` boss type to Vega Drift.
+- Prism shots use serializable ricochet projectile state with a limited bounce count.
+- Ricochet shots bounce off normal asteroids and disappear after their final bounce is spent.
+- Added distinct vector styling for the prism boss, warning marker, and ricochet shots.
+- Covered prism firing and asteroid ricochet behavior with simulation tests.
+
 ## Ready
 
-### Warp Core Save Model
+### Boss Discovery and Technology Summon
 
-Add the serializable progression state needed for permanent warp-core unlocks.
-
-Acceptance:
-- Add an owned warp unlock id collection to progression/save data.
-- Add save normalization and migration defaults for existing saves.
-- Preserve current saves and do not gate any gameplay systems yet.
-- Add or update pure progression tests for save/load normalization.
-
-### Warp Core Unlock Definitions
-
-Create data definitions for the first permanent warp unlock route without rendering the tree yet.
-
-Acceptance:
-- Add typed unlock ids for `Core Stabilizer`, `Drone Systems`, `Deflector Frame`, `Shield Bubble`, `Spread Battery`, `Ranger Hangar`, `Missile Foundry`, and `Piercing Rail`.
-- Define each node with cost, icon id, title, summary, route position, and prerequisites.
-- Add pure helpers for owned/available/locked/unaffordable node state.
-- Keep definitions independent from Phaser and DOM rendering.
-
-### Warp Core Tree Drawer Shell
-
-Add a mobile-first warp-core tree drawer using existing compact tree interaction patterns.
-
-Acceptance:
-- Add a Warp Cores entry point from the upgrade/warp reset area.
-- Render warp unlock nodes using compact square buttons and floating tooltip details.
-- Show current warp core balance and owned/available/locked states.
-- Tooltips close when tapping the same node or outside the tooltip.
-- Do not gate gameplay systems in this slice.
-
-### Drone Systems Warp Gate Slice
-
-Gate only the Drones tab and basic sentry drone access behind the first drone warp unlock.
-
-Acceptance:
-- New saves start with no drones and locked Drones tab until `Drone Systems` is owned.
-- Buying `Drone Systems` unlocks the Drones tab and the ability to buy the simple semi-auto drone.
-- Existing saves with purchased drones migrate to owned `Drone Systems`.
-- Ranger and breaker gating remains a later slice.
-
-### Weapon Warp Gate Slice
-
-Gate Spread Shot and Piercing Rounds behind their warp-core unlock nodes.
-
-Acceptance:
-- Spread Shot requires `Spread Battery` before it can be bought or used.
-- Piercing Rounds requires `Piercing Rail` and keeps its existing money purchase after the warp unlock.
-- Existing saves with these weapons unlocked migrate to the matching owned warp unlock.
-- Shop labels and disabled states explain the missing warp unlock.
-
-### Shield Bubble State Skeleton
-
-Add serializable state and UI plumbing for the future circular shield without collision behavior yet.
-
-Acceptance:
-- Add shield state fields for active/broken/recharge timer behind the `Shield Bubble` warp unlock.
-- Add save defaults and migration for shield state.
-- Add HUD or info text placeholder for shield availability/recharge.
-- Do not absorb damage in this slice; collision behavior remains a later feature item.
-
-### Warp Core Unlock Tree Foundation
-
-Add a permanent warp-core unlock tree that reuses the compact skill-tree design language but uses warp cores instead of crystals.
+Change post-first boss gates from shop-style crystal summons into rare discoveries with a later summon technology.
 
 Design:
-- This tree is meta-progression: purchases are permanent one-time unlocks that survive warp reset.
-- The route should be mostly linear with small side branches, so the player has a guided unlock path instead of a wide open build tree.
-- Crystal talents remain run/build progression; warp core unlocks control major systems and long-term pacing.
-
-First route draft:
-- `Core Stabilizer` unlocks the tree and keeps the current permanent money multiplier visible.
-- `Drone Systems` unlocks the Drones tab/system and the first simple semi-auto drone purchase.
-- `Deflector Frame` unlocks the deflector system.
-- `Shield Bubble` unlocks a circular breakable deflector shield with recharge.
-- `Spread Battery` unlocks Spread Shot.
-- `Ranger Hangar` unlocks shotgun/ranger drones.
-- `Missile Foundry` unlocks missile/breaker drones.
-- `Piercing Rail` unlocks Piercing Rounds after Spread Shot.
+- After the first gate, let bosses appear rarely from play instead of feeling like a normal purchase.
+- Add a Technology that unlocks deliberate boss summoning once the player understands bosses.
+- Keep boss defeat as the way to unlock the next zone.
 
 Acceptance:
-- Add serializable owned warp-core unlock ids to progression/save data.
-- Add definitions for one-time warp unlock nodes with cost, icon, copy, and prerequisites.
-- Add a Warp Cores modal/drawer using the existing compact node + floating tooltip pattern from the skill tree.
-- Show current owned/available/locked state and current warp core balance.
-- Do not rebalance existing systems yet; this slice is infrastructure and UI.
-
-### Gate Major Systems Behind Warp Unlocks
-
-Move major feature access from money-only purchases into the warp-core unlock tree.
-
-Design:
-- The player should start without drones and must manually destroy early asteroids.
-- The Drones tab/system itself should require an early warp unlock.
-- `Drone Systems` should unlock both the Drones tab and the simple semi-auto drone purchase; there should not be a separate sentry unlock node.
-- Additional drone types, Spread Shot, Piercing Rounds, directional Deflector, and circular Shield Bubble should require their matching warp unlock before they can be bought or used in a run.
-- Existing saves should not lose access to systems they already bought; migrate them into the matching owned warp unlocks.
-
-Acceptance:
-- Require warp unlocks for the Drones tab/simple sentry drone package, ranger drones, breaker drones, Spread Shot, Piercing Rounds, directional Deflector, and Shield Bubble.
-- Update shop disabled states, labels, and info text to explain missing warp unlocks.
-- Preserve existing player access by migrating old saves that already own those systems.
-- Keep all unlock state serializable.
-
-### Circular Deflector Shield
-
-Add a breakable circular defensive shield unlocked by warp cores.
-
-Design:
-- This is separate from the current directional prow deflector.
-- The circular shield surrounds the ship, blocks one or more hits, then breaks and recharges after a delay.
-- It should be useful for mobile combat mistakes without making collisions irrelevant.
-- It should be unlocked through the warp-core tree, then upgraded with run currency later if needed.
-
-Acceptance:
-- Add serializable shield state for active/broken/recharge timer.
-- Add collision handling so the shield can absorb asteroid or hostile projectile hits before damaging the ship.
-- Add clear vector rendering for active shield, hit flash, and recharge/broken state.
-- Add HUD or tooltip feedback for shield recharge.
-- Gate the system behind the `Shield Bubble` warp unlock.
-
-### Warp Core Economy and Pacing Rebalance
-
-Slow progression by making major unlocks depend on repeated warp cycles rather than early money spikes.
-
-Design:
-- Warp reset should feel like the main long-term loop, not only a money multiplier.
-- Early runs should unlock a small number of permanent systems, then ask the player to push further for the next route node.
-- Boss zones should become progressively harder enough that warp upgrades feel necessary.
-
-Acceptance:
-- Tune warp core gain, first reset timing, and core costs for the first 6-8 unlock nodes.
-- Reduce or remove money-only access to major systems once they are warp gated.
-- Keep the first run playable with only the basic cannon, manual aiming, and early asteroid rewards.
-- Update the Upgrades/Warp Reset UI to preview unlock opportunities, not just core count.
+- Add serializable boss discovery/progress state.
+- Rare boss appearances should not overlap an active/pending boss.
+- Remove or hide manual boss summon until the Technology is owned.
+- Add tests for rare spawn eligibility and technology-gated summon.
 
 ### Starting Loadout and Guided Onboarding
 
@@ -172,6 +77,218 @@ Acceptance:
 - Keep the tree mostly vertical/linear on mobile.
 - Clicking outside the tooltip closes it.
 
+### First Warp Goal UI
+
+Add a compact objective chip that points the player toward the first meaningful warp reset.
+
+Design:
+- The chip should explain the current next step without becoming a tutorial panel.
+- Early run goals should progress through crystals, boss/map progress, and warp core gain.
+- The copy should be short enough for mobile and should avoid covering the playfield.
+- It should help the player understand why warp reset matters before the first reset.
+
+Acceptance:
+- Show a persistent but compact next-goal indicator during normal play.
+- Include first-run states such as earning crystals, reaching the minimum warp route point, and having enough crystals for at least one core.
+- Hide or reduce the chip when a drawer/modal is open.
+- Keep goal state derived from serializable game/progression state.
+
+### Combat Readability Upgrade
+
+Make impacts, threats, and defensive states easier to read during active combat.
+
+Design:
+- Preserve the vector style while adding stronger moment-to-moment feedback.
+- Prioritize shield/deflector hits, asteroid damage, boss warnings, and hostile projectiles.
+- Use effects sparingly so the playfield remains readable on mobile.
+
+Acceptance:
+- Add clear visual feedback for asteroid hits and asteroid destruction beyond existing particles.
+- Add distinct hostile projectile styling for saucer and boss shots.
+- Add stronger boss arrival/threat telegraphing.
+- Keep effects renderer-only and avoid adding Phaser objects to simulation state.
+
+### Warp Tree Preview Details
+
+Make each warp unlock explain what changes in the actual run after purchase.
+
+Design:
+- Node tooltips should answer "what will I see or be able to do after buying this?"
+- Major systems should call out their affected tab, weapon mode, drone family, or defensive mechanic.
+- Keep the current compact tree interaction model.
+
+Acceptance:
+- Add run-impact details for every warp unlock tooltip.
+- Distinguish immediate stat effects from feature access unlocks.
+- For locked nodes, show missing prerequisites in player-readable terms.
+- Keep warp unlock definitions pure data.
+
+### Run Plan Drawer
+
+Add a compact current-run planning surface for long-term idle decisions.
+
+Design:
+- The drawer should summarize the current route, likely core gain, crystal progress, next boss, and active build identity.
+- It should bridge arcade play and idle planning without becoming a dashboard.
+- It can live in the Warp tab or as an info surface from the HUD.
+
+Acceptance:
+- Show current zone, next zone/boss, crystals, estimated core gain, and available permanent unlock opportunities.
+- Show current build summary from owned weapon/drone/talent choices.
+- Update immediately after boss defeat, crystal spending, and warp reset.
+- Do not duplicate dense details already visible in the full skill or warp trees.
+
+### Zone Identity Pass
+
+Make each zone feel distinct beyond reward, asteroid HP, and density tuning.
+
+Design:
+- Each zone should have a readable combat flavor and visual identity.
+- Start with lightweight differences before adding heavy new systems.
+- Use background tint, asteroid variant bias, map copy, boss intro, and music/filter changes where useful.
+
+Acceptance:
+- Add visible zone identity to the HUD/map or playfield.
+- Make asteroid variant expectations legible per zone.
+- Add at least one per-zone presentation difference that does not affect balance.
+- Keep zone definitions serializable and data-driven.
+
+### Contextual Onboarding Beats
+
+Add short milestone prompts for the first-time path through the game's major systems.
+
+Design:
+- Use transient feed/modal copy sparingly.
+- Prompt around actual player milestones instead of opening a tutorial on launch.
+- Focus on first asteroid reward, first crystal, boss summon, first warp core, and first permanent unlock.
+
+Acceptance:
+- Add one-time onboarding flags to serializable progression state.
+- Trigger concise messages for the first few major milestones.
+- Avoid repeating messages on existing saves that already passed the milestone.
+- Keep combat input uninterrupted.
+
+### Drone Bay Personality Pass
+
+Give each drone family a stronger identity in the UI and progression presentation.
+
+Design:
+- Semi-Auto should read as precision support.
+- Shotgun should read as close burst control.
+- Missile should read as slower heavy area control.
+- The Drones tab should preview behavior before the player invests.
+
+Acceptance:
+- Add distinct iconography and behavior copy for each drone family.
+- Improve locked, owned, and buyable drone row states.
+- Add concise info modal facts for target range, fire rhythm, and combat role.
+- Keep drone behavior unchanged unless a follow-up explicitly tunes balance.
+
+### Boss Gate Event Polish
+
+Make boss summoning and zone unlocking feel like deliberate route events.
+
+Design:
+- Boss summon should feel like a chosen challenge, not just another purchase.
+- The player should see the boss, its purpose, and the unlock reward clearly.
+- Preserve the current boss-gated zone flow.
+
+Acceptance:
+- Add a boss HP/status strip while a gate boss is active.
+- Improve the summon countdown and arrival warning.
+- Preview the next zone reward/unlock before summoning.
+- Keep boss defeat unlocking the next map node without forced travel.
+
+### Achievement Presentation Polish
+
+Make achievements easier to scan and more satisfying to complete.
+
+Design:
+- Achievements should support motivation without dominating the idle UI.
+- The player should see recent unlocks and near-complete goals quickly.
+- Grouping should make bonus categories more understandable.
+
+Acceptance:
+- Group achievements by category or bonus type.
+- Highlight recent unlocks and near-complete achievements.
+- Add clearer progress text for locked/incomplete achievements.
+- Preserve existing achievement save data.
+
+### Warp Route Specialization
+
+Expand the warp route into recognizable long-term playstyles.
+
+Design:
+- Add branches that support manual ace, drone commander, tank/shield, and crystal miner directions.
+- Early route should stay guided; specialization should open after the first few permanent unlocks.
+- Each branch should have clear tradeoffs and readable identity.
+
+Acceptance:
+- Add data definitions for a second set of warp unlock nodes beyond the current route.
+- Keep unlock effects serializable and pure.
+- Show branch identity in the warp tree UI.
+- Do not rebalance the whole economy in the same slice.
+
+### Contracts and Missions
+
+Add optional run objectives that give short-term direction and rewards.
+
+Design:
+- Contracts should be small and readable during an idle/action run.
+- Examples: destroy crystal asteroids, survive a boss, clear dense asteroids, collect credits without dying.
+- Rewards should support crystals, credits, or temporary run boosts without breaking warp pacing.
+
+Acceptance:
+- Add serializable active contract state.
+- Generate a small set of objectives appropriate to current zone/progression.
+- Show active contract progress in a compact UI surface.
+- Reward completion through existing currency/reward feed systems.
+
+### Run Modifiers After Warp
+
+Offer temporary modifiers after warp reset to make each run feel a little different.
+
+Design:
+- After a warp, offer a small choice of temporary run traits.
+- Modifiers should create tradeoffs, not only flat bonuses.
+- Examples: richer crystals but denser belts, faster drones but fragile hull, higher boss rewards but stronger bosses.
+
+Acceptance:
+- Add serializable current-run modifier state.
+- Present a choice after warp reset before normal play resumes.
+- Apply modifiers through existing balance/system helpers.
+- Clear or replace modifiers on the next warp reset.
+
+### Sector Events
+
+Add lightweight random events during play to reduce run flatness.
+
+Design:
+- Events should be readable and time-limited.
+- Examples: comet storm, derelict cache, unstable crystal cluster, saucer wave, rich metallic belt.
+- Events should create a short decision or opportunity without requiring a new screen.
+
+Acceptance:
+- Add serializable event state with timer/type.
+- Render event announcements through the reward/system feed.
+- Add at least two event types with distinct gameplay effects.
+- Keep event spawning tuned so normal asteroid play remains stable.
+
+### Ship Module Slots
+
+Add a small active/passive module layer for ship build expression.
+
+Design:
+- Modules should be unlocked by warp route progression.
+- Keep the first module set small and easy to understand.
+- Examples: shield burst, salvage magnet, overdrive, mine pulse, emergency repair.
+
+Acceptance:
+- Add serializable module ownership/equip state.
+- Add a UI surface for viewing and equipping modules.
+- Implement one passive module and one active module as the first slice.
+- Keep input mapping mobile-friendly and avoid crowding the HUD.
+
 ## Process Notes
 
 - Prefer implementing one backlog item at a time.
@@ -180,6 +297,119 @@ Acceptance:
 - Update this backlog when a feature is completed or split.
 
 ## Completed
+
+### Boss Zone Difficulty Pacing
+
+Tuned boss and zone scaling so early gates are approachable and later gates pressure upgrades.
+
+Notes:
+- Reduced first gate boss HP and projectile pressure so basic cannon play is less punitive.
+- Increased later boss HP/speed/firing pressure through per-zone scaling.
+- Adjusted zone asteroid density bonuses to ramp from `[0, 1, 3, 6, 9]`.
+- Hostile projectile collisions now use the projectile's tuned damage value instead of a fixed fallback.
+- Saucer shots now carry their configured bullet damage.
+- Added progression tests for boss HP scaling, zone density ramp, and hostile projectile damage.
+
+### Warp Core Gain and Unlock Cost Tuning
+
+Tuned the first warp cycles so permanent unlocks require repeated resets.
+
+Notes:
+- First warp reset eligibility now starts after the first route gate instead of requiring a deeper second gate.
+- One warp core now costs 10 crystals.
+- Core Stabilizer and the first two stat nodes remain cheap at 1 core each.
+- Armor Plating and Flight Thrusters now cost 2 cores each.
+- Drone Systems now costs 3 cores and requires 10 total route cores to reach and install.
+- Deflector, Shield Bubble, Spread Battery, Ranger Hangar, Missile Foundry, and Piercing Rail costs were increased to stretch major system unlocks.
+- Added progression tests for first core gain timing and early route cost pacing.
+
+### Warp Reset Opportunity Preview
+
+Added a compact reset planning panel to the Warp tab.
+
+Notes:
+- Warp tab now shows current crystal progress, reset core gain, projected available cores after reset, and owned route count.
+- The panel restores the `Warp Reset` action directly next to the core route.
+- Preview copy names affordable next unlocks when the reset would make route progress possible.
+- The broad warp economy item was split into narrower Ready tuning items for core gain/cost pacing and boss zone difficulty.
+
+### Circular Deflector Shield
+
+Added breakable circular shield behavior behind the `Shield Bubble` warp unlock.
+
+Notes:
+- Shield Bubble now absorbs one asteroid or hostile projectile hit before hull damage.
+- Absorbing a hit breaks the bubble, starts the recharge timer, briefly grants collision grace, and emits hit particles/audio.
+- Active, hit-flash, and recharging states now render as circular vector shield rings around the ship.
+- Shield state remains serializable with active/broken/recharge timer and hit flash fields.
+- HUD status now says when the shield is armed or recharging.
+
+### Finish Remaining Warp Gates
+
+Finished moving remaining major feature access into the warp-core route.
+
+Notes:
+- New saves already start with zero drones, and semi-auto drone purchases remain gated by `Drone Systems`.
+- Shotgun and missile drone purchases now name their required warp nodes directly in disabled shop rows and info modals.
+- The Drones tab shows a locked bay state before `Drone Systems`, explaining that the warp route must authorize drone purchases.
+- Persisted Shield Bubble state now migrates into owned `Shield Bubble` and prerequisite `Deflector Frame` warp unlocks before shield state is loaded.
+- Shield Bubble runtime state remains serializable and continues to be disabled unless the matching warp unlock is owned.
+
+### Shield Bubble State Skeleton
+
+Added serializable shield bubble state without collision behavior.
+
+Notes:
+- Added `ShieldBubbleState` with active, broken, and recharge timer fields on `GameState`.
+- Shield bubble state is enabled behind the `Shield Bubble` warp unlock and defaults/migrates safely for existing saves.
+- Save/load now persists shield bubble state, including broken recharge timers.
+- Game update recharges a broken shield back to active, but does not absorb damage yet.
+- HUD status text now shows shield bubble standby/recharge placeholders.
+
+### Dedicated Warp Core Route Tab
+
+Made the warp-core route its own dedicated shop tab.
+
+Notes:
+- Rendered the warp-core tree as the only content in a dedicated Warp tab.
+- Kept the Upgrades tab focused on Ore Refinery and removed unrelated map/warp/core stats from it.
+- Kept the Weapons tab focused on weapon mode switching and removed ship-stat information from it.
+- Added purchasable core nodes for Hull Reinforcement, Cannon Amplifier, Armor Plating, Flight Thrusters, Deflector Frame, Spread Battery, Piercing Rail, and drone-family access.
+- Core nodes now install their effect directly; ship stats and weapon unlocks no longer require separate credit purchases from the Weapons tab.
+- Drones remain credit purchases after their matching core node is installed.
+- Warp reset now preserves permanent core route effects, and old saves migrate previously purchased ship/weapon/drone access into owned core nodes.
+
+### Warp Core Tree Drawer Shell
+
+Added a mobile-first warp-core route drawer using compact tree interactions.
+
+Notes:
+- Added a Warp Cores entry point in the Upgrades/Warp Reset area.
+- Added `WarpCoreTreeController` to render compact square warp nodes, route lines, floating details, current core balance, and owned/available/locked/unaffordable states.
+- Tooltips toggle from nodes and close when tapping outside the node/tooltip area.
+- Kept this slice display-only; gameplay systems are not gated and warp unlock purchases are not wired yet.
+
+### Warp Core Unlock Definitions
+
+Created pure data definitions for the first permanent warp-core route.
+
+Notes:
+- Added typed `WarpUnlockId` values for Core Stabilizer, Drone Systems, Deflector Frame, Shield Bubble, Spread Battery, Ranger Hangar, Missile Foundry, and Piercing Rail.
+- Added `warpUnlocks.ts` with node definitions, costs, icon ids, route positions, prerequisites, and pure owned/available/locked/unaffordable helper state.
+- Save normalization now keeps only known warp unlock ids.
+- Added progression tests for route completeness, helper states, and unknown-id filtering.
+- No Phaser or DOM rendering was added in this slice.
+
+### Warp Core Save Model
+
+Added the serializable progression state needed for permanent warp-core unlocks.
+
+Notes:
+- Added `ownedWarpUnlockIds` to `ProgressionState` with empty defaults for new games and existing saves.
+- Save loading now normalizes warp unlock ids by accepting non-empty strings, deduping them, and ignoring malformed values.
+- Save writing now copies the owned unlock id array explicitly.
+- Added progression tests for default migration, normalization, and save/load round trip.
+- No gameplay systems are gated by warp unlocks yet.
 
 ### Background Zone Music
 

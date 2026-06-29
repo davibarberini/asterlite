@@ -3,10 +3,10 @@ import { neutralInput, type InputActions } from '../../game/input/actions';
 import { getCrystalBalance as getStateCrystalBalance, purchaseTalentRank, spendCrystals as spendStateCrystals } from '../../game/progression/currency';
 import { loadGameState, saveGameState } from '../../game/progression/saveData';
 import { emitReward } from '../../game/simulation/events';
-import { createDrone } from '../../game/simulation/state';
+import { createDrone, syncShieldBubbleState } from '../../game/simulation/state';
 import { createAsteroidField, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
-import type { BossType, DroneType, GameState, TalentId, Vec2, WeaponMode } from '../../game/simulation/types';
-import { getRefineryMilestoneMultiplier, getRefineryNextMilestoneLevel } from '../../game/progression/idleBonuses';
+import type { BossType, DroneType, GameState, TalentId, Vec2, WarpUnlockId, WeaponMode } from '../../game/simulation/types';
+import { getCoreUpgradeCap, getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../../game/progression/idleBonuses';
 import {
   TALENT_DEFINITIONS,
   canBuyTalentRank,
@@ -17,7 +17,7 @@ import {
 } from '../../game/progression/talentTree';
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { getExplorationZone, getNextZone, isZoneUnlocked, zones } from '../../game/simulation/zones';
-import { createWarpResetState, getPrestigeCoreGain, getPrestigeMoneyMultiplier } from '../../game/progression/prestige';
+import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../../game/progression/prestige';
 import {
   ACHIEVEMENT_BONUS_LABELS,
   ACHIEVEMENT_DEFINITIONS,
@@ -35,12 +35,14 @@ import { AudioSettingsController } from '../ui/AudioSettingsController';
 import { InfoModalController, type ModalContent } from '../ui/InfoModalController';
 import { RewardFeedController } from '../ui/RewardFeedController';
 import { SkillTreeModalController } from '../ui/SkillTreeModalController';
+import { WarpCoreTreeController } from '../ui/WarpCoreTreeController';
 import { ZoneMapController } from '../ui/ZoneMapController';
 import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
 import { balance } from '../../game/balance';
+import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
 
-type ShopTab = 'upgrades' | 'drones' | 'skills' | 'weapons' | 'achievements';
+type ShopTab = 'upgrades' | 'warp' | 'drones' | 'skills' | 'weapons' | 'achievements';
 
 type ShopAction = {
   label: string;
@@ -72,6 +74,7 @@ export class GameScene extends Phaser.Scene {
   private audioSettings!: AudioSettingsController;
   private infoModal!: InfoModalController;
   private skillTreeModal!: SkillTreeModalController;
+  private warpCoreTree!: WarpCoreTreeController;
   private zoneMap!: ZoneMapController;
   private moneyEl!: HTMLElement;
   private deathFadeEl!: HTMLElement;
@@ -103,9 +106,10 @@ export class GameScene extends Phaser.Scene {
   private bottomNavEl!: HTMLElement;
   private navButtons!: NodeListOf<HTMLButtonElement>;
   private activeTab: ShopTab = 'upgrades';
-  private activeModal: 'info' | 'skills' | 'zones' | 'settings' | null = null;
+  private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | null = null;
   private activeModalInfo: ModalContent | null = null;
   private activeTalentTooltipId: TalentId | null = null;
+  private activeWarpUnlockId: WarpUnlockId | null = null;
   private activeGameplayPointerId: number | null = null;
   private gameplayPointerStartScreen: Vec2 | null = null;
   private gameplayPointerScreen: Vec2 | null = null;
@@ -184,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.infoModal = new InfoModalController();
     this.skillTreeModal = new SkillTreeModalController();
+    this.warpCoreTree = new WarpCoreTreeController();
     this.zoneMap = new ZoneMapController();
     this.mapToggleEl = document.getElementById('map-toggle') as HTMLButtonElement;
     this.menuToggleEl = document.getElementById('menu-toggle') as HTMLButtonElement;
@@ -428,6 +433,101 @@ export class GameScene extends Phaser.Scene {
     return getStateCrystalBalance(this.state);
   }
 
+  private getVisibleShopTabs(): ShopTab[] {
+    const tabs: ShopTab[] = ['upgrades'];
+
+    if (this.shouldShowTechnologiesTab()) {
+      tabs.push('warp');
+    }
+    if (this.shouldShowDronesTab()) {
+      tabs.push('drones');
+    }
+    if (this.shouldShowSkillsTab()) {
+      tabs.push('skills');
+    }
+    if (this.shouldShowWeaponsTab()) {
+      tabs.push('weapons');
+    }
+    if (this.shouldShowAchievementsTab()) {
+      tabs.push('achievements');
+    }
+
+    return tabs;
+  }
+
+  private isShopTabVisible(tab: ShopTab): boolean {
+    return this.getVisibleShopTabs().includes(tab);
+  }
+
+  private shouldShowTechnologiesTab(): boolean {
+    return (
+      this.state.progression.prestigeCores > 0 ||
+      getOwnedWarpUnlockCount(this.state.progression) > 0 ||
+      getAvailableWarpCores(this.state.progression) > 0 ||
+      this.getPrestigeGain() > 0
+    );
+  }
+
+  private shouldShowDronesTab(): boolean {
+    return hasWarpUnlock(this.state.progression, 'droneSystems') || this.state.progression.dronesPurchased > 0;
+  }
+
+  private shouldShowSkillsTab(): boolean {
+    return (
+      this.state.progression.achievementStats.crystalsCollected > 0 ||
+      this.getCrystalBalance() > 0 ||
+      countUnlockedTalentRanks(this.state.progression) > 0
+    );
+  }
+
+  private shouldShowWeaponsTab(): boolean {
+    return this.state.progression.spreadUnlocked || this.state.progression.piercingUnlocked || this.state.progression.weaponMode !== 'cannon';
+  }
+
+  private shouldShowAchievementsTab(): boolean {
+    return countUnlockedAchievements(this.state.progression) > 0;
+  }
+
+  private syncVisibleShopTabs(): void {
+    const visibleTabs = new Set(this.getVisibleShopTabs());
+    if (!visibleTabs.has(this.activeTab)) {
+      if (this.activeModal === 'skills' || this.activeModal === 'warpCores') {
+        this.closeModal();
+      }
+      this.activeTab = 'upgrades';
+      this.activeTalentTooltipId = null;
+      this.activeWarpUnlockId = null;
+    }
+
+    this.navButtons.forEach((button) => {
+      const tab = button.dataset.tab as ShopTab;
+      const visible = visibleTabs.has(tab);
+      button.hidden = !visible;
+      button.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      button.classList.toggle('is-active', visible && tab === this.activeTab && !this.shopPanelEl.classList.contains('is-hidden'));
+      button.textContent = this.getShopTabLabel(tab);
+    });
+  }
+
+  private getShopTabLabel(tab: ShopTab): string {
+    if (tab === 'warp') {
+      return 'Technologies';
+    }
+    if (tab === 'drones') {
+      return 'Drones';
+    }
+    if (tab === 'skills') {
+      return 'Skills';
+    }
+    if (tab === 'weapons') {
+      return 'Weapons';
+    }
+    if (tab === 'achievements') {
+      return 'Achievements';
+    }
+    return 'Upgrades';
+  }
+
   private updateHud(): void {
     const crystals = this.getCrystalBalance();
     this.setText(this.moneyEl, this.formatMoney(this.state.money));
@@ -450,10 +550,18 @@ export class GameScene extends Phaser.Scene {
       this.setText(this.statusEl, `Refinery output reduced: ${Math.ceil(this.state.deathPenaltyFor)} sec.`);
     } else if (this.state.ship.invulnerableFor > 0) {
       this.setText(this.statusEl, 'Temporary shield active.');
+    } else if (hasWarpUnlock(this.state.progression, 'shieldBubble') && this.state.shieldBubble.broken) {
+      this.setText(this.statusEl, `Shield bubble recharging: ${Math.ceil(this.state.shieldBubble.rechargeFor)} sec.`);
+    } else if (hasWarpUnlock(this.state.progression, 'shieldBubble') && this.state.shieldBubble.active) {
+      this.setText(this.statusEl, 'Shield bubble armed: next hit absorbed.');
+    } else if (this.state.progression.unlockedZoneIndex === 0 && !hasActiveZoneBoss(this.state)) {
+      const remaining = Math.max(0, balance.bosses.firstGateAsteroids - this.state.progression.achievementStats.asteroidsDestroyed);
+      this.setText(this.statusEl, remaining > 0 ? `Destroy ${remaining} more asteroids to draw the first gate boss.` : 'First gate boss detected.');
     } else {
       this.setText(this.statusEl, 'Drag away from the ship path to slingshot. WASD / arrows also fly. H for hyperspace.');
     }
 
+    this.syncVisibleShopTabs();
     this.updateShop();
   }
 
@@ -523,7 +631,11 @@ export class GameScene extends Phaser.Scene {
 
     this.navButtons.forEach((button) => {
       button.addEventListener('click', () => {
-        this.activeTab = button.dataset.tab as ShopTab;
+        const nextTab = button.dataset.tab as ShopTab;
+        if (!this.isShopTabVisible(nextTab)) {
+          return;
+        }
+        this.activeTab = nextTab;
         this.navButtons.forEach((navButton) => navButton.classList.toggle('is-active', navButton === button));
         this.collapseQuickMenu();
         if (this.activeTab === 'skills') {
@@ -688,6 +800,7 @@ export class GameScene extends Phaser.Scene {
       this.state.ship.armor,
       this.state.progression.passiveIncomeLevel,
       this.state.progression.shipDamageLevel,
+      this.state.progression.shipFireRateLevel,
       this.state.progression.shipSpeedLevel,
       this.state.progression.deflectorLevel,
       this.state.progression.mapUnlocked,
@@ -695,6 +808,7 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.currentZoneIndex,
       this.state.progression.unlockedZoneIndex,
       this.state.progression.bossDefeats,
+      this.state.progression.ownedWarpUnlockIds.join(','),
       hasActiveZoneBoss(this.state),
       this.state.pendingBoss?.spawnIn.toFixed(1) ?? 'none',
       this.state.progression.prestigeCores,
@@ -709,6 +823,7 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.piercingUnlocked,
       this.getAffordabilitySignature(),
       countUnlockedAchievements(this.state.progression),
+      this.getVisibleShopTabs().join(','),
       ...ACHIEVEMENT_DEFINITIONS.map((def) => (isAchievementUnlocked(this.state.progression, def.id) ? 1 : 0))
     ].join(':');
 
@@ -720,6 +835,7 @@ export class GameScene extends Phaser.Scene {
 
     const renderers: Record<ShopTab, () => void> = {
       upgrades: () => this.renderUpgradesTab(),
+      warp: () => this.renderWarpTab(),
       drones: () => this.renderDronesTab(),
       skills: () => this.renderSkillsTab(),
       weapons: () => this.renderWeaponsTab(),
@@ -732,6 +848,8 @@ export class GameScene extends Phaser.Scene {
       this.renderInfoModal();
     } else if (this.activeModal === 'skills') {
       this.renderSkillTreeModal();
+    } else if (this.activeModal === 'warpCores') {
+      this.renderWarpCoreTreeModal();
     } else if (this.activeModal === 'zones') {
       this.renderZoneMapModal();
     } else if (this.activeModal === 'settings') {
@@ -741,13 +859,24 @@ export class GameScene extends Phaser.Scene {
 
   private getAffordabilitySignature(): string {
     if (this.activeTab === 'upgrades') {
-      const cost = this.scaledCost(balance.economy.passiveCost.base, this.state.progression.passiveIncomeLevel, balance.economy.passiveCost.scale);
-      return `passive:${this.state.money >= cost},map:${this.state.progression.mapUnlocked || this.state.money >= balance.economy.mapUnlockCost},boss:${hasActiveZoneBoss(this.state)},warp:${this.getPrestigeGain() > 0}`;
+      const cap = this.getCoreUpgradeCap();
+      const hpLevel = this.getHpUpgradeLevel();
+      const damageLevel = this.getDamageUpgradeLevel();
+      return [
+        `passive:${this.state.progression.passiveIncomeLevel < cap}:${this.state.money >= this.getPassiveIncomeCost()}`,
+        `damage:${damageLevel < cap}:${this.state.money >= this.getDamageCost()}`,
+        `fire:${this.state.progression.shipFireRateLevel < cap}:${this.state.money >= this.getFireRateCost()}`,
+        `hp:${hpLevel < cap}:${this.state.money >= this.getHpCost()}`
+      ].join(',');
+    }
+
+    if (this.activeTab === 'warp') {
+      return `cores:${getAvailableWarpCores(this.state.progression)},warp:${this.getPrestigeGain() > 0}`;
     }
 
     if (this.activeTab === 'drones') {
       return this.getDroneTypes()
-        .map((type) => `${type}:${this.state.money >= this.getDroneTypeCost(type)}`)
+        .map((type) => `${type}:${this.canBuyDroneType(type)}:${this.state.money >= this.getDroneTypeCost(type)}`)
         .join(',');
     }
 
@@ -758,147 +887,160 @@ export class GameScene extends Phaser.Scene {
       }).join(',');
     }
 
-    const hpCost = this.scaledCost(balance.shop.ship.hp.baseCost, Math.max(0, (this.state.progression.maxHp - 100) / balance.shop.ship.hp.gain), balance.shop.ship.hp.scale);
-    const armorCost = this.scaledCost(balance.shop.ship.armor.baseCost, this.state.progression.armor / balance.shop.ship.armor.gain, balance.shop.ship.armor.scale);
-    const damageCost = this.scaledCost(balance.shop.ship.damage.baseCost, this.state.progression.shipDamageLevel - 1, balance.shop.ship.damage.scale);
-    const speedCost = this.scaledCost(balance.shop.ship.speed.baseCost, this.state.progression.shipSpeedLevel, balance.shop.ship.speed.scale);
-    const deflectorCost = this.scaledCost(balance.shop.ship.deflector.baseCost, this.state.progression.deflectorLevel, balance.shop.ship.deflector.scale);
     return [
-      `hp:${this.state.money >= hpCost}`,
-      `armor:${this.state.money >= armorCost}`,
-      `damage:${this.state.money >= damageCost}`,
-      `speed:${this.state.money >= speedCost}`,
-      `deflector:${this.state.money >= deflectorCost}`,
-      `spread:${this.state.progression.spreadUnlocked || this.state.money >= balance.shop.ship.spreadShotCost}`,
-      `piercing:${this.state.progression.piercingUnlocked || this.state.money >= balance.shop.ship.piercingRoundsCost}`
+      `cannon:${this.state.progression.weaponMode === 'cannon'}`,
+      `spread:${this.state.progression.spreadUnlocked}`,
+      `piercing:${this.state.progression.piercingUnlocked}`
     ].join(',');
   }
 
   private renderUpgradesTab(): void {
-    const level = this.state.progression.passiveIncomeLevel;
-    const cost = this.scaledCost(balance.economy.passiveCost.base, level, balance.economy.passiveCost.scale);
-    const prestigeGain = this.getPrestigeGain();
-    const refineryMultiplier = getRefineryMilestoneMultiplier(level);
-    const currentRate = level * balance.economy.passiveIncomePerLevel * refineryMultiplier;
-    const nextLevel = level + 1;
-    const nextRate = nextLevel * balance.economy.passiveIncomePerLevel * getRefineryMilestoneMultiplier(nextLevel);
-    const currentZone = getExplorationZone(this.state);
-    const nextZone = getNextZone(this.state);
-    const bossActive = hasActiveZoneBoss(this.state);
-    const bossCost = this.getBossCrystalCost();
-    const crystals = this.getCrystalBalance();
+    const cap = this.getCoreUpgradeCap();
+    const damageLevel = this.getDamageUpgradeLevel();
+    const hpLevel = this.getHpUpgradeLevel();
+    const incomeLevel = this.state.progression.passiveIncomeLevel;
+    const fireRateLevel = this.state.progression.shipFireRateLevel;
     this.setShopContent(
       'Upgrades',
-      'Constellation Route',
+      'Ship Core',
       '',
-      [
-        ['Level', level.toString()],
-        ['Income', `${currentRate.toFixed(1)} / sec`],
-        ['Overclock', `x${refineryMultiplier.toFixed(2)}`],
-        ['Next burst', `lvl ${getRefineryNextMilestoneLevel(level)}`],
-        ['Zone', currentZone.name],
-        ['Map', this.state.progression.mapUnlocked ? 'Online' : 'Locked'],
-        ['Unlocked', `${this.state.progression.unlockedZoneIndex + 1} / ${zones.length}`],
-        ['Boss wins', this.state.progression.bossDefeats.toString()],
-        ['Warp cores', this.state.progression.prestigeCores.toString()],
-        ['Permanent', `x${getPrestigeMoneyMultiplier(this.state.progression).toFixed(2)}`]
-      ],
+      [],
       [
         {
-          icon: 'MAP',
-          title: 'Star Map',
-          meta: this.state.progression.mapUnlocked ? 'Top route button online' : 'Unlocks route controls',
-          label: this.state.progression.mapUnlocked ? 'Map Online' : `Unlock ${this.formatMoney(balance.economy.mapUnlockCost)}`,
-          disabled: this.state.progression.mapUnlocked || this.state.money < balance.economy.mapUnlockCost,
-          onClick: () => this.buyMapUnlock(),
-          info: () => ({
-            kicker: 'Navigation',
-            title: 'Star Map',
-            copy: 'Adds the compact top map control and exposes the constellation route without keeping a sector panel on screen.',
-            facts: [
-              ['Status', this.state.progression.mapUnlocked ? 'Online' : 'Locked'],
-              ['Cost', this.formatMoney(balance.economy.mapUnlockCost)],
-              ['Route', `${this.state.progression.unlockedZoneIndex + 1} / ${zones.length} nodes`]
-            ]
-          })
+          icon: 'DMG',
+          title: 'Shot Damage',
+          meta: `Lv ${damageLevel}/${cap} · ${this.state.progression.shipDamageLevel} dmg`,
+          label: damageLevel >= cap ? 'MAX' : this.formatMoney(this.getDamageCost()),
+          disabled: damageLevel >= cap || this.state.money < this.getDamageCost(),
+          onClick: () => this.buyDamage(this.getDamageCost())
         },
         {
-          icon: 'MAP',
-          title: 'Zone Map',
-          meta: `${currentZone.name} · x${currentZone.rewardMultiplier.toFixed(2)} credits`,
-          label: 'Open Route',
-          disabled: !this.state.progression.mapUnlocked,
-          onClick: () => this.openZoneMapModal(),
-          info: () => ({
-            kicker: 'Route',
-            title: 'Linear Constellation',
-            copy: 'Previously unlocked nodes can be revisited at any time. Defeating the gate boss unlocks the next node.',
-            facts: [
-              ['Current zone', currentZone.name],
-              ['Asteroid hulls', `x${currentZone.asteroidHpMultiplier.toFixed(2)}`],
-              ['Next gate', nextZone ? nextZone.name : 'Route complete']
-            ]
-          })
+          icon: 'FR',
+          title: 'Fire Rate',
+          meta: `Lv ${fireRateLevel}/${cap} · x${getFireRateMultiplier(this.state.progression).toFixed(2)}`,
+          label: fireRateLevel >= cap ? 'MAX' : this.formatMoney(this.getFireRateCost()),
+          disabled: fireRateLevel >= cap || this.state.money < this.getFireRateCost(),
+          onClick: () => this.buyFireRate(this.getFireRateCost())
         },
         {
-          icon: 'BOSS',
-          title: nextZone ? `Gate Boss: ${this.formatBossName(nextZone.bossType)}` : 'Route Complete',
-          meta: nextZone ? `Unlocks ${nextZone.name}` : 'All known zones unlocked',
-          label: bossActive ? 'Boss Active' : nextZone ? `Summon ${bossCost} crystals` : 'Complete',
-          disabled: !nextZone || bossActive || crystals < bossCost,
-          onClick: () => this.summonZoneBoss(),
-          info: () => ({
-            kicker: 'Gate',
-            title: nextZone ? this.formatBossName(nextZone.bossType) : 'No Gate Remaining',
-            copy: nextZone
-              ? 'A boss encounter appears in the current playfield. Destroy it to open the next constellation node.'
-              : 'The current route has no additional prepared nodes yet.',
-            facts: [
-              ['Next zone', nextZone ? nextZone.name : 'None'],
-              ['Boss cycle', nextZone ? this.formatBossName(nextZone.bossType) : 'Complete'],
-              ['Summon cost', nextZone ? `${bossCost} crystals` : 'None'],
-              ['Reward', nextZone ? 'Credits, crystals, unlock' : 'None']
-            ]
-          })
+          icon: 'HP',
+          title: 'Hull',
+          meta: `Lv ${hpLevel}/${cap} · ${this.state.ship.maxHp} HP`,
+          label: hpLevel >= cap ? 'MAX' : this.formatMoney(this.getHpCost()),
+          disabled: hpLevel >= cap || this.state.money < this.getHpCost(),
+          onClick: () => this.buyHp(this.getHpCost())
         },
         {
-          icon: '$',
-          title: 'Ore Refinery',
-          meta: `Current ${(level * balance.economy.passiveIncomePerLevel).toFixed(1)} / sec`,
-          label: `Buy ${this.formatMoney(cost)}`,
-          disabled: this.state.money < cost,
-          onClick: () => this.buyPassiveIncome(cost),
-          info: () => ({
-            kicker: 'Upgrade',
-            title: 'Ore Refinery',
-            copy: 'Raises the passive credit stream and keeps the run moving while you work the combat side.',
-            facts: [
-              ['Current rate', `${currentRate.toFixed(1)} / sec`],
-              ['Next rate', `${nextRate.toFixed(1)} / sec`],
-              ['Milestone', `x${getRefineryMilestoneMultiplier(level).toFixed(2)}`]
-            ]
-          })
-        },
-        {
-          icon: 'W',
-          title: 'Warp Reset',
-          meta: `${crystals} crystals banked`,
-          label: `Warp Reset +${prestigeGain} Core${prestigeGain === 1 ? '' : 's'}`,
-          disabled: prestigeGain <= 0,
-          onClick: () => this.warpReset(prestigeGain),
-          info: () => ({
-            kicker: 'Prestige',
-            title: 'Warp Reset',
-            copy: 'Cashes in crystals for permanent warp cores and restarts the run with a stronger economy.',
-            facts: [
-              ['Core gain', prestigeGain.toString()],
-              ['Permanent bonus', `x${getPrestigeMoneyMultiplier(this.state.progression).toFixed(2)}`],
-              ['Reset scope', 'Money, crystals, upgrades, drones, route unlocks']
-            ]
-          })
+          icon: '$/s',
+          title: 'Income',
+          meta: `Lv ${incomeLevel}/${cap} · ${this.getPassiveIncomeRate().toFixed(1)} / sec`,
+          label: incomeLevel >= cap ? 'MAX' : this.formatMoney(this.getPassiveIncomeCost()),
+          disabled: incomeLevel >= cap || this.state.money < this.getPassiveIncomeCost(),
+          onClick: () => this.buyPassiveIncome(this.getPassiveIncomeCost())
         }
       ]
     );
+  }
+
+  private renderWarpTab(): void {
+    this.setShopContent('', '', '', [], [], true);
+    const coreTree = this.warpCoreTree.render({
+      progression: this.state.progression,
+      selectedUnlockId: this.activeWarpUnlockId,
+      onSelectUnlock: (id) => this.selectWarpUnlock(id),
+      onBuyUnlock: (id) => this.buyWarpUnlock(id)
+    });
+    coreTree.classList.add('warp-tree-board--inline');
+    this.shopActionsEl.replaceChildren(this.createWarpResetPanel(), coreTree);
+  }
+
+  private createWarpResetPanel(): HTMLElement {
+    const coreGain = this.getPrestigeGain();
+    const crystals = this.getCrystalBalance();
+    const availableAfterReset = getAvailableWarpCores(this.state.progression) + coreGain;
+    const resetReady = coreGain > 0;
+    const panel = document.createElement('section');
+    panel.className = 'warp-reset-panel';
+
+    const header = document.createElement('div');
+    header.className = 'warp-reset-panel__header';
+    const titleWrap = document.createElement('div');
+    const kicker = document.createElement('span');
+    kicker.className = 'warp-reset-panel__kicker';
+    kicker.textContent = 'Warp Reset';
+    const title = document.createElement('strong');
+    title.textContent = resetReady ? `Gain ${coreGain} core${coreGain === 1 ? '' : 's'}` : this.getWarpResetBlockedTitle();
+    titleWrap.append(kicker, title);
+
+    const resetButton = document.createElement('button');
+    resetButton.className = 'shop-buy warp-reset-panel__button';
+    resetButton.type = 'button';
+    resetButton.disabled = !resetReady;
+    resetButton.textContent = resetReady ? 'Reset Run' : 'Not Ready';
+    resetButton.addEventListener('click', () => this.warpReset(coreGain));
+    header.append(titleWrap, resetButton);
+
+    const stats = document.createElement('div');
+    stats.className = 'warp-reset-panel__stats';
+    stats.replaceChildren(
+      this.createWarpResetStat('Crystals', `${crystals} / ${crystalsPerPrestigeCore}`),
+      this.createWarpResetStat('Available after', `${availableAfterReset} core${availableAfterReset === 1 ? '' : 's'}`),
+      this.createWarpResetStat('Route', `${getOwnedWarpUnlockCount(this.state.progression)} owned`)
+    );
+
+    const preview = document.createElement('p');
+    preview.className = 'warp-reset-panel__preview';
+    preview.textContent = this.getWarpResetPreviewText(availableAfterReset, coreGain);
+
+    panel.append(header, stats, preview);
+    return panel;
+  }
+
+  private createWarpResetStat(label: string, value: string): HTMLElement {
+    const stat = document.createElement('span');
+    const labelEl = document.createElement('small');
+    labelEl.textContent = label;
+    const valueEl = document.createElement('strong');
+    valueEl.textContent = value;
+    stat.append(labelEl, valueEl);
+    return stat;
+  }
+
+  private getWarpResetBlockedTitle(): string {
+    if (this.state.progression.travelLevel < minimumPrestigeTravelLevel) {
+      return `Reach ${zones[minimumPrestigeTravelLevel]?.name ?? 'a deeper zone'}`;
+    }
+
+    const crystals = this.getCrystalBalance();
+    const remainder = crystals % crystalsPerPrestigeCore;
+    const missing = remainder === 0 ? crystalsPerPrestigeCore : crystalsPerPrestigeCore - remainder;
+    return `${missing} crystal${missing === 1 ? '' : 's'} to next core`;
+  }
+
+  private getWarpResetPreviewText(availableAfterReset: number, coreGain: number): string {
+    const affordableUnlocks = WARP_UNLOCK_DEFINITIONS.filter((unlock) => {
+      if (hasWarpUnlock(this.state.progression, unlock.id)) {
+        return false;
+      }
+      if (unlock.cost > availableAfterReset) {
+        return false;
+      }
+      return unlock.requires.every((requiredId) => hasWarpUnlock(this.state.progression, requiredId));
+    }).slice(0, 3);
+
+    if (affordableUnlocks.length > 0) {
+      return `Unlock next: ${affordableUnlocks.map((unlock) => unlock.title).join(', ')}.`;
+    }
+
+    if (coreGain > 0) {
+    return 'Reset now to bank cores for the next technology.';
+    }
+
+    if (this.state.progression.travelLevel < minimumPrestigeTravelLevel) {
+      return 'Defeat gate bosses to open a deep enough route for warp cores.';
+    }
+
+    return 'Collect crystal asteroids until this reset can create a warp core.';
   }
 
   private renderSkillsTab(): void {
@@ -930,22 +1072,33 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderDronesTab(): void {
+    const droneSystemsOnline = hasWarpUnlock(this.state.progression, 'droneSystems');
     this.setShopContent(
-      '',
-      '',
-      '',
+      'Drones',
+      droneSystemsOnline ? 'Drone Bay' : 'Drone Bay Locked',
+      droneSystemsOnline ? 'Technologies authorize each drone family. Credits still build the actual drones.' : 'Install Drone Systems in Technologies before buying drones.',
       [
         ['Semi-Auto', this.state.progression.droneCounts.sentry.toString()],
         ['Shotgun', this.state.progression.droneCounts.ranger.toString()],
-        ['Missile', this.state.progression.droneCounts.breaker.toString()]
+        ['Missile', this.state.progression.droneCounts.breaker.toString()],
+        ['Systems', droneSystemsOnline ? 'Online' : 'Locked']
       ],
       this.getDroneTypes().map((type) => {
         const config = balance.shop.drones[type];
         const cost = this.getDroneTypeCost(type);
+        const unlocked = this.canBuyDroneType(type);
+        const requiredUnlock = this.getDroneTypeWarpUnlock(type);
+        const requiredTitle = WARP_UNLOCK_BY_ID[requiredUnlock].title;
+        const count = this.state.progression.droneCounts[type];
+        const status = unlocked ? `${count} owned · ${requiredTitle} online` : `Requires ${requiredTitle}`;
         return {
-          label: `${config.label} Drone ${this.formatMoney(cost)}`,
-          disabled: this.state.money < cost,
-          onClick: () => this.buyDrone(type, cost)
+          icon: this.getDroneTypeIcon(type),
+          title: `${config.label} Drone`,
+          meta: status,
+          label: unlocked ? this.formatMoney(cost) : 'Warp locked',
+          disabled: !unlocked || this.state.money < cost,
+          onClick: () => this.buyDrone(type, cost),
+          info: () => this.getDroneTypeInfo(type)
         };
       }),
       true
@@ -1025,40 +1178,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderWeaponsTab(): void {
-    const hpCost = this.scaledCost(balance.shop.ship.hp.baseCost, Math.max(0, (this.state.progression.maxHp - 100) / balance.shop.ship.hp.gain), balance.shop.ship.hp.scale);
-    const armorCost = this.scaledCost(balance.shop.ship.armor.baseCost, this.state.progression.armor / balance.shop.ship.armor.gain, balance.shop.ship.armor.scale);
-    const damageCost = this.scaledCost(balance.shop.ship.damage.baseCost, this.state.progression.shipDamageLevel - 1, balance.shop.ship.damage.scale);
-    const speedCost = this.scaledCost(balance.shop.ship.speed.baseCost, this.state.progression.shipSpeedLevel, balance.shop.ship.speed.scale);
-    const deflectorCost = this.scaledCost(balance.shop.ship.deflector.baseCost, this.state.progression.deflectorLevel, balance.shop.ship.deflector.scale);
     this.setShopContent(
       'Weapons',
-      'Ship Retrofit',
+      'Weapon Modes',
       '',
       [
-        ['HP', `${Math.ceil(this.state.ship.hp)} / ${this.state.ship.maxHp}`],
-        ['Armor', this.state.ship.armor.toString()],
-        ['Damage', this.state.progression.shipDamageLevel.toString()],
-        ['Speed', `+${this.state.progression.shipSpeedLevel * balance.shop.ship.speed.bonusPercentPerLevel}%`],
-        ['Prow', this.state.progression.deflectorLevel.toString()],
         ['Weapon', this.formatWeaponMode(this.state.progression.weaponMode)]
       ],
       [
-        { label: `HP +${balance.shop.ship.hp.gain} ${this.formatMoney(hpCost)}`, disabled: this.state.money < hpCost, onClick: () => this.buyHp(hpCost), info: () => this.getHpInfo() },
-        { label: `Armor +${balance.shop.ship.armor.gain} ${this.formatMoney(armorCost)}`, disabled: this.state.money < armorCost, onClick: () => this.buyArmor(armorCost), info: () => this.getArmorInfo() },
-        { label: `Damage ${this.formatMoney(damageCost)}`, disabled: this.state.money < damageCost, onClick: () => this.buyDamage(damageCost), info: () => this.getDamageInfo() },
-        { label: `Speed ${this.formatMoney(speedCost)}`, disabled: this.state.money < speedCost, onClick: () => this.buySpeed(speedCost), info: () => this.getSpeedInfo() },
-        { label: `Deflector ${this.formatMoney(deflectorCost)}`, disabled: this.state.money < deflectorCost, onClick: () => this.buyDeflector(deflectorCost), info: () => this.getDeflectorInfo() },
         { label: 'Cannon', disabled: this.state.progression.weaponMode === 'cannon', onClick: () => this.setWeaponMode('cannon'), info: () => this.getWeaponModeInfo('cannon') },
         {
-          label: this.state.progression.spreadUnlocked ? 'Spread Shot' : `Spread Shot ${this.formatMoney(balance.shop.ship.spreadShotCost)}`,
-          disabled: !this.state.progression.spreadUnlocked && this.state.money < balance.shop.ship.spreadShotCost,
-          onClick: () => this.buyOrSetWeaponMode('spread', balance.shop.ship.spreadShotCost),
+          label: this.state.progression.spreadUnlocked ? 'Spread Shot' : 'Spread Shot Locked',
+          disabled: !this.state.progression.spreadUnlocked || this.state.progression.weaponMode === 'spread',
+          onClick: () => this.setWeaponMode('spread'),
           info: () => this.getWeaponModeInfo('spread')
         },
         {
-          label: this.state.progression.piercingUnlocked ? 'Piercing Rounds' : `Piercing Rounds ${this.formatMoney(balance.shop.ship.piercingRoundsCost)}`,
-          disabled: !this.state.progression.piercingUnlocked && this.state.money < balance.shop.ship.piercingRoundsCost,
-          onClick: () => this.buyOrSetWeaponMode('piercing', balance.shop.ship.piercingRoundsCost),
+          label: this.state.progression.piercingUnlocked ? 'Piercing Rounds' : 'Piercing Rounds Locked',
+          disabled: !this.state.progression.piercingUnlocked || this.state.progression.weaponMode === 'piercing',
+          onClick: () => this.setWeaponMode('piercing'),
           info: () => this.getWeaponModeInfo('piercing')
         }
       ]
@@ -1145,7 +1283,8 @@ export class GameScene extends Phaser.Scene {
     this.activeModal = 'info';
     this.activeModalInfo = info;
     this.activeTalentTooltipId = null;
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.activeWarpUnlockId = null;
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
     this.renderInfoModal();
   }
 
@@ -1153,13 +1292,23 @@ export class GameScene extends Phaser.Scene {
     this.activeModal = 'skills';
     this.activeModalInfo = null;
     this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
     this.renderSkillTreeModal();
+  }
+
+  private openWarpCoreTreeModal(): void {
+    this.activeModal = 'warpCores';
+    this.activeModalInfo = null;
+    this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
+    this.renderWarpCoreTreeModal();
   }
 
   private openZoneMapModal(): void {
     this.activeModal = 'zones';
     this.activeModalInfo = null;
     this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
     this.renderZoneMapModal();
   }
 
@@ -1167,6 +1316,7 @@ export class GameScene extends Phaser.Scene {
     this.activeModal = 'settings';
     this.activeModalInfo = null;
     this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
     this.audioSettings.setExpanded(true);
     this.renderSettingsModal();
   }
@@ -1176,10 +1326,11 @@ export class GameScene extends Phaser.Scene {
     this.activeModal = null;
     this.activeModalInfo = null;
     this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
     this.audioSettings.setExpanded(false);
     this.modalEl.classList.add('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'true');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
     this.modalBodyEl.replaceChildren();
     if (wasSkillTree && this.activeTab === 'skills') {
       this.navButtons.forEach((button) => button.classList.remove('is-active'));
@@ -1189,7 +1340,7 @@ export class GameScene extends Phaser.Scene {
   private renderSettingsModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--map');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map');
     this.modalPanelEl.classList.add('ui-modal__panel--settings');
     this.modalKickerEl.textContent = 'Audio';
     this.modalTitleEl.textContent = 'Sound Settings';
@@ -1201,7 +1352,7 @@ export class GameScene extends Phaser.Scene {
   private renderZoneMapModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--settings', 'ui-modal__panel--warp');
     this.modalPanelEl.classList.add('ui-modal__panel--skills', 'ui-modal__panel--map');
     this.modalKickerEl.textContent = '';
     this.modalTitleEl.textContent = '';
@@ -1224,7 +1375,7 @@ export class GameScene extends Phaser.Scene {
 
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
     this.modalKickerEl.textContent = info.kicker;
     this.modalTitleEl.textContent = info.title;
     this.modalCopyEl.textContent = info.copy;
@@ -1236,7 +1387,7 @@ export class GameScene extends Phaser.Scene {
   private renderSkillTreeModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
     this.modalPanelEl.classList.add('ui-modal__panel--skills');
     this.modalKickerEl.textContent = 'Skills';
     this.modalTitleEl.textContent = 'Talent Constellation';
@@ -1265,6 +1416,66 @@ export class GameScene extends Phaser.Scene {
     if (!updated && this.activeModal === 'skills') {
       this.renderSkillTreeModal();
     }
+  }
+
+  private renderWarpCoreTreeModal(): void {
+    this.modalEl.classList.remove('is-hidden');
+    this.modalEl.setAttribute('aria-hidden', 'false');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.add('ui-modal__panel--skills', 'ui-modal__panel--warp');
+    this.modalKickerEl.textContent = 'Technologies';
+    this.modalTitleEl.textContent = 'Technology Tree';
+    this.modalCopyEl.textContent = `${getAvailableWarpCores(this.state.progression)} cores available · ${this.state.progression.prestigeCores} banked · ${getOwnedWarpUnlockCount(this.state.progression)} owned`;
+    this.modalCopyEl.classList.remove('is-hidden');
+
+    this.modalBodyEl.replaceChildren(this.warpCoreTree.render({
+      progression: this.state.progression,
+      selectedUnlockId: this.activeWarpUnlockId,
+      onSelectUnlock: (id) => this.selectWarpUnlock(id),
+      onBuyUnlock: (id) => this.buyWarpUnlock(id)
+    }));
+  }
+
+  private selectWarpUnlock(id: WarpUnlockId | null): void {
+    this.activeWarpUnlockId = id;
+    if (this.activeModal === 'warpCores') {
+      this.renderWarpCoreTreeModal();
+    } else if (this.activeTab === 'warp') {
+      this.renderWarpTab();
+    }
+  }
+
+  private getCoreUpgradeCap(): number {
+    return getCoreUpgradeCap(this.state.progression);
+  }
+
+  private getDamageUpgradeLevel(): number {
+    return Math.max(0, this.state.progression.shipDamageLevel - 1);
+  }
+
+  private getHpUpgradeLevel(): number {
+    return Math.max(0, Math.floor((this.state.progression.maxHp - 100) / balance.shop.ship.hp.gain));
+  }
+
+  private getPassiveIncomeRate(): number {
+    const level = this.state.progression.passiveIncomeLevel;
+    return level * balance.economy.passiveIncomePerLevel * getRefineryMilestoneMultiplier(level);
+  }
+
+  private getPassiveIncomeCost(): number {
+    return this.scaledCost(balance.economy.passiveCost.base, this.state.progression.passiveIncomeLevel, balance.economy.passiveCost.scale);
+  }
+
+  private getDamageCost(): number {
+    return this.scaledCost(balance.shop.ship.damage.baseCost, this.getDamageUpgradeLevel(), balance.shop.ship.damage.scale);
+  }
+
+  private getFireRateCost(): number {
+    return this.scaledCost(balance.shop.ship.fireRate.baseCost, this.state.progression.shipFireRateLevel, balance.shop.ship.fireRate.scale);
+  }
+
+  private getHpCost(): number {
+    return this.scaledCost(balance.shop.ship.hp.baseCost, this.getHpUpgradeLevel(), balance.shop.ship.hp.scale);
   }
 
   private getHpInfo(): ModalContent {
@@ -1339,9 +1550,9 @@ export class GameScene extends Phaser.Scene {
         title: 'Spread Shot',
         copy: 'Three-shot fan for crowd control when the asteroid density starts to outrun single-shot cleanup.',
         facts: [
-          ['Status', this.state.progression.spreadUnlocked ? 'Unlocked' : `Locks at ${this.formatMoney(balance.shop.ship.spreadShotCost)}`],
+          ['Status', this.state.progression.spreadUnlocked ? 'Installed' : 'Requires Spread Battery'],
           ['Pattern', 'Three shots'],
-          ['Cooldown', `${balance.weapons.spreadFireInterval.toFixed(2)} sec`]
+          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.spreadFireInterval).toFixed(2)} sec`]
         ]
       };
     }
@@ -1352,9 +1563,9 @@ export class GameScene extends Phaser.Scene {
         title: 'Piercing Rounds',
         copy: 'Faster single shots that punch through one target and make long lanes easier to clear.',
         facts: [
-          ['Status', this.state.progression.piercingUnlocked ? 'Unlocked' : `Locks at ${this.formatMoney(balance.shop.ship.piercingRoundsCost)}`],
+          ['Status', this.state.progression.piercingUnlocked ? 'Installed' : 'Requires Piercing Rail'],
           ['Pierce', `${balance.weapons.piercingCount} asteroid`],
-          ['Cooldown', `${(balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier).toFixed(2)} sec`]
+          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier).toFixed(2)} sec`]
         ]
       };
     }
@@ -1366,13 +1577,51 @@ export class GameScene extends Phaser.Scene {
       facts: [
         ['Status', 'Default'],
         ['Pattern', 'Single shot'],
-        ['Cooldown', `${balance.weapons.playerFireInterval.toFixed(2)} sec`]
+        ['Cooldown', `${getPlayerFireInterval(this.state.progression).toFixed(2)} sec`]
       ]
     };
   }
 
+  private getDroneTypeInfo(type: DroneType): ModalContent {
+    const config = balance.shop.drones[type];
+    const requiredUnlock = this.getDroneTypeWarpUnlock(type);
+    const requiredTitle = WARP_UNLOCK_BY_ID[requiredUnlock].title;
+    const unlocked = this.canBuyDroneType(type);
+    return {
+      kicker: 'Drone Bay',
+      title: `${config.label} Drone`,
+      copy: unlocked
+        ? 'Credits build this drone family for the current permanent loadout.'
+        : `Install ${requiredTitle} in Technologies before this drone family can be purchased.`,
+      facts: [
+        ['Status', unlocked ? 'Available' : `Requires ${requiredTitle}`],
+        ['Owned', this.state.progression.droneCounts[type].toString()],
+        ['Next cost', this.formatMoney(this.getDroneTypeCost(type))]
+      ]
+    };
+  }
+
+  private buyWarpUnlock(id: WarpUnlockId): void {
+    const previousMaxHp = this.state.ship.maxHp;
+    if (!purchaseWarpUnlock(this.state.progression, id)) {
+      return;
+    }
+
+    const effectiveMaxHp = getEffectiveMaxHp(this.state.progression);
+    const hpGain = Math.max(0, effectiveMaxHp - previousMaxHp);
+    this.state.ship.maxHp = effectiveMaxHp;
+    this.state.ship.hp = Math.min(effectiveMaxHp, this.state.ship.hp + hpGain);
+    this.state.ship.armor = this.state.progression.armor;
+    syncShieldBubbleState(this.state);
+    this.shopSignature = '';
+    this.retroSound.play({ type: 'purchase' });
+    emitReward(this.state, 'Technology installed', 'unlock');
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
   private buyPassiveIncome(cost: number): void {
-    if (!this.spend(cost)) {
+    if (this.state.progression.passiveIncomeLevel >= this.getCoreUpgradeCap() || !this.spend(cost)) {
       return;
     }
     this.state.progression.passiveIncomeLevel += 1;
@@ -1506,7 +1755,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buyDrone(type: DroneType, cost: number): void {
-    if (!this.spend(cost)) {
+    if (!this.canBuyDroneType(type) || !this.spend(cost)) {
       return;
     }
     this.state.progression.dronesPurchased += 1;
@@ -1529,7 +1778,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buyHp(cost: number): void {
-    if (!this.spend(cost)) {
+    if (this.getHpUpgradeLevel() >= this.getCoreUpgradeCap() || !this.spend(cost)) {
       return;
     }
     this.state.progression.maxHp += balance.shop.ship.hp.gain;
@@ -1554,10 +1803,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buyDamage(cost: number): void {
-    if (!this.spend(cost)) {
+    if (this.getDamageUpgradeLevel() >= this.getCoreUpgradeCap() || !this.spend(cost)) {
       return;
     }
     this.state.progression.shipDamageLevel += 1;
+    this.retroSound.play({ type: 'purchase' });
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
+  private buyFireRate(cost: number): void {
+    if (this.state.progression.shipFireRateLevel >= this.getCoreUpgradeCap() || !this.spend(cost)) {
+      return;
+    }
+    this.state.progression.shipFireRateLevel += 1;
     this.retroSound.play({ type: 'purchase' });
     saveGameState(this.state);
     this.updateHud();
@@ -1633,6 +1892,34 @@ export class GameScene extends Phaser.Scene {
     return ['sentry', 'ranger', 'breaker'];
   }
 
+  private getDroneTypeWarpUnlock(type: DroneType): WarpUnlockId {
+    if (type === 'sentry') {
+      return 'droneSystems';
+    }
+
+    if (type === 'ranger') {
+      return 'rangerHangar';
+    }
+
+    return 'missileFoundry';
+  }
+
+  private getDroneTypeIcon(type: DroneType): string {
+    if (type === 'sentry') {
+      return 'SA';
+    }
+
+    if (type === 'ranger') {
+      return 'SG';
+    }
+
+    return 'MS';
+  }
+
+  private canBuyDroneType(type: DroneType): boolean {
+    return hasWarpUnlock(this.state.progression, this.getDroneTypeWarpUnlock(type));
+  }
+
   private getDroneTypeCost(type: DroneType): number {
     const config = balance.shop.drones[type];
     return this.scaledCost(config.baseCost, this.state.progression.droneCounts[type], config.scale);
@@ -1649,7 +1936,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private formatBossName(type: BossType): string {
-    return type === 'sentinel' ? 'Star Sentinel' : 'Gravity Crusher';
+    if (type === 'sentinel') {
+      return 'Star Sentinel';
+    }
+    if (type === 'prism') {
+      return 'Prism Warden';
+    }
+    return 'Gravity Crusher';
   }
 
   private getPrestigeGain(): number {

@@ -1,13 +1,13 @@
 import type { GameState, Vec2 } from '../types';
 import type { InputActions } from '../../input/actions';
-import { createAsteroid, getAsteroidSpawnPosition, getAsteroidTargetCount } from './asteroids';
+import { createAsteroid, createPendingZoneBoss, getAsteroidSpawnPosition, getAsteroidTargetCount, hasActiveZoneBoss } from './asteroids';
 import { resolveCollisions } from './collisions';
 import { updateDrones } from './drones';
 import { updateBosses, updatePendingBoss, updateSaucer } from './enemies';
 import { updateParticles } from './particles';
 import { updateCamera, updateShipMovement } from './shipMovement';
 import { updateBullets } from './weapons';
-import { emitReward } from '../events';
+import { emitAudio, emitReward } from '../events';
 import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
 import { getRefineryMilestoneMultiplier } from '../../progression/idleBonuses';
 import {
@@ -22,11 +22,13 @@ import {
   getRefineryIncomeMultiplier
 } from '../../progression/talentTree';
 import { balance } from '../../balance';
+import { hasShieldBubbleUnlocked } from '../state';
 export const updateGame = (state: GameState, input: InputActions, dt: number): void => {
   state.width = Math.max(320, state.width);
   state.height = Math.max(320, state.height);
   state.deathPenaltyFor = Math.max(0, state.deathPenaltyFor - dt);
   state.droneRebootFor = Math.max(0, state.droneRebootFor - dt);
+  updateShieldBubble(state, dt);
 
   updateShipMovement(state, input, dt);
   updateCamera(state, dt);
@@ -39,6 +41,7 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
   updateSaucer(state, dt);
   updateParticles(state, dt);
   resolveCollisions(state);
+  updateBossDiscovery(state);
   maintainAsteroidField(state);
   syncAchievements(state.progression, (def) => {
     emitReward(state, `Conquista: ${def.name} (+${def.bonusPercent}% ${ACHIEVEMENT_BONUS_LABELS[def.bonusCategory]})`, 'achievement');
@@ -51,6 +54,49 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
       }
     }
   });
+};
+
+const updateBossDiscovery = (state: GameState): void => {
+  if (
+    state.progression.unlockedZoneIndex > 0 ||
+    state.progression.achievementStats.asteroidsDestroyed < balance.bosses.firstGateAsteroids ||
+    hasActiveZoneBoss(state)
+  ) {
+    return;
+  }
+
+  const pendingBoss = createPendingZoneBoss(state);
+  if (!pendingBoss) {
+    return;
+  }
+
+  state.pendingBoss = pendingBoss;
+  emitReward(state, 'First gate boss detected', 'boss');
+  emitAudio(state, { type: 'bossSummoned' });
+};
+
+const updateShieldBubble = (state: GameState, dt: number): void => {
+  state.shieldBubble.hitFlashFor = Math.max(0, state.shieldBubble.hitFlashFor - dt);
+
+  if (!hasShieldBubbleUnlocked(state.progression)) {
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    state.shieldBubble.rechargeFor = 0;
+    state.shieldBubble.hitFlashFor = 0;
+    return;
+  }
+
+  if (!state.shieldBubble.broken) {
+    state.shieldBubble.active = true;
+    state.shieldBubble.rechargeFor = 0;
+    return;
+  }
+
+  state.shieldBubble.rechargeFor = Math.max(0, state.shieldBubble.rechargeFor - dt);
+  if (state.shieldBubble.rechargeFor <= 0) {
+    state.shieldBubble.active = true;
+    state.shieldBubble.broken = false;
+  }
 };
 
 const updateIdleIncome = (state: GameState, dt: number): void => {

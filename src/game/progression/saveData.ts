@@ -1,4 +1,4 @@
-import { createGameState } from '../simulation/state';
+import { createGameState, createShieldBubble, syncShieldBubbleState } from '../simulation/state';
 import { createAsteroidField } from '../simulation/systems/asteroids';
 import {
   ACHIEVEMENT_DEFINITIONS,
@@ -9,10 +9,11 @@ import {
   syncAchievements
 } from './achievements';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
-import type { AchievementId, AchievementStats, DroneType, GameState, ProgressionState, TalentRanks, Vec2, WeaponMode } from '../simulation/types';
+import type { AchievementId, AchievementStats, DroneType, GameState, ProgressionState, ShieldBubbleState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
+import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const SAVE_VERSION: SaveVersion = 1;
@@ -20,7 +21,7 @@ const SAVE_VERSION: SaveVersion = 1;
 type SaveVersion = 1;
 
 export const SAVE_VERSION_NOTES: Record<SaveVersion, string> = {
-  1: 'Stores credits, crystals, offline timestamp, normalized progression, and ship position/health/respawn state.'
+  1: 'Stores credits, crystals, offline timestamp, normalized progression, ship position/health/respawn state, and shield bubble state.'
 };
 
 type SavedGameV1 = {
@@ -35,6 +36,7 @@ type SavedGameV1 = {
     alive: boolean;
     respawnFor: number;
   };
+  shieldBubble: ShieldBubbleState;
 };
 
 type SavedGame = SavedGameV1;
@@ -133,6 +135,39 @@ const readUnlockedAchievements = (value: unknown): Record<AchievementId, boolean
   return unlocked;
 };
 
+const readWarpUnlockIds = (value: unknown): WarpUnlockId[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const ids = value.filter((id): id is WarpUnlockId => typeof id === 'string' && id in WARP_UNLOCK_BY_ID);
+  return Array.from(new Set(ids));
+};
+
+const addWarpUnlockId = (ids: WarpUnlockId[], id: WarpUnlockId): void => {
+  if (!ids.includes(id)) {
+    ids.push(id);
+  }
+};
+
+const migrateShieldBubbleUnlock = (progression: ProgressionState, value: unknown): void => {
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const hasPersistedShieldState =
+    value.active === true ||
+    value.broken === true ||
+    readNonNegativeNumber(value.rechargeFor, 0) > 0;
+  if (!hasPersistedShieldState) {
+    return;
+  }
+
+  addWarpUnlockId(progression.ownedWarpUnlockIds, 'deflectorFrame');
+  addWarpUnlockId(progression.ownedWarpUnlockIds, 'shieldBubble');
+  applyOwnedWarpUnlockEffects(progression);
+};
+
 const readProgression = (value: unknown): ProgressionState | null => {
   if (!isRecord(value)) {
     return null;
@@ -143,15 +178,53 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const droneCounts = readDroneCounts(value.droneCounts, legacyDroneCount);
   const spreadUnlocked = value.spreadUnlocked === true;
   const piercingUnlocked = value.piercingUnlocked === true;
+  const shipDamageLevel = Math.max(1, Math.floor(readNumber(value.shipDamageLevel, 1)));
+  const shipFireRateLevel = Math.max(0, Math.floor(readNumber(value.shipFireRateLevel, 0)));
+  const shipSpeedLevel = Math.max(0, Math.floor(readNumber(value.shipSpeedLevel, 0)));
+  const deflectorLevel = Math.max(0, Math.floor(readNumber(value.deflectorLevel, 0)));
+  const armor = Math.max(0, Math.floor(readNumber(value.armor, 0)));
   const legacySkills = readLegacyDroneSkillLevels(value.droneSkillLevels);
   const legacyTravelLevel = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.travelLevel, 0))));
   const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
   const currentZoneIndex = Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex))));
-  return {
+  const ownedWarpUnlockIds = readWarpUnlockIds(value.ownedWarpUnlockIds);
+  if (maxHp > 100) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'hullReinforcement');
+  }
+  if (shipDamageLevel > 1) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'cannonAmplifier');
+  }
+  if (armor > 0) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'armorPlating');
+  }
+  if (shipSpeedLevel > 0) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'flightThrusters');
+  }
+  if (droneCounts.sentry > 0 || droneCounts.ranger > 0 || droneCounts.breaker > 0) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'droneSystems');
+  }
+  if (deflectorLevel > 0) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'deflectorFrame');
+  }
+  if (spreadUnlocked) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'spreadBattery');
+  }
+  if (piercingUnlocked) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'piercingRail');
+  }
+  if (droneCounts.ranger > 0) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'rangerHangar');
+  }
+  if (droneCounts.breaker > 0) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'missileFoundry');
+  }
+
+  const progression: ProgressionState = {
     passiveIncomeLevel: Math.max(0, Math.floor(readNumber(value.passiveIncomeLevel, 0))),
-    shipDamageLevel: Math.max(1, Math.floor(readNumber(value.shipDamageLevel, 1))),
-    shipSpeedLevel: Math.max(0, Math.floor(readNumber(value.shipSpeedLevel, 0))),
-    deflectorLevel: Math.max(0, Math.floor(readNumber(value.deflectorLevel, 0))),
+    shipDamageLevel,
+    shipFireRateLevel,
+    shipSpeedLevel,
+    deflectorLevel,
     droneDamageLevel: Math.max(1, Math.floor(readNumber(value.droneDamageLevel, 1))),
     droneFireRateLevel: Math.max(0, Math.floor(readNumber(value.droneFireRateLevel, 0))),
     droneCounts,
@@ -165,12 +238,15 @@ const readProgression = (value: unknown): ProgressionState | null => {
     unlockedZoneIndex,
     bossDefeats: Math.max(0, Math.floor(readNumber(value.bossDefeats, unlockedZoneIndex))),
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
+    ownedWarpUnlockIds,
     maxHp,
-    armor: Math.max(0, Math.floor(readNumber(value.armor, 0))),
+    armor,
     dronesPurchased: droneCounts.sentry + droneCounts.ranger + droneCounts.breaker,
     achievementStats: readAchievementStats(value.achievementStats),
     unlockedAchievements: readUnlockedAchievements(value.unlockedAchievements)
   };
+  applyOwnedWarpUnlockEffects(progression);
+  return progression;
 };
 
 const readVec2 = (value: unknown, fallback: Vec2): Vec2 => {
@@ -184,12 +260,29 @@ const readVec2 = (value: unknown, fallback: Vec2): Vec2 => {
   };
 };
 
+const readShieldBubble = (value: unknown, progression: ProgressionState): ShieldBubbleState => {
+  const fallback = createShieldBubble(progression);
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const unlocked = progression.ownedWarpUnlockIds.includes('shieldBubble');
+  const broken = unlocked && value.broken === true;
+  return {
+    active: unlocked && !broken && value.active !== false,
+    broken,
+    rechargeFor: broken ? readNonNegativeNumber(value.rechargeFor, balance.ship.shieldBubbleRechargeSeconds) : 0,
+    hitFlashFor: unlocked ? readNonNegativeNumber(value.hitFlashFor, 0) : 0
+  };
+};
+
 const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => {
   const progression = readProgression(value.progression);
   const ship = isRecord(value.ship) ? value.ship : null;
   if (!progression || !ship) {
     return null;
   }
+  migrateShieldBubbleUnlock(progression, value.shieldBubble);
 
   return {
     version: 1,
@@ -202,7 +295,8 @@ const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => 
       hp: Math.min(progression.maxHp, readNonNegativeNumber(ship.hp, progression.maxHp)),
       alive: ship.alive === true,
       respawnFor: readNonNegativeNumber(ship.respawnFor, 0)
-    }
+    },
+    shieldBubble: readShieldBubble(value.shieldBubble, progression)
   };
 };
 
@@ -267,6 +361,8 @@ export const loadGameState = (width: number, height: number): GameState => {
   state.ship.alive = saved.ship.alive && saved.ship.hp > 0;
   state.ship.respawnFor = saved.ship.respawnFor;
   state.phase = state.ship.alive ? 'playing' : 'respawning';
+  state.shieldBubble = { ...saved.shieldBubble };
+  syncShieldBubbleState(state);
   state.camera = { ...state.ship.position };
   state.drones.forEach((drone) => {
     drone.position = { ...state.ship.position };
@@ -282,13 +378,17 @@ export const saveGameState = (state: GameState): void => {
     money: Math.max(0, state.money),
     crystals: Math.max(0, Math.floor(state.crystals)),
     lastSeenAt: Date.now(),
-    progression: { ...state.progression },
+    progression: {
+      ...state.progression,
+      ownedWarpUnlockIds: [...state.progression.ownedWarpUnlockIds]
+    },
     ship: {
       position: { ...state.ship.position },
       hp: Math.max(0, Math.min(state.ship.hp, state.ship.maxHp)),
       alive: state.ship.alive,
       respawnFor: Math.max(0, state.ship.respawnFor)
-    }
+    },
+    shieldBubble: { ...state.shieldBubble }
   };
 
   try {

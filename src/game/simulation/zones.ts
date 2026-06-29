@@ -33,7 +33,7 @@ export const zones: ExplorationZone[] = [
     index: 1,
     rewardMultiplier: 1.35,
     asteroidHpMultiplier: 1.45,
-    asteroidDensityBonus: 2,
+    asteroidDensityBonus: 1,
     bossType: 'crusher',
     map: { x: 30, y: 38 }
   },
@@ -43,8 +43,8 @@ export const zones: ExplorationZone[] = [
     index: 2,
     rewardMultiplier: 1.8,
     asteroidHpMultiplier: 2.05,
-    asteroidDensityBonus: 4,
-    bossType: 'sentinel',
+    asteroidDensityBonus: 3,
+    bossType: 'prism',
     map: { x: 52, y: 62 }
   },
   {
@@ -53,7 +53,7 @@ export const zones: ExplorationZone[] = [
     index: 3,
     rewardMultiplier: 2.35,
     asteroidHpMultiplier: 2.85,
-    asteroidDensityBonus: 5,
+    asteroidDensityBonus: 6,
     bossType: 'crusher',
     map: { x: 74, y: 42 }
   },
@@ -63,7 +63,7 @@ export const zones: ExplorationZone[] = [
     index: 4,
     rewardMultiplier: 3.05,
     asteroidHpMultiplier: 3.8,
-    asteroidDensityBonus: 7,
+    asteroidDensityBonus: 9,
     bossType: 'sentinel',
     map: { x: 92, y: 54 }
   }

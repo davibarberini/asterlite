@@ -5,7 +5,7 @@ export type Vec2 = {
 
 export type AsteroidSize = 'large' | 'medium' | 'small';
 export type AsteroidVariant = 'common' | 'metallic' | 'crystal' | 'dense';
-export type BossType = 'sentinel' | 'crusher';
+export type BossType = 'sentinel' | 'crusher' | 'prism';
 export type DroneType = 'sentry' | 'ranger' | 'breaker';
 export type TalentId =
   | 'refineryYield'
@@ -29,8 +29,21 @@ export type TalentId =
   | 'missileShrapnel'
   | 'missileChain';
 export type TalentRanks = Record<TalentId, number>;
+export type WarpUnlockId =
+  | 'coreStabilizer'
+  | 'hullReinforcement'
+  | 'cannonAmplifier'
+  | 'armorPlating'
+  | 'flightThrusters'
+  | 'droneSystems'
+  | 'deflectorFrame'
+  | 'shieldBubble'
+  | 'spreadBattery'
+  | 'rangerHangar'
+  | 'missileFoundry'
+  | 'piercingRail';
 export type WeaponMode = 'cannon' | 'spread' | 'piercing';
-export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet';
+export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet' | 'ricochet';
 
 export type ShipState = {
   position: Vec2;
@@ -45,6 +58,13 @@ export type ShipState = {
   respawnFor: number;
   fireCooldown: number;
   hyperspaceCooldown: number;
+};
+
+export type ShieldBubbleState = {
+  active: boolean;
+  broken: boolean;
+  rechargeFor: number;
+  hitFlashFor: number;
 };
 
 export type DroneState = {
@@ -90,6 +110,7 @@ export type BulletState = {
   radius: number;
   damage: number;
   pierceLeft: number;
+  ricochetLeft: number;
   kind: BulletKind;
   homingTargetId: number | null;
 };
@@ -185,6 +206,7 @@ export type AchievementId =
 export type ProgressionState = {
   passiveIncomeLevel: number;
   shipDamageLevel: number;
+  shipFireRateLevel: number;
   shipSpeedLevel: number;
   deflectorLevel: number;
   droneDamageLevel: number;
@@ -200,6 +222,7 @@ export type ProgressionState = {
   unlockedZoneIndex: number;
   bossDefeats: number;
   prestigeCores: number;
+  ownedWarpUnlockIds: WarpUnlockId[];
   maxHp: number;
   armor: number;
   dronesPurchased: number;
@@ -219,6 +242,7 @@ export type GameState = {
   droneRebootFor: number;
   phase: GamePhase;
   ship: ShipState;
+  shieldBubble: ShieldBubbleState;
   drones: DroneState[];
   progression: ProgressionState;
   asteroids: AsteroidState[];

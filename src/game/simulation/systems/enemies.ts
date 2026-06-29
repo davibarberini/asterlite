@@ -49,7 +49,19 @@ export const updateBosses = (state: GameState, dt: number): void => {
     }
 
     bossStats.bulletAngleOffsets.forEach((offset) => {
-      fireBullet(state, 'boss', boss.position, shipAngle + offset, bossStats.bulletSpeed, bossStats.bulletDamage);
+      fireBullet(
+        state,
+        'boss',
+        boss.position,
+        shipAngle + offset,
+        bossStats.bulletSpeed,
+        bossStats.bulletDamage,
+        { x: 0, y: 0 },
+        0,
+        boss.bossType === 'prism' ? 'ricochet' : 'standard',
+        null,
+        boss.bossType === 'prism' ? balance.bosses.ricochetBounces : 0
+      );
     });
     boss.bossFireCooldown = Math.max(bossStats.fireCooldownMin, bossStats.fireCooldownBase - (boss.bossZoneIndex ?? 0) * bossStats.fireCooldownPerZone);
   });
@@ -90,7 +102,7 @@ export const updateSaucer = (state: GameState, dt: number): void => {
       x: state.ship.position.x - saucer.position.x + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter),
       y: state.ship.position.y - saucer.position.y + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter)
     });
-    fireBullet(state, 'saucer', saucer.position, Math.atan2(direction.y, direction.x), balance.saucer.bulletSpeed);
+    fireBullet(state, 'saucer', saucer.position, Math.atan2(direction.y, direction.x), balance.saucer.bulletSpeed, balance.saucer.bulletDamage);
     saucer.fireCooldown = randomRange(balance.saucer.fireCooldown[0], balance.saucer.fireCooldown[1]);
   }
 

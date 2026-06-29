@@ -1,4 +1,5 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
+import { getPlayerFireInterval } from '../../progression/idleBonuses';
 import { getMissileTurnRateMultiplier } from '../../progression/talentTree';
 import { balance } from '../../balance';
 import { emitAudio } from '../events';
@@ -14,7 +15,8 @@ export const fireBullet = (
   inheritedVelocity: Vec2 = { x: 0, y: 0 },
   pierceLeft = 0,
   kind: BulletKind = 'standard',
-  homingTargetId: number | null = null
+  homingTargetId: number | null = null,
+  ricochetLeft = 0
 ): void => {
   if (owner === 'player') {
     emitAudio(state, { type: 'playerShoot' });
@@ -40,7 +42,9 @@ export const fireBullet = (
     age: 0,
     radius:
       owner === 'boss'
-        ? balance.weapons.radius.boss
+        ? kind === 'ricochet'
+          ? balance.weapons.radius.ricochet
+          : balance.weapons.radius.boss
         : owner === 'saucer'
           ? balance.weapons.radius.saucer
           : kind === 'missile'
@@ -50,6 +54,7 @@ export const fireBullet = (
               : balance.weapons.radius.player,
     damage,
     pierceLeft,
+    ricochetLeft,
     kind,
     homingTargetId
   });
@@ -71,7 +76,7 @@ export const firePlayerWeapon = (state: GameState): void => {
         ship.velocity
       );
     });
-    ship.fireCooldown = balance.weapons.spreadFireInterval;
+    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.spreadFireInterval);
     return;
   }
 
@@ -86,7 +91,7 @@ export const firePlayerWeapon = (state: GameState): void => {
       ship.velocity,
       balance.weapons.piercingCount
     );
-    ship.fireCooldown = balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier;
+    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier);
     return;
   }
 
@@ -99,7 +104,7 @@ export const firePlayerWeapon = (state: GameState): void => {
     Math.max(1, Math.round(state.progression.shipDamageLevel * damageMultiplier)),
     ship.velocity
   );
-  ship.fireCooldown = balance.weapons.playerFireInterval;
+  ship.fireCooldown = getPlayerFireInterval(state.progression);
 };
 
 export const updateBullets = (state: GameState, dt: number): void => {

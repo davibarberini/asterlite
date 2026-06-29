@@ -1,4 +1,4 @@
-import type { DroneState, DroneType, GameState, ProgressionState, ShipState } from './types';
+import type { DroneState, DroneType, GameState, ProgressionState, ShieldBubbleState, ShipState } from './types';
 import { createAchievementStats, createUnlockedAchievements, getEffectiveMaxHp } from '../progression/achievements';
 import { createTalentRanks } from '../progression/talentTree';
 import { emitAudio } from './events';
@@ -9,24 +9,50 @@ import { balance } from '../balance';
 const createShip = (width: number, height: number, progression: ProgressionState, position = { x: width / 2, y: height / 2 }): ShipState => {
   const maxHp = getEffectiveMaxHp(progression);
   return {
-  position,
-  velocity: { x: 0, y: 0 },
-  rotation: -Math.PI / 2,
-  radius: balance.ship.radius,
-  hp: maxHp,
-  maxHp,
-  armor: progression.armor,
-  alive: true,
-  invulnerableFor: balance.ship.startingInvulnerableFor,
-  respawnFor: 0,
-  fireCooldown: 0,
-  hyperspaceCooldown: 0
+    position,
+    velocity: { x: 0, y: 0 },
+    rotation: -Math.PI / 2,
+    radius: balance.ship.radius,
+    hp: maxHp,
+    maxHp,
+    armor: progression.armor,
+    alive: true,
+    invulnerableFor: balance.ship.startingInvulnerableFor,
+    respawnFor: 0,
+    fireCooldown: 0,
+    hyperspaceCooldown: 0
+  };
 };
+
+export const hasShieldBubbleUnlocked = (progression: ProgressionState): boolean =>
+  progression.ownedWarpUnlockIds.includes('shieldBubble');
+
+export const createShieldBubble = (progression: ProgressionState): ShieldBubbleState => ({
+  active: hasShieldBubbleUnlocked(progression),
+  broken: false,
+  rechargeFor: 0,
+  hitFlashFor: 0
+});
+
+export const syncShieldBubbleState = (state: GameState): void => {
+  if (!hasShieldBubbleUnlocked(state.progression)) {
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    state.shieldBubble.rechargeFor = 0;
+    state.shieldBubble.hitFlashFor = 0;
+    return;
+  }
+
+  if (!state.shieldBubble.broken) {
+    state.shieldBubble.active = true;
+    state.shieldBubble.rechargeFor = 0;
+  }
 };
 
 export const createProgression = (): ProgressionState => ({
   passiveIncomeLevel: 0,
   shipDamageLevel: 1,
+  shipFireRateLevel: 0,
   shipSpeedLevel: 0,
   deflectorLevel: 0,
   droneDamageLevel: 1,
@@ -46,6 +72,7 @@ export const createProgression = (): ProgressionState => ({
   unlockedZoneIndex: 0,
   bossDefeats: 0,
   prestigeCores: 0,
+  ownedWarpUnlockIds: [],
   maxHp: 100,
   armor: 0,
   dronesPurchased: 0,
@@ -87,6 +114,7 @@ export const createGameState = (width: number, height: number, progression = cre
     droneRebootFor: 0,
     phase: 'playing',
     ship: createShip(width, height, progression),
+    shieldBubble: createShieldBubble(normalizedProgression),
     drones: [],
     progression: normalizedProgression,
     asteroids: [],

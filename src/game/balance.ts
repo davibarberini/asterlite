@@ -3,27 +3,29 @@ import type { AsteroidSize, AsteroidVariant, BossType, DroneType } from './simul
 export const balance = {
   economy: {
     passiveIncomePerLevel: 1.25,
-    passiveCost: { base: 80, scale: 1.75 },
+    passiveCost: { base: 45, scale: 1.12 },
     mapUnlockCost: 260,
     bossCrystalCost: { base: 2, perZone: 2 },
     deathIncomeMultiplier: 0.35,
     maxOfflineSeconds: 8 * 60 * 60,
     prestige: {
-      crystalsPerCore: 12,
+      crystalsPerCore: 10,
       bonusPerCore: 0.08,
-      minimumTravelLevel: 2
+      minimumTravelLevel: 1
     }
   },
   shop: {
+    upgradeBaseCap: 500,
     drones: {
       sentry: { label: 'Semi-Auto', baseCost: 260, scale: 1.48 },
       ranger: { label: 'Shotgun', baseCost: 380, scale: 1.52 },
       breaker: { label: 'Missile', baseCost: 520, scale: 1.58 }
     } satisfies Record<DroneType, { label: string; baseCost: number; scale: number }>,
     ship: {
-      hp: { baseCost: 180, scale: 1.6, gain: 50 },
+      hp: { baseCost: 80, scale: 1.12, gain: 25 },
       armor: { baseCost: 240, scale: 1.72, gain: 5 },
-      damage: { baseCost: 180, scale: 1.85 },
+      damage: { baseCost: 55, scale: 1.14 },
+      fireRate: { baseCost: 70, scale: 1.13, bonusPercentPerLevel: 4, minimumInterval: 0.045 },
       speed: { baseCost: 160, scale: 1.68, bonusPercentPerLevel: 12 },
       deflector: { baseCost: 320, scale: 1.78 },
       spreadShotCost: 620,
@@ -42,7 +44,11 @@ export const balance = {
     pointerArrivalRadius: 34,
     pointerBrakeRadius: 72,
     slingshotDeadzone: 0.08,
-    hyperspaceInterval: 4
+    hyperspaceInterval: 4,
+    shieldBubbleRechargeSeconds: 9,
+    shieldBubbleHitFlashSeconds: 0.32,
+    shieldBubbleGraceSeconds: 0.22,
+    shieldBubbleRadius: 34
   },
   drones: {
     orbitSpeed: 1.85,
@@ -87,7 +93,8 @@ export const balance = {
       drone: 2.4,
       saucer: 3.4,
       boss: 4.2,
-      missile: 3.2
+      missile: 3.2,
+      ricochet: 4.6
     },
     droneSpeedMultiplier: {
       sentry: 1,
@@ -141,9 +148,9 @@ export const balance = {
     bulletHitRadiusMultiplier: 0.82,
     variantWeights: {
       lyraGate: [
-        { variant: 'common', weight: 66 },
+        { variant: 'common', weight: 74 },
         { variant: 'metallic', weight: 18 },
-        { variant: 'crystal', weight: 8 },
+        { variant: 'crystal', weight: 0 },
         { variant: 'dense', weight: 8 }
       ],
       orionForge: [
@@ -173,47 +180,67 @@ export const balance = {
     } satisfies Record<string, { variant: AsteroidVariant; weight: number }[]>
   },
   bosses: {
+    firstGateAsteroids: 24,
     pendingSpawnIn: 3,
     spawnDistanceScreenMultiplier: 0.72,
     movementAngleJitter: 0.2,
-    shipCollisionDamage: 28,
+    shipCollisionDamage: 24,
+    ricochetBounces: 3,
     reward: { baseMoney: 260, moneyPerZone: 180, baseCrystals: 2, crystalsPerZone: 1 },
     stats: {
       sentinel: {
-        spawnSpeedBase: 120,
-        spawnSpeedPerZone: 10,
-        chaseSpeedBase: 118,
-        chaseSpeedPerZone: 8,
-        hpBase: 22,
-        hpPerZone: 18,
+        spawnSpeedBase: 106,
+        spawnSpeedPerZone: 12,
+        chaseSpeedBase: 104,
+        chaseSpeedPerZone: 11,
+        hpBase: 16,
+        hpPerZone: 20,
         radius: 64,
         rotationSpeed: 1.5,
         shapePoints: 16,
         initialFireCooldown: 0.7,
-        fireCooldownBase: 1.15,
-        fireCooldownMin: 0.55,
-        fireCooldownPerZone: 0.08,
-        bulletSpeed: 300,
-        bulletDamage: 28,
+        fireCooldownBase: 1.28,
+        fireCooldownMin: 0.52,
+        fireCooldownPerZone: 0.09,
+        bulletSpeed: 285,
+        bulletDamage: 18,
         bulletAngleOffsets: [-0.16, 0, 0.16]
       },
       crusher: {
-        spawnSpeedBase: 86,
-        spawnSpeedPerZone: 8,
-        chaseSpeedBase: 86,
-        chaseSpeedPerZone: 7,
-        hpBase: 32,
-        hpPerZone: 24,
+        spawnSpeedBase: 76,
+        spawnSpeedPerZone: 11,
+        chaseSpeedBase: 74,
+        chaseSpeedPerZone: 10,
+        hpBase: 20,
+        hpPerZone: 16,
         radius: 76,
         rotationSpeed: -0.8,
         shapePoints: 18,
         initialFireCooldown: 1.1,
-        fireCooldownBase: 1.55,
-        fireCooldownMin: 0.8,
-        fireCooldownPerZone: 0.08,
-        bulletSpeed: 240,
-        bulletDamage: 36,
+        fireCooldownBase: 1.7,
+        fireCooldownMin: 0.72,
+        fireCooldownPerZone: 0.11,
+        bulletSpeed: 230,
+        bulletDamage: 22,
         bulletAngleOffsets: [-0.34, 0.34]
+      },
+      prism: {
+        spawnSpeedBase: 92,
+        spawnSpeedPerZone: 10,
+        chaseSpeedBase: 88,
+        chaseSpeedPerZone: 9,
+        hpBase: 24,
+        hpPerZone: 18,
+        radius: 70,
+        rotationSpeed: 1.1,
+        shapePoints: 12,
+        initialFireCooldown: 0.85,
+        fireCooldownBase: 1.38,
+        fireCooldownMin: 0.62,
+        fireCooldownPerZone: 0.08,
+        bulletSpeed: 270,
+        bulletDamage: 16,
+        bulletAngleOffsets: [-0.28, 0, 0.28]
       }
     } satisfies Record<BossType, {
       spawnSpeedBase: number;
