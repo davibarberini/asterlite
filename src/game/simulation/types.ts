@@ -30,14 +30,10 @@ export type TalentId =
   | 'missileChain';
 export type TalentRanks = Record<TalentId, number>;
 export type WarpUnlockId =
-  | 'coreStabilizer'
-  | 'hullReinforcement'
-  | 'cannonAmplifier'
-  | 'armorPlating'
-  | 'flightThrusters'
   | 'droneSystems'
   | 'deflectorFrame'
   | 'shieldBubble'
+  | 'bossBeacon'
   | 'spreadBattery'
   | 'rangerHangar'
   | 'missileFoundry'
@@ -203,6 +199,11 @@ export type AchievementId =
   | 'deepScan'
   | 'warpVeteran';
 
+export type BossDiscoveryState = {
+  rareBossProgress: number;
+  rareBossesFound: number;
+};
+
 export type ProgressionState = {
   passiveIncomeLevel: number;
   shipDamageLevel: number;
@@ -221,6 +222,7 @@ export type ProgressionState = {
   currentZoneIndex: number;
   unlockedZoneIndex: number;
   bossDefeats: number;
+  bossDiscovery: BossDiscoveryState;
   prestigeCores: number;
   ownedWarpUnlockIds: WarpUnlockId[];
   maxHp: number;

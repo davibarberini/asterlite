@@ -9,13 +9,14 @@ import {
   syncAchievements
 } from './achievements';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
-import type { AchievementId, AchievementStats, DroneType, GameState, ProgressionState, ShieldBubbleState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, ProgressionState, ShieldBubbleState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
 
 const SAVE_KEY = 'asteridle.save.v1';
+const STORAGE_PREFIX = 'asteridle.';
 const SAVE_VERSION: SaveVersion = 1;
 
 type SaveVersion = 1;
@@ -135,6 +136,20 @@ const readUnlockedAchievements = (value: unknown): Record<AchievementId, boolean
   return unlocked;
 };
 
+const readBossDiscovery = (value: unknown): BossDiscoveryState => {
+  if (!isRecord(value)) {
+    return {
+      rareBossProgress: 0,
+      rareBossesFound: 0
+    };
+  }
+
+  return {
+    rareBossProgress: Math.max(0, Math.floor(readNumber(value.rareBossProgress, 0))),
+    rareBossesFound: Math.max(0, Math.floor(readNumber(value.rareBossesFound, 0)))
+  };
+};
+
 const readWarpUnlockIds = (value: unknown): WarpUnlockId[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -143,6 +158,9 @@ const readWarpUnlockIds = (value: unknown): WarpUnlockId[] => {
   const ids = value.filter((id): id is WarpUnlockId => typeof id === 'string' && id in WARP_UNLOCK_BY_ID);
   return Array.from(new Set(ids));
 };
+
+const hasLegacyWarpUnlockId = (value: unknown, id: string): boolean =>
+  Array.isArray(value) && value.includes(id);
 
 const addWarpUnlockId = (ids: WarpUnlockId[], id: WarpUnlockId): void => {
   if (!ids.includes(id)) {
@@ -188,18 +206,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
   const currentZoneIndex = Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex))));
   const ownedWarpUnlockIds = readWarpUnlockIds(value.ownedWarpUnlockIds);
-  if (maxHp > 100) {
-    addWarpUnlockId(ownedWarpUnlockIds, 'hullReinforcement');
-  }
-  if (shipDamageLevel > 1) {
-    addWarpUnlockId(ownedWarpUnlockIds, 'cannonAmplifier');
-  }
-  if (armor > 0) {
-    addWarpUnlockId(ownedWarpUnlockIds, 'armorPlating');
-  }
-  if (shipSpeedLevel > 0) {
-    addWarpUnlockId(ownedWarpUnlockIds, 'flightThrusters');
-  }
+  const legacyUnlockIds = value.ownedWarpUnlockIds;
   if (droneCounts.sentry > 0 || droneCounts.ranger > 0 || droneCounts.breaker > 0) {
     addWarpUnlockId(ownedWarpUnlockIds, 'droneSystems');
   }
@@ -211,6 +218,21 @@ const readProgression = (value: unknown): ProgressionState | null => {
   }
   if (piercingUnlocked) {
     addWarpUnlockId(ownedWarpUnlockIds, 'piercingRail');
+  }
+  if (hasLegacyWarpUnlockId(legacyUnlockIds, 'coreStabilizer')) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'droneSystems');
+  }
+  if (hasLegacyWarpUnlockId(legacyUnlockIds, 'hullReinforcement')) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'deflectorFrame');
+  }
+  if (hasLegacyWarpUnlockId(legacyUnlockIds, 'cannonAmplifier')) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'spreadBattery');
+  }
+  if (hasLegacyWarpUnlockId(legacyUnlockIds, 'armorPlating')) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'shieldBubble');
+  }
+  if (hasLegacyWarpUnlockId(legacyUnlockIds, 'flightThrusters')) {
+    addWarpUnlockId(ownedWarpUnlockIds, 'bossBeacon');
   }
   if (droneCounts.ranger > 0) {
     addWarpUnlockId(ownedWarpUnlockIds, 'rangerHangar');
@@ -237,6 +259,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
     currentZoneIndex,
     unlockedZoneIndex,
     bossDefeats: Math.max(0, Math.floor(readNumber(value.bossDefeats, unlockedZoneIndex))),
+    bossDiscovery: readBossDiscovery(value.bossDiscovery),
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
     ownedWarpUnlockIds,
     maxHp,
@@ -395,5 +418,15 @@ export const saveGameState = (state: GameState): void => {
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(save));
   } catch {
     // Persistence is best-effort; gameplay should continue if storage is blocked.
+  }
+};
+
+export const clearAllAsteridleData = (): void => {
+  try {
+    const keys = Array.from({ length: window.localStorage.length }, (_value, index) => window.localStorage.key(index))
+      .filter((key): key is string => typeof key === 'string' && key.startsWith(STORAGE_PREFIX));
+    keys.forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Clearing data is best-effort; the caller still resets in-memory state.
   }
 };

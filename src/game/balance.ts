@@ -5,7 +5,6 @@ export const balance = {
     passiveIncomePerLevel: 1.25,
     passiveCost: { base: 45, scale: 1.12 },
     mapUnlockCost: 260,
-    bossCrystalCost: { base: 2, perZone: 2 },
     deathIncomeMultiplier: 0.35,
     maxOfflineSeconds: 8 * 60 * 60,
     prestige: {
@@ -181,6 +180,7 @@ export const balance = {
   },
   bosses: {
     firstGateAsteroids: 24,
+    rareDiscoveryAsteroids: 54,
     pendingSpawnIn: 3,
     spawnDistanceScreenMultiplier: 0.72,
     movementAngleJitter: 0.2,

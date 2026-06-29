@@ -353,12 +353,16 @@ const destroyAsteroid = (
   recordMoneyEarned(state.progression, reward.money);
   recordCrystalsCollected(state.progression, reward.crystals);
   state.progression.achievementStats.asteroidsDestroyed += 1;
+  if (!asteroid.bossType && state.progression.unlockedZoneIndex > 0) {
+    state.progression.bossDiscovery.rareBossProgress += 1;
+  }
   if (asteroid.bossType && asteroid.bossZoneIndex !== undefined) {
     const unlockedZone = getZoneByIndex(asteroid.bossZoneIndex);
     state.progression.unlockedZoneIndex = Math.max(state.progression.unlockedZoneIndex, asteroid.bossZoneIndex);
     state.progression.travelLevel = state.progression.unlockedZoneIndex;
     state.progression.mapUnlocked = true;
     state.progression.bossDefeats += 1;
+    state.progression.bossDiscovery.rareBossProgress = 0;
     emitAudio(state, { type: 'bossDefeated' });
     emitAudio(state, { type: 'zoneUnlocked' });
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');

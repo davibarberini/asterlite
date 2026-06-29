@@ -19,14 +19,10 @@ type WarpCoreTreeRenderState = {
 const nodeWidth = 72;
 const nodeHeight = 72;
 const iconLabels: Record<WarpUnlockId, string> = {
-  coreStabilizer: 'CORE',
-  hullReinforcement: 'HULL',
-  cannonAmplifier: 'DMG',
-  armorPlating: 'ARM',
-  flightThrusters: 'SPD',
   droneSystems: 'DRN',
   deflectorFrame: 'DEF',
   shieldBubble: 'SHD',
+  bossBeacon: 'BOSS',
   spreadBattery: 'SPR',
   rangerHangar: 'RNG',
   missileFoundry: 'MSL',

@@ -3,7 +3,7 @@ import { neutralInput } from '../input/actions';
 import { getCrystalBalance, purchaseTalentRank, spendCrystals } from '../progression/currency';
 import { createProgression } from '../simulation/state';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../progression/prestige';
-import { loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
+import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
@@ -69,7 +69,11 @@ describe('save loading', () => {
     savedState.crystals = 6;
     savedState.progression.shipDamageLevel = 3;
     savedState.progression.shipFireRateLevel = 4;
-    savedState.progression.ownedWarpUnlockIds = ['coreStabilizer', 'droneSystems'];
+    savedState.progression.bossDiscovery = {
+      rareBossProgress: 12,
+      rareBossesFound: 1
+    };
+    savedState.progression.ownedWarpUnlockIds = ['droneSystems'];
     savedState.ship.position = { x: 180, y: 220 };
     savedState.ship.hp = 72;
 
@@ -84,9 +88,25 @@ describe('save loading', () => {
     expect(loadedState.crystals).toBe(6);
     expect(loadedState.progression.shipDamageLevel).toBe(3);
     expect(loadedState.progression.shipFireRateLevel).toBe(4);
-    expect(loadedState.progression.ownedWarpUnlockIds).toEqual(['coreStabilizer', 'droneSystems', 'cannonAmplifier']);
+    expect(loadedState.progression.bossDiscovery).toEqual({
+      rareBossProgress: 12,
+      rareBossesFound: 1
+    });
+    expect(loadedState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
     expect(loadedState.ship.position).toEqual({ x: 180, y: 220 });
     expect(loadedState.ship.hp).toBe(72);
+  });
+
+  it('clears all local Asteridle data without touching unrelated storage', () => {
+    window.localStorage.setItem(saveKey, 'save');
+    window.localStorage.setItem('asteridle.settings.volume', '0.5');
+    window.localStorage.setItem('other-game.save', 'keep');
+
+    clearAllAsteridleData();
+
+    expect(window.localStorage.getItem(saveKey)).toBeNull();
+    expect(window.localStorage.getItem('asteridle.settings.volume')).toBeNull();
+    expect(window.localStorage.getItem('other-game.save')).toBe('keep');
   });
 
   it('normalizes invalid persisted numbers and clamps zone indexes', () => {
@@ -180,7 +200,7 @@ describe('save loading', () => {
 
   it('defaults shield bubble state for saves without shield data', () => {
     const progression = createProgression();
-    progression.ownedWarpUnlockIds = ['coreStabilizer', 'deflectorFrame', 'shieldBubble'];
+    progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
 
     window.localStorage.setItem(
       saveKey,
@@ -211,7 +231,7 @@ describe('save loading', () => {
 
   it('persists shield bubble recharge state when unlocked', () => {
     const savedState = createGameState(800, 600);
-    savedState.progression.ownedWarpUnlockIds = ['coreStabilizer', 'deflectorFrame', 'shieldBubble'];
+    savedState.progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
     savedState.shieldBubble = {
       active: false,
       broken: true,
@@ -270,15 +290,11 @@ describe('save loading', () => {
 describe('warp unlock definitions', () => {
   it('defines the first permanent warp unlock route', () => {
     expect(WARP_UNLOCK_DEFINITIONS.map((unlock) => unlock.id)).toEqual([
-      'coreStabilizer',
-      'hullReinforcement',
-      'cannonAmplifier',
-      'armorPlating',
-      'flightThrusters',
       'droneSystems',
+      'bossBeacon',
+      'spreadBattery',
       'deflectorFrame',
       'shieldBubble',
-      'spreadBattery',
       'rangerHangar',
       'missileFoundry',
       'piercingRail'
@@ -301,58 +317,46 @@ describe('warp unlock definitions', () => {
   it('calculates owned available locked and unaffordable warp node states', () => {
     const progression = createProgression();
 
-    expect(hasWarpUnlock(progression, 'coreStabilizer')).toBe(false);
-    expect(meetsWarpUnlockRequirements(progression, 'coreStabilizer')).toBe(true);
-    expect(getWarpUnlockNodeState(progression, 0, 'coreStabilizer')).toBe('unaffordable');
-    expect(getWarpUnlockNodeState(progression, 1, 'coreStabilizer')).toBe('available');
-    expect(getWarpUnlockNodeState(progression, 10, 'droneSystems')).toBe('locked');
+    expect(hasWarpUnlock(progression, 'droneSystems')).toBe(false);
+    expect(meetsWarpUnlockRequirements(progression, 'droneSystems')).toBe(true);
+    expect(getWarpUnlockNodeState(progression, 0, 'droneSystems')).toBe('unaffordable');
+    expect(getWarpUnlockNodeState(progression, 1, 'droneSystems')).toBe('available');
+    expect(getWarpUnlockNodeState(progression, 10, 'bossBeacon')).toBe('locked');
 
-    progression.ownedWarpUnlockIds = ['coreStabilizer'];
+    progression.ownedWarpUnlockIds = ['droneSystems'];
 
-    expect(hasWarpUnlock(progression, 'coreStabilizer')).toBe(true);
-    expect(getWarpUnlockNodeState(progression, 0, 'coreStabilizer')).toBe('owned');
-    expect(meetsWarpUnlockRequirements(progression, 'hullReinforcement')).toBe(true);
-    expect(getWarpUnlockNodeState(progression, 1, 'hullReinforcement')).toBe('available');
+    expect(hasWarpUnlock(progression, 'droneSystems')).toBe(true);
+    expect(getWarpUnlockNodeState(progression, 0, 'droneSystems')).toBe('owned');
+    expect(meetsWarpUnlockRequirements(progression, 'bossBeacon')).toBe(true);
+    expect(getWarpUnlockNodeState(progression, 2, 'bossBeacon')).toBe('available');
   });
 
-  it('paces early warp route costs across multiple resets', () => {
+  it('paces technology costs around gameplay unlocks', () => {
     const cost = (id: keyof typeof WARP_UNLOCK_BY_ID): number => WARP_UNLOCK_BY_ID[id].cost;
 
-    expect(cost('coreStabilizer')).toBe(1);
-    expect(cost('hullReinforcement')).toBe(1);
-    expect(cost('cannonAmplifier')).toBe(1);
-    expect(cost('armorPlating')).toBe(2);
-    expect(cost('flightThrusters')).toBe(2);
-    expect(cost('droneSystems')).toBe(3);
-
-    const droneSystemsTotal =
-      cost('coreStabilizer') +
-      cost('hullReinforcement') +
-      cost('cannonAmplifier') +
-      cost('armorPlating') +
-      cost('flightThrusters') +
-      cost('droneSystems');
-
-    expect(droneSystemsTotal).toBe(10);
-    expect(cost('deflectorFrame')).toBeGreaterThan(cost('armorPlating'));
+    expect(cost('droneSystems')).toBe(1);
+    expect(cost('bossBeacon')).toBe(2);
+    expect(cost('spreadBattery')).toBe(2);
+    expect(cost('deflectorFrame')).toBeGreaterThan(cost('bossBeacon'));
     expect(cost('shieldBubble')).toBeGreaterThan(cost('deflectorFrame'));
   });
 
   it('installs available warp unlock effects directly into progression', () => {
     const progression = createProgression();
-    progression.prestigeCores = 10;
+    progression.prestigeCores = 12;
 
-    expect(purchaseWarpUnlock(progression, 'coreStabilizer')).toBe(true);
-    expect(purchaseWarpUnlock(progression, 'hullReinforcement')).toBe(true);
-    expect(purchaseWarpUnlock(progression, 'cannonAmplifier')).toBe(true);
-    expect(purchaseWarpUnlock(progression, 'armorPlating')).toBe(true);
-    expect(purchaseWarpUnlock(progression, 'flightThrusters')).toBe(true);
-
-    expect(progression.maxHp).toBe(150);
-    expect(progression.shipDamageLevel).toBe(2);
-    expect(progression.armor).toBe(5);
-    expect(progression.shipSpeedLevel).toBe(1);
     expect(purchaseWarpUnlock(progression, 'droneSystems')).toBe(true);
+    expect(purchaseWarpUnlock(progression, 'bossBeacon')).toBe(true);
+    expect(purchaseWarpUnlock(progression, 'spreadBattery')).toBe(true);
+    expect(purchaseWarpUnlock(progression, 'deflectorFrame')).toBe(true);
+
+    expect(progression.shipDamageLevel).toBe(1);
+    expect(progression.maxHp).toBe(100);
+    expect(progression.armor).toBe(0);
+    expect(progression.shipSpeedLevel).toBe(0);
+    expect(progression.spreadUnlocked).toBe(true);
+    expect(progression.deflectorLevel).toBe(1);
+    expect(progression.ownedWarpUnlockIds).toContain('bossBeacon');
     expect(progression.ownedWarpUnlockIds).toContain('droneSystems');
   });
 });
@@ -560,6 +564,34 @@ describe('boss gates and warp reset', () => {
     expect(state.rewardEvents.some((event) => event.kind === 'boss' && event.text.includes('First gate boss'))).toBe(true);
   });
 
+  it('discovers rare post-first gate bosses from asteroid progress', () => {
+    const state = createGameState(800, 600);
+    state.progression.unlockedZoneIndex = 1;
+    state.progression.currentZoneIndex = 1;
+    state.progression.travelLevel = 1;
+    state.progression.bossDiscovery.rareBossProgress = balance.bosses.rareDiscoveryAsteroids;
+
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.pendingBoss?.bossZoneIndex).toBe(2);
+    expect(state.pendingBoss?.bossType).toBe(zones[2].bossType);
+    expect(state.progression.bossDiscovery.rareBossProgress).toBe(0);
+    expect(state.progression.bossDiscovery.rareBossesFound).toBe(1);
+  });
+
+  it('waits to discover rare bosses until the player reaches the current frontier zone', () => {
+    const state = createGameState(800, 600);
+    state.progression.unlockedZoneIndex = 2;
+    state.progression.currentZoneIndex = 1;
+    state.progression.travelLevel = 2;
+    state.progression.bossDiscovery.rareBossProgress = balance.bosses.rareDiscoveryAsteroids;
+
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.pendingBoss).toBeNull();
+    expect(state.progression.bossDiscovery.rareBossProgress).toBe(balance.bosses.rareDiscoveryAsteroids);
+  });
+
   it('calculates first warp core gain after the first route gate', () => {
     const state = createGameState(800, 600);
     state.crystals = crystalsPerPrestigeCore * 2 + 3;
@@ -605,7 +637,7 @@ describe('boss gates and warp reset', () => {
 
   it('recharges shield bubble state after it breaks', () => {
     const state = createGameState(800, 600);
-    state.progression.ownedWarpUnlockIds = ['coreStabilizer', 'deflectorFrame', 'shieldBubble'];
+    state.progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
     state.shieldBubble = {
       active: false,
       broken: true,
@@ -625,7 +657,7 @@ describe('boss gates and warp reset', () => {
 
   it('shield bubble absorbs one asteroid collision before hull damage', () => {
     const state = createGameState(800, 600);
-    state.progression.ownedWarpUnlockIds = ['coreStabilizer', 'deflectorFrame', 'shieldBubble'];
+    state.progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
     state.shieldBubble = {
       active: true,
       broken: false,
@@ -649,7 +681,7 @@ describe('boss gates and warp reset', () => {
 
   it('shield bubble absorbs one hostile projectile before hull damage', () => {
     const state = createGameState(800, 600);
-    state.progression.ownedWarpUnlockIds = ['coreStabilizer', 'deflectorFrame', 'shieldBubble'];
+    state.progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
     state.shieldBubble = {
       active: true,
       broken: false,
@@ -688,7 +720,7 @@ describe('boss gates and warp reset', () => {
     state.money = 5000;
     state.crystals = 48;
     state.progression.prestigeCores = 2;
-    state.progression.ownedWarpUnlockIds = ['coreStabilizer', 'hullReinforcement', 'cannonAmplifier'];
+    state.progression.ownedWarpUnlockIds = ['droneSystems', 'bossBeacon', 'spreadBattery'];
     state.progression.maxHp = 150;
     state.progression.shipDamageLevel = 2;
     state.progression.unlockedZoneIndex = 3;
@@ -702,7 +734,7 @@ describe('boss gates and warp reset', () => {
     expect(nextState.money).toBe(0);
     expect(nextState.crystals).toBe(0);
     expect(nextState.progression.prestigeCores).toBe(5);
-    expect(nextState.progression.ownedWarpUnlockIds).toEqual(['coreStabilizer', 'hullReinforcement', 'cannonAmplifier']);
+    expect(nextState.progression.ownedWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon', 'spreadBattery']);
     expect(nextState.progression.maxHp).toBe(150);
     expect(nextState.progression.shipDamageLevel).toBe(2);
     expect(nextState.ship.maxHp).toBe(150);

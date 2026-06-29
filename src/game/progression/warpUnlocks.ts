@@ -14,78 +14,48 @@ export type WarpUnlockDefinition = {
 export type WarpUnlockNodeState = 'owned' | 'available' | 'locked' | 'unaffordable';
 
 export const WARP_UNLOCK_GRID_COLUMNS = 3;
-export const WARP_UNLOCK_GRID_ROWS = 8;
+export const WARP_UNLOCK_GRID_ROWS = 6;
 
 export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
-  {
-    id: 'coreStabilizer',
-    title: 'Core Stabilizer',
-    summary: 'Stabilizes warp cores and anchors the permanent upgrade route.',
-    effectSummary: 'Opens the permanent core route.',
-    iconId: 'warp-core',
-    cost: 1,
-    route: { col: 2, row: 1 },
-    requires: []
-  },
-  {
-    id: 'hullReinforcement',
-    title: 'Hull Reinforcement',
-    summary: 'Installs a permanent hull frame upgrade directly from the warp route.',
-    effectSummary: '+50 max HP permanently.',
-    iconId: 'warp-hull',
-    cost: 1,
-    route: { col: 1, row: 2 },
-    requires: ['coreStabilizer']
-  },
-  {
-    id: 'cannonAmplifier',
-    title: 'Cannon Amplifier',
-    summary: 'Improves the main cannon without a separate credit purchase.',
-    effectSummary: '+1 cannon damage level permanently.',
-    iconId: 'warp-cannon',
-    cost: 1,
-    route: { col: 3, row: 2 },
-    requires: ['coreStabilizer']
-  },
-  {
-    id: 'armorPlating',
-    title: 'Armor Plating',
-    summary: 'Adds permanent impact plating for deeper asteroid lanes.',
-    effectSummary: '+5 armor permanently.',
-    iconId: 'warp-armor',
-    cost: 2,
-    route: { col: 1, row: 3 },
-    requires: ['hullReinforcement']
-  },
-  {
-    id: 'flightThrusters',
-    title: 'Flight Thrusters',
-    summary: 'Raises ship velocity and handling from the core route.',
-    effectSummary: '+12% ship speed permanently.',
-    iconId: 'warp-thruster',
-    cost: 2,
-    route: { col: 3, row: 3 },
-    requires: ['cannonAmplifier']
-  },
   {
     id: 'droneSystems',
     title: 'Drone Systems',
     summary: 'Authorizes drone bay systems and the first semi-auto support drone package.',
     effectSummary: 'Unlocks drone purchases after this node.',
     iconId: 'warp-drone',
-    cost: 3,
-    route: { col: 2, row: 4 },
-    requires: ['armorPlating', 'flightThrusters']
+    cost: 1,
+    route: { col: 2, row: 1 },
+    requires: []
+  },
+  {
+    id: 'bossBeacon',
+    title: 'Boss Beacon',
+    summary: 'Installs a gate-boss signal beacon for deliberate route challenges.',
+    effectSummary: 'Unlocks manual boss summoning from Technologies.',
+    iconId: 'warp-boss',
+    cost: 2,
+    route: { col: 1, row: 2 },
+    requires: ['droneSystems']
+  },
+  {
+    id: 'spreadBattery',
+    title: 'Spread Battery',
+    summary: 'Installs spread shot and opens the weapon-mode layer.',
+    effectSummary: 'Unlocks Spread Shot immediately.',
+    iconId: 'warp-spread',
+    cost: 2,
+    route: { col: 3, row: 2 },
+    requires: ['droneSystems']
   },
   {
     id: 'deflectorFrame',
-    title: 'Deflector Frame',
-    summary: 'Reinforces the ship prow and installs the directional deflector immediately.',
-    effectSummary: '+1 deflector level permanently.',
+    title: 'Deflector Prow',
+    summary: 'Installs a directional prow deflector for collision-based asteroid control.',
+    effectSummary: 'Unlocks the directional deflector mechanic.',
     iconId: 'warp-deflector',
     cost: 3,
-    route: { col: 1, row: 5 },
-    requires: ['armorPlating']
+    route: { col: 1, row: 3 },
+    requires: ['bossBeacon']
   },
   {
     id: 'shieldBubble',
@@ -94,18 +64,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     effectSummary: 'Absorbs one hit, breaks, then recharges.',
     iconId: 'warp-shield',
     cost: 5,
-    route: { col: 1, row: 6 },
+    route: { col: 1, row: 4 },
     requires: ['deflectorFrame']
-  },
-  {
-    id: 'spreadBattery',
-    title: 'Spread Battery',
-    summary: 'Installs spread shot directly from the permanent core route.',
-    effectSummary: 'Unlocks Spread Shot immediately.',
-    iconId: 'warp-spread',
-    cost: 3,
-    route: { col: 3, row: 5 },
-    requires: ['flightThrusters']
   },
   {
     id: 'rangerHangar',
@@ -114,7 +74,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     effectSummary: 'Unlocks shotgun drone purchases after this node.',
     iconId: 'warp-ranger',
     cost: 5,
-    route: { col: 2, row: 6 },
+    route: { col: 2, row: 3 },
     requires: ['droneSystems']
   },
   {
@@ -124,7 +84,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     effectSummary: 'Unlocks missile drone purchases after this node.',
     iconId: 'warp-missile',
     cost: 6,
-    route: { col: 2, row: 7 },
+    route: { col: 2, row: 4 },
     requires: ['rangerHangar']
   },
   {
@@ -134,7 +94,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     effectSummary: 'Unlocks Piercing Rounds immediately.',
     iconId: 'warp-piercing',
     cost: 6,
-    route: { col: 3, row: 6 },
+    route: { col: 3, row: 3 },
     requires: ['spreadBattery']
   }
 ];
@@ -172,22 +132,6 @@ export const getAvailableWarpCores = (progression: ProgressionState): number =>
   Math.max(0, progression.prestigeCores - getSpentWarpCores(progression));
 
 export const applyOwnedWarpUnlockEffects = (progression: ProgressionState): void => {
-  if (hasWarpUnlock(progression, 'hullReinforcement')) {
-    progression.maxHp = Math.max(progression.maxHp, 150);
-  }
-
-  if (hasWarpUnlock(progression, 'cannonAmplifier')) {
-    progression.shipDamageLevel = Math.max(progression.shipDamageLevel, 2);
-  }
-
-  if (hasWarpUnlock(progression, 'armorPlating')) {
-    progression.armor = Math.max(progression.armor, 5);
-  }
-
-  if (hasWarpUnlock(progression, 'flightThrusters')) {
-    progression.shipSpeedLevel = Math.max(progression.shipSpeedLevel, 1);
-  }
-
   if (hasWarpUnlock(progression, 'deflectorFrame')) {
     progression.deflectorLevel = Math.max(progression.deflectorLevel, 1);
   }

@@ -49,6 +49,11 @@ export class AudioSettingsController {
     ];
   }
 
+  resetToDefaults(): void {
+    this.callbacks.setSfxVolume(defaultSfxVolume);
+    this.callbacks.setMusicVolume(defaultMusicVolume);
+  }
+
   private applySavedVolumes(): void {
     this.callbacks.setSfxVolume(this.loadSfxVolume());
     this.callbacks.setMusicVolume(this.loadMusicVolume());

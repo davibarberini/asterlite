@@ -58,8 +58,25 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
 
 const updateBossDiscovery = (state: GameState): void => {
   if (
-    state.progression.unlockedZoneIndex > 0 ||
-    state.progression.achievementStats.asteroidsDestroyed < balance.bosses.firstGateAsteroids ||
+    state.progression.unlockedZoneIndex === 0 &&
+    state.progression.achievementStats.asteroidsDestroyed >= balance.bosses.firstGateAsteroids &&
+    !hasActiveZoneBoss(state)
+  ) {
+    const pendingBoss = createPendingZoneBoss(state);
+    if (!pendingBoss) {
+      return;
+    }
+
+    state.pendingBoss = pendingBoss;
+    emitReward(state, 'First gate boss detected', 'boss');
+    emitAudio(state, { type: 'bossSummoned' });
+    return;
+  }
+
+  if (
+    state.progression.unlockedZoneIndex <= 0 ||
+    state.progression.currentZoneIndex < state.progression.unlockedZoneIndex ||
+    state.progression.bossDiscovery.rareBossProgress < balance.bosses.rareDiscoveryAsteroids ||
     hasActiveZoneBoss(state)
   ) {
     return;
@@ -71,7 +88,9 @@ const updateBossDiscovery = (state: GameState): void => {
   }
 
   state.pendingBoss = pendingBoss;
-  emitReward(state, 'First gate boss detected', 'boss');
+  state.progression.bossDiscovery.rareBossProgress = 0;
+  state.progression.bossDiscovery.rareBossesFound += 1;
+  emitReward(state, `${pendingBoss.bossType === 'prism' ? 'Prism' : 'Gate'} boss signal detected`, 'boss');
   emitAudio(state, { type: 'bossSummoned' });
 };
 

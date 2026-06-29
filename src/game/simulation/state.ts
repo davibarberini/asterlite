@@ -71,6 +71,10 @@ export const createProgression = (): ProgressionState => ({
   currentZoneIndex: 0,
   unlockedZoneIndex: 0,
   bossDefeats: 0,
+  bossDiscovery: {
+    rareBossProgress: 0,
+    rareBossesFound: 0
+  },
   prestigeCores: 0,
   ownedWarpUnlockIds: [],
   maxHp: 100,

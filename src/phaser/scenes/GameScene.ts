@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { neutralInput, type InputActions } from '../../game/input/actions';
-import { getCrystalBalance as getStateCrystalBalance, purchaseTalentRank, spendCrystals as spendStateCrystals } from '../../game/progression/currency';
-import { loadGameState, saveGameState } from '../../game/progression/saveData';
+import { getCrystalBalance as getStateCrystalBalance, purchaseTalentRank } from '../../game/progression/currency';
+import { clearAllAsteridleData, loadGameState, saveGameState } from '../../game/progression/saveData';
 import { emitReward } from '../../game/simulation/events';
-import { createDrone, syncShieldBubbleState } from '../../game/simulation/state';
+import { createDrone, createGameState, syncShieldBubbleState } from '../../game/simulation/state';
 import { createAsteroidField, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
 import type { BossType, DroneType, GameState, TalentId, Vec2, WarpUnlockId, WeaponMode } from '../../game/simulation/types';
 import { getCoreUpgradeCap, getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../../game/progression/idleBonuses';
@@ -951,7 +951,11 @@ export class GameScene extends Phaser.Scene {
       onBuyUnlock: (id) => this.buyWarpUnlock(id)
     });
     coreTree.classList.add('warp-tree-board--inline');
-    this.shopActionsEl.replaceChildren(this.createWarpResetPanel(), coreTree);
+    const panels = [this.createWarpResetPanel()];
+    if (hasWarpUnlock(this.state.progression, 'bossBeacon')) {
+      panels.push(this.createBossBeaconPanel());
+    }
+    this.shopActionsEl.replaceChildren(...panels, coreTree);
   }
 
   private createWarpResetPanel(): HTMLElement {
@@ -1004,6 +1008,40 @@ export class GameScene extends Phaser.Scene {
     valueEl.textContent = value;
     stat.append(labelEl, valueEl);
     return stat;
+  }
+
+  private createBossBeaconPanel(): HTMLElement {
+    const nextZone = getNextZone(this.state);
+    const blocked = !nextZone || hasActiveZoneBoss(this.state);
+    const panel = document.createElement('section');
+    panel.className = 'warp-reset-panel';
+
+    const header = document.createElement('div');
+    header.className = 'warp-reset-panel__header';
+    const titleWrap = document.createElement('div');
+    const kicker = document.createElement('span');
+    kicker.className = 'warp-reset-panel__kicker';
+    kicker.textContent = 'Boss Beacon';
+    const title = document.createElement('strong');
+    title.textContent = nextZone ? `${this.formatBossName(nextZone.bossType)} signal` : 'Route cleared';
+    titleWrap.append(kicker, title);
+
+    const summonButton = document.createElement('button');
+    summonButton.className = 'shop-buy warp-reset-panel__button';
+    summonButton.type = 'button';
+    summonButton.disabled = blocked;
+    summonButton.textContent = blocked ? 'Blocked' : 'Summon';
+    summonButton.addEventListener('click', () => this.summonZoneBoss());
+    header.append(titleWrap, summonButton);
+
+    const preview = document.createElement('p');
+    preview.className = 'warp-reset-panel__preview';
+    preview.textContent = nextZone
+      ? 'Call the next gate boss immediately instead of waiting for a rare field signal.'
+      : 'No further gate boss signals are available on this route.';
+
+    panel.append(header, preview);
+    return panel;
   }
 
   private getWarpResetBlockedTitle(): string {
@@ -1346,7 +1384,56 @@ export class GameScene extends Phaser.Scene {
     this.modalTitleEl.textContent = 'Sound Settings';
     this.modalCopyEl.textContent = '';
     this.modalCopyEl.classList.add('is-hidden');
-    this.modalBodyEl.replaceChildren(...this.audioSettings.render());
+    this.modalBodyEl.replaceChildren(...this.audioSettings.render(), this.createResetDataControl());
+  }
+
+  private createResetDataControl(): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'settings-modal-control settings-modal-control--danger';
+
+    const heading = document.createElement('div');
+    heading.className = 'settings-control';
+    const title = document.createElement('span');
+    title.textContent = 'Save Data';
+    const status = document.createElement('strong');
+    status.textContent = 'Reset';
+    heading.append(title, status);
+
+    const copy = document.createElement('p');
+    copy.className = 'settings-danger-copy';
+    copy.textContent = 'Clears all Asteridle save, progression, technologies, achievements, and local settings on this device.';
+
+    const button = document.createElement('button');
+    button.className = 'settings-danger-button';
+    button.type = 'button';
+    button.textContent = 'Reset All Data';
+    button.addEventListener('click', () => this.confirmResetAllData());
+
+    wrapper.append(heading, copy, button);
+    return wrapper;
+  }
+
+  private confirmResetAllData(): void {
+    const confirmed = window.confirm('Reset all Asteridle data on this device? This cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
+    clearAllAsteridleData();
+    this.state = createGameState(this.scale.width, this.scale.height);
+    this.offlineStatusFor = 0;
+    this.saveElapsed = 0;
+    this.shopSignature = '';
+    this.activeTab = 'upgrades';
+    this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
+    this.zoneTravel = null;
+    this.audioSettings.resetToDefaults();
+    saveGameState(this.state);
+    this.closeModal();
+    this.closeShopDrawer();
+    emitReward(this.state, 'All local data reset', 'system');
+    this.updateHud();
   }
 
   private renderZoneMapModal(): void {
@@ -1725,14 +1812,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private summonZoneBoss(): void {
-    const cost = this.getBossCrystalCost();
     const pendingBoss = createPendingZoneBoss(this.state);
-    if (!pendingBoss || !this.spendCrystals(cost)) {
+    if (!hasWarpUnlock(this.state.progression, 'bossBeacon') || !pendingBoss) {
       return;
     }
 
     this.state.asteroids = this.state.asteroids.filter((asteroid) => !asteroid.bossType);
     this.state.pendingBoss = pendingBoss;
+    this.state.progression.bossDiscovery.rareBossProgress = 0;
     this.closeShopDrawer();
     emitReward(this.state, `${this.formatBossName(pendingBoss.bossType)} arriving in 3 sec`, 'boss');
     this.retroSound.play({ type: 'bossSummoned' });
@@ -1876,14 +1963,6 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  private spendCrystals(cost: number): boolean {
-    const spent = spendStateCrystals(this.state, cost);
-    if (spent) {
-      this.shopSignature = '';
-    }
-    return spent;
-  }
-
   private scaledCost(baseCost: number, level: number, scale: number): number {
     return Math.round(baseCost * scale ** level);
   }
@@ -1947,11 +2026,6 @@ export class GameScene extends Phaser.Scene {
 
   private getPrestigeGain(): number {
     return getPrestigeCoreGain(this.state);
-  }
-
-  private getBossCrystalCost(): number {
-    const nextZone = getNextZone(this.state);
-    return nextZone ? balance.economy.bossCrystalCost.base + nextZone.index * balance.economy.bossCrystalCost.perZone : 0;
   }
 
   private formatMoney(value: number): string {

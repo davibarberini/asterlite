@@ -4,6 +4,29 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Gameplay-Only Technologies Tree
+
+Refocused Technologies around gameplay unlocks instead of stat upgrades.
+
+Notes:
+- Removed pure stat upgrades from the active Technologies tree.
+- Made `Drone Systems` the first Technology and first core spend.
+- Reconnected boss summon, weapon modes, deflector, shield, and advanced drone families as gameplay branches.
+- Preserved old saves by mapping removed legacy technology ids into the closest gameplay unlocks.
+- Kept attribute growth in the normal Upgrades tab.
+
+### Boss Discovery and Technology Summon
+
+Changed post-first boss gates from pure shop-style summons into progression discoveries with a Technology-gated manual summon.
+
+Notes:
+- Added serializable boss discovery progress for rare post-first-gate boss signals.
+- Rare boss discovery now accumulates from asteroid clears at the current frontier zone.
+- Rare boss discovery will not overlap an active or pending boss.
+- Added `Boss Beacon` to Technologies to unlock deliberate manual boss summoning.
+- Manual boss summon no longer spends crystals and is hidden until `Boss Beacon` is owned.
+- Added tests for boss discovery persistence, rare boss eligibility, frontier gating, and the new Technology route.
+
 ### Core Upgrade and Tab Reveal Onboarding
 
 Reworked the early progression surface so the game introduces systems gradually.
@@ -29,21 +52,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Boss Discovery and Technology Summon
-
-Change post-first boss gates from shop-style crystal summons into rare discoveries with a later summon technology.
-
-Design:
-- After the first gate, let bosses appear rarely from play instead of feeling like a normal purchase.
-- Add a Technology that unlocks deliberate boss summoning once the player understands bosses.
-- Keep boss defeat as the way to unlock the next zone.
-
-Acceptance:
-- Add serializable boss discovery/progress state.
-- Rare boss appearances should not overlap an active/pending boss.
-- Remove or hide manual boss summon until the Technology is owned.
-- Add tests for rare spawn eligibility and technology-gated summon.
 
 ### Starting Loadout and Guided Onboarding
 

@@ -855,6 +855,35 @@ canvas {
   background: rgba(255, 255, 255, 0.035);
 }
 
+.settings-modal-control--danger {
+  border-color: rgba(255, 139, 107, 0.28);
+  background: rgba(255, 139, 107, 0.065);
+}
+
+.settings-danger-copy {
+  margin: 0;
+  color: rgba(255, 218, 204, 0.82);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.settings-danger-button {
+  min-height: 38px;
+  border: 1px solid rgba(255, 139, 107, 0.48);
+  border-radius: 6px;
+  background: rgba(255, 95, 79, 0.14);
+  color: rgba(255, 238, 231, 0.96);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.settings-danger-button:focus-visible,
+.settings-danger-button:hover {
+  border-color: rgba(255, 190, 168, 0.72);
+  background: rgba(255, 95, 79, 0.22);
+}
+
 .modal-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
