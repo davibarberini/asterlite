@@ -400,8 +400,9 @@ describe('first warp goal', () => {
 
     const goal = getFirstWarpGoal(state);
 
-    expect(goal?.title).toBe('Draw out the gate boss');
-    expect(goal?.progressLabel).toContain(`${3}/${balance.bosses.firstGateAsteroids}`);
+    expect(goal?.type).toBe('drawGateBoss');
+    expect(goal?.destroyed).toBe(3);
+    expect(goal?.asteroidTarget).toBe(balance.bosses.firstGateAsteroids);
   });
 
   it('guides ready resets and first technology purchase without persisted UI state', () => {
@@ -409,12 +410,12 @@ describe('first warp goal', () => {
     state.progression.travelLevel = minimumPrestigeTravelLevel;
     state.crystals = crystalsPerPrestigeCore;
 
-    expect(getFirstWarpGoal(state)?.title).toBe('Warp for your first core');
+    expect(getFirstWarpGoal(state)?.type).toBe('warpForFirstCore');
 
     state.crystals = 0;
     state.progression.prestigeCores = WARP_UNLOCK_BY_ID.droneSystems.cost;
 
-    expect(getFirstWarpGoal(state)?.title).toBe('Install Drone Systems');
+    expect(getFirstWarpGoal(state)?.type).toBe('installDroneSystems');
 
     state.progression.ownedWarpUnlockIds = ['droneSystems'];
 

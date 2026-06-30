@@ -9,11 +9,13 @@ import {
   getTalentRank,
   getTalentRankLabel
 } from '../../game/progression/talentTree';
+import type { LanguageCode } from '../../game/i18n';
 import type { DroneType, ProgressionState, TalentId } from '../../game/simulation/types';
 
 type SkillTreeRenderState = {
   progression: ProgressionState;
   crystals: number;
+  language: LanguageCode;
   selectedTalentId: TalentId | null;
   onSelectTalent: (id: TalentId | null) => void;
   onBuyTalent: (id: TalentId) => void;
@@ -25,6 +27,50 @@ const droneLabels: Record<DroneType, string> = {
   sentry: 'Semi-Auto',
   ranger: 'Shotgun',
   breaker: 'Missile'
+};
+
+const talentPtBr: Partial<Record<TalentId, { name: string; summary: string }>> = {
+  refineryYield: { name: 'Rendimento da Refinaria', summary: '+10% de renda passiva da refinaria por nível.' },
+  combatBounty: { name: 'Bônus de Combate', summary: '+12% de créditos de asteroides por nível.' },
+  crystalSeam: { name: 'Veio de Cristal', summary: '+20% de cristais de asteroides de cristal por nível.' },
+  propulsionTuning: { name: 'Ajuste de Propulsão', summary: '+6% de propulsão e velocidade máxima da nave por nível.' },
+  vectorNozzles: { name: 'Bocais Vetoriais', summary: '+8% de propulsão e velocidade máxima da nave por nível.' },
+  salvageLoop: { name: 'Ciclo de Salvamento', summary: 'A penalidade da refinaria após morte dura 25% menos.' },
+  semiAutoOptics: { name: 'Óptica de Mira', summary: 'Desbloqueia o ramo semi-auto e adiciona +50 de alcance de mira.' },
+  semiAutoRange: { name: 'Lente Longa', summary: '+40 de alcance para semi-auto por nível.' },
+  semiAutoPierce: { name: 'Perfuração Linear', summary: '+1 perfuração de asteroide por nível. Semi-auto começa com 1 perfuração.' },
+  semiAutoCadence: { name: 'Ritmo de Rajada', summary: '-10% de intervalo de tiro semi-auto por nível.' },
+  semiAutoOverdrive: { name: 'Munição Overdrive', summary: '+2 de dano para tiros semi-auto.' },
+  shotgunLoad: { name: 'Carga Pesada', summary: 'Desbloqueia o ramo shotgun e adiciona +1 de dano por projétil.' },
+  shotgunChoke: { name: 'Estrangulador Fechado', summary: '+1 de dano por projétil shotgun por nível.' },
+  shotgunSpread: { name: 'Dispersão Ampla', summary: '+1 projétil shotgun por nível.' },
+  shotgunBarrage: { name: 'Ciclo de Barragem', summary: '-12% de intervalo de tiro shotgun.' },
+  shotgunSlag: { name: 'Munição Incandescente', summary: '+2 de dano por projétil shotgun contra asteroides densos.' },
+  missileGuidance: { name: 'Link de Guiagem', summary: 'Desbloqueia o ramo de mísseis e adiciona +20% de curva por nível.' },
+  missileYield: { name: 'Alto Impacto', summary: '+1 de dano de míssil por nível.' },
+  missileReload: { name: 'Recarga Rápida', summary: '-10% de intervalo de tiro de mísseis por nível.' },
+  missileWarhead: { name: 'Ogiva Explosiva', summary: 'Mísseis explodem no impacto e causam dano em área.' },
+  missileShrapnel: { name: 'Estilhaços', summary: '+18% de raio de explosão e +1 de dano em área por nível.' },
+  missileChain: { name: 'Detonação em Cadeia', summary: 'Explosões de míssil causam +60% de dano em área.' }
+};
+
+const getTalentText = (id: TalentId, language: LanguageCode): { name: string; summary: string } => {
+  const talent = TALENT_BY_ID[id];
+  if (language === 'pt-BR') {
+    return talentPtBr[id] ?? { name: talent.name, summary: talent.summary };
+  }
+  return { name: talent.name, summary: talent.summary };
+};
+
+const formatCrystalCost = (language: LanguageCode, cost: number): string =>
+  language === 'pt-BR' ? `${cost} cristais` : `${cost} crystals`;
+
+const formatRankLabel = (language: LanguageCode, progression: ProgressionState, id: TalentId): string => {
+  const rankLabel = getTalentRankLabel(progression, id);
+  if (language !== 'pt-BR') {
+    return rankLabel;
+  }
+  return rankLabel.replace('Rank', 'Nível').replace('Maxed', 'Máximo');
 };
 
 export class SkillTreeModalController {
@@ -138,6 +184,7 @@ export class SkillTreeModalController {
     const talent = TALENT_BY_ID[id];
     const rank = getTalentRank(state.progression, id);
     const nodeState = getTalentNodeState(state.progression, id);
+    const text = getTalentText(id, state.language);
 
     const node = document.createElement('button');
     node.type = 'button';
@@ -145,7 +192,7 @@ export class SkillTreeModalController {
     node.classList.toggle('is-selected', state.selectedTalentId === id);
     node.style.gridColumn = `${talent.grid.col}`;
     node.style.gridRow = `${talent.grid.row}`;
-    node.setAttribute('aria-label', `${talent.name}. ${getTalentRankLabel(state.progression, id)}.`);
+    node.setAttribute('aria-label', `${text.name}. ${formatRankLabel(state.language, state.progression, id)}.`);
     node.setAttribute('aria-pressed', (state.selectedTalentId === id).toString());
     const toggleTalent = (): void => {
       state.onSelectTalent(this.selectedTalentId === id ? null : id);
@@ -190,6 +237,7 @@ export class SkillTreeModalController {
 
   private createTalentTooltip(id: TalentId, state: SkillTreeRenderState): HTMLElement {
     const talent = TALENT_BY_ID[id];
+    const text = getTalentText(id, state.language);
     const rank = getTalentRank(state.progression, id);
     const nodeState = getTalentNodeState(state.progression, id);
     const nextCost = getTalentCost(id, rank);
@@ -206,34 +254,36 @@ export class SkillTreeModalController {
     icon.append(this.createTalentIconSvg(id));
     const titleWrap = document.createElement('div');
     const title = document.createElement('strong');
-    title.textContent = talent.name;
+    title.textContent = text.name;
     const rankLabel = document.createElement('span');
-    rankLabel.textContent = getTalentRankLabel(state.progression, id);
+    rankLabel.textContent = formatRankLabel(state.language, state.progression, id);
     titleWrap.append(title, rankLabel);
     heading.append(icon, titleWrap);
 
     const summary = document.createElement('p');
-    summary.textContent = talent.summary;
+    summary.textContent = text.summary;
 
     const meta = document.createElement('div');
     meta.className = 'talent-tooltip__meta';
     if (nodeState === 'maxed') {
-      meta.textContent = 'Maxed';
+      meta.textContent = state.language === 'pt-BR' ? 'Máximo' : 'Maxed';
     } else if (talent.requiresDrone && state.progression.droneCounts[talent.requiresDrone] <= 0) {
-      meta.textContent = `Needs ${droneLabels[talent.requiresDrone]}`;
+      meta.textContent = state.language === 'pt-BR' ? `Precisa de ${droneLabels[talent.requiresDrone]}` : `Needs ${droneLabels[talent.requiresDrone]}`;
     } else if (nodeState === 'locked') {
-      meta.textContent = 'Locked';
+      meta.textContent = state.language === 'pt-BR' ? 'Bloqueado' : 'Locked';
     } else if (!canBuy) {
-      meta.textContent = `${nextCost} crystals`;
+      meta.textContent = formatCrystalCost(state.language, nextCost);
     } else {
-      meta.textContent = `Ready · ${nextCost} crystals`;
+      meta.textContent = state.language === 'pt-BR' ? `Pronto · ${formatCrystalCost(state.language, nextCost)}` : `Ready · ${formatCrystalCost(state.language, nextCost)}`;
     }
 
     const buyButton = document.createElement('button');
     buyButton.className = 'shop-buy talent-tooltip__buy';
     buyButton.type = 'button';
     buyButton.disabled = !canBuy;
-    buyButton.textContent = nodeState === 'maxed' ? 'Maxed' : `Buy ${nextCost} crystals`;
+    buyButton.textContent = nodeState === 'maxed'
+      ? (state.language === 'pt-BR' ? 'Máximo' : 'Maxed')
+      : (state.language === 'pt-BR' ? `Comprar ${formatCrystalCost(state.language, nextCost)}` : `Buy ${formatCrystalCost(state.language, nextCost)}`);
     buyButton.addEventListener('click', () => state.onBuyTalent(id));
 
     panel.append(heading, summary, meta, buyButton);
@@ -303,6 +353,9 @@ export class SkillTreeModalController {
     }
     if (id.includes('crystal')) {
       return 'skill-crystal';
+    }
+    if (id.includes('propulsion') || id.includes('Nozzles')) {
+      return 'skill-generic';
     }
     if (id.includes('salvage')) {
       return 'skill-salvage';

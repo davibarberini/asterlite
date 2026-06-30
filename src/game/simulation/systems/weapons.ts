@@ -63,6 +63,7 @@ export const fireBullet = (
 export const firePlayerWeapon = (state: GameState): void => {
   const ship = state.ship;
   const damageMultiplier = getAchievementMultiplier(state.progression, 'damage');
+  const baseDamage = Math.max(0.05, state.progression.shipDamageLevel * balance.weapons.playerDamageMultiplier * damageMultiplier);
 
   if (state.progression.weaponMode === 'spread' && state.progression.spreadUnlocked) {
     balance.weapons.spreadAngleOffsets.forEach((offset) => {
@@ -72,7 +73,7 @@ export const firePlayerWeapon = (state: GameState): void => {
         ship.position,
         ship.rotation + offset,
         balance.weapons.bulletSpeed * balance.weapons.spreadSpeedMultiplier,
-        Math.max(1, Math.round((state.progression.shipDamageLevel - 1) * damageMultiplier)),
+        Math.max(0.05, baseDamage - balance.weapons.playerDamageMultiplier),
         ship.velocity
       );
     });
@@ -87,7 +88,7 @@ export const firePlayerWeapon = (state: GameState): void => {
       ship.position,
       ship.rotation,
       balance.weapons.bulletSpeed * balance.weapons.piercingSpeedMultiplier,
-      Math.max(1, Math.round(state.progression.shipDamageLevel * damageMultiplier)),
+      baseDamage,
       ship.velocity,
       balance.weapons.piercingCount
     );
@@ -101,7 +102,7 @@ export const firePlayerWeapon = (state: GameState): void => {
     ship.position,
     ship.rotation,
     balance.weapons.bulletSpeed,
-    Math.max(1, Math.round(state.progression.shipDamageLevel * damageMultiplier)),
+    baseDamage,
     ship.velocity
   );
   ship.fireCooldown = getPlayerFireInterval(state.progression);

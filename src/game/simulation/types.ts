@@ -11,6 +11,8 @@ export type TalentId =
   | 'refineryYield'
   | 'combatBounty'
   | 'crystalSeam'
+  | 'propulsionTuning'
+  | 'vectorNozzles'
   | 'salvageLoop'
   | 'semiAutoOptics'
   | 'semiAutoRange'

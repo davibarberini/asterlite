@@ -6,10 +6,16 @@ import { crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLeve
 import { WARP_UNLOCK_BY_ID, getAvailableWarpCores, hasWarpUnlock } from './warpUnlocks';
 
 export type FirstWarpGoal = {
-  title: string;
-  detail: string;
+  type: 'installDroneSystems' | 'warpForFirstCore' | 'defeatGateBoss' | 'drawGateBoss' | 'collectWarpCrystals';
   progress: number;
-  progressLabel: string;
+  availableCores?: number;
+  firstTechnologyCost?: number;
+  coreGain?: number;
+  destroyed?: number;
+  asteroidTarget?: number;
+  crystals?: number;
+  crystalTarget?: number;
+  nextZoneName?: string;
 };
 
 const clampProgress = (value: number): number => Math.max(0, Math.min(1, value));
@@ -23,20 +29,19 @@ export const getFirstWarpGoal = (state: GameState): FirstWarpGoal | null => {
   const availableCores = getAvailableWarpCores(state.progression);
   if (availableCores >= firstTechnologyCost) {
     return {
-      title: 'Install Drone Systems',
-      detail: 'Open Technologies and spend your first core.',
+      type: 'installDroneSystems',
       progress: 1,
-      progressLabel: `${availableCores}/${firstTechnologyCost} core`
+      availableCores,
+      firstTechnologyCost
     };
   }
 
   const coreGain = getPrestigeCoreGain(state);
   if (coreGain > 0) {
     return {
-      title: 'Warp for your first core',
-      detail: 'Open Technologies and reset this run.',
+      type: 'warpForFirstCore',
       progress: 1,
-      progressLabel: `+${coreGain} core${coreGain === 1 ? '' : 's'} ready`
+      coreGain
     };
   }
 
@@ -44,31 +49,27 @@ export const getFirstWarpGoal = (state: GameState): FirstWarpGoal | null => {
     if (hasActiveZoneBoss(state)) {
       const nextZoneName = zones[minimumPrestigeTravelLevel]?.name ?? 'the next zone';
       return {
-        title: 'Defeat the gate boss',
-        detail: `Unlock ${nextZoneName} to make warp cores possible.`,
+        type: 'defeatGateBoss',
         progress: 0.75,
-        progressLabel: 'Boss active'
+        nextZoneName
       };
     }
 
     const destroyed = state.progression.achievementStats.asteroidsDestroyed;
     const target = balance.bosses.firstGateAsteroids;
-    const remaining = Math.max(0, target - destroyed);
     return {
-      title: 'Draw out the gate boss',
-      detail: remaining > 0
-        ? `${remaining} asteroid${remaining === 1 ? '' : 's'} until the first signal.`
-        : 'The first boss signal is ready.',
+      type: 'drawGateBoss',
       progress: clampProgress(destroyed / Math.max(1, target)),
-      progressLabel: `${Math.min(destroyed, target)}/${target} asteroids`
+      destroyed: Math.min(destroyed, target),
+      asteroidTarget: target
     };
   }
 
   const crystals = Math.max(0, Math.floor(state.crystals));
   return {
-    title: 'Collect warp crystals',
-    detail: 'Crystal asteroids and bosses fund the first reset.',
+    type: 'collectWarpCrystals',
     progress: clampProgress(crystals / crystalsPerPrestigeCore),
-    progressLabel: `${crystals}/${crystalsPerPrestigeCore} crystals`
+    crystals,
+    crystalTarget: crystalsPerPrestigeCore
   };
 };

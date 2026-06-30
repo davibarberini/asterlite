@@ -74,6 +74,22 @@ Notes:
 
 ## Ready
 
+### Long-Term Economy Balance Pass
+
+Balance prices, rewards, and progression pacing across all modules with a focus on gameplay longevity.
+
+Design:
+- Keep early prices low enough that the first upgrades feel impactful and frequent.
+- Make cost curves scale into multi-hour goals for late upgrade levels.
+- Review credits, crystals, warp cores, drones, skills, technologies, achievements, boss rewards, passive income, and reset pacing together.
+- Prefer data-only tuning and targeted tests before adding new systems.
+
+Acceptance:
+- Produce a balance table or tuning notes for each module before changing values.
+- Adjust early, mid, and late price/reward curves so progression has clear short, medium, and long goals.
+- Ensure the last practical levels of uncapped/core upgrades take hours rather than minutes.
+- Verify warp reset, crystal spending, and income growth still feel coherent after tuning.
+
 ### Warp Unlock Visual Polish
 
 Make the warp-core tree feel distinct from the crystal skill tree while retaining the same interaction model.

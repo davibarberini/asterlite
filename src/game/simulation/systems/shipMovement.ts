@@ -7,6 +7,7 @@ import { clampMagnitude, randomRange } from '../vector';
 import { burstParticles } from './particles';
 import { firePlayerWeapon } from './weapons';
 import { balance } from '../../balance';
+import { getPropulsionSkillMultiplier } from '../../progression/talentTree';
 
 export const updateShipMovement = (state: GameState, input: InputActions, dt: number): void => {
   const ship = state.ship;
@@ -107,4 +108,6 @@ export const updateCamera = (state: GameState, dt: number): void => {
 };
 
 const getSpeedMultiplier = (state: GameState): number =>
-  (1 + state.progression.shipSpeedLevel * balance.ship.speedBonusPerLevel) * getAchievementMultiplier(state.progression, 'speed');
+  (1 + state.progression.shipSpeedLevel * balance.ship.speedBonusPerLevel) *
+  getPropulsionSkillMultiplier(state.progression) *
+  getAchievementMultiplier(state.progression, 'speed');

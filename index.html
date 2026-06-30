@@ -18,11 +18,32 @@
       <div id="game-root"></div>
       <div id="death-fade" aria-hidden="true"></div>
       <div id="low-hp-veil" aria-hidden="true"></div>
+      <section id="main-menu" class="main-menu" aria-live="polite">
+        <div class="main-menu__panel">
+          <p id="main-menu-language-label" class="main-menu__kicker">Language</p>
+          <h1>Asteridle</h1>
+          <p id="main-menu-subtitle" class="main-menu__subtitle">Choose your language, then jump into the asteroid field.</p>
+          <div class="main-menu__languages" role="group" aria-label="Language">
+            <button class="main-menu__language" type="button" data-language="pt-BR">Português</button>
+            <button class="main-menu__language" type="button" data-language="en-US">English</button>
+          </div>
+          <button id="main-menu-start" class="main-menu__start" type="button">Start Run</button>
+        </div>
+        <div class="main-menu__warp" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </section>
       <div id="hud" aria-live="polite">
         <section class="hud-panel hud-panel--left">
           <div class="money-readout">
-            <div class="hud-kicker">Money</div>
+            <div id="money-kicker" class="hud-kicker">Money</div>
             <div id="money" class="hud-value">$0</div>
+            <div id="crystals" class="hud-crystals">0 crystals</div>
           </div>
           <div id="hp-meter" class="hp-meter" aria-label="Ship hull">
             <span class="hp-ship" aria-hidden="true">
@@ -46,7 +67,7 @@
           <span id="first-warp-goal-progress-text" class="first-warp-goal__progress-text">0/0</span>
         </section>
         <div class="hud-right-cluster">
-          <button class="map-toggle" id="map-toggle" type="button" aria-label="Open zone map" disabled>
+          <button class="map-toggle is-hidden" id="map-toggle" type="button" aria-label="Open zone map" disabled>
             <span class="map-toggle__icon">⌖</span>
             <span id="sector" class="map-toggle__label">Map</span>
           </button>
@@ -73,6 +94,7 @@
         <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open upgrades menu" aria-expanded="false">☰</button>
         <nav class="bottom-nav" aria-label="Shop tabs">
           <button class="nav-button" type="button" data-tab="upgrades">Upgrades</button>
+          <button class="nav-button" type="button" data-tab="map">Map</button>
           <button class="nav-button" type="button" data-tab="warp">Technologies</button>
           <button class="nav-button" type="button" data-tab="drones">Drones</button>
           <button class="nav-button" type="button" data-tab="skills">Skills</button>

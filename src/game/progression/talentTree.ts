@@ -67,6 +67,31 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     grid: { col: 3, row: 3 }
   },
   {
+    id: 'propulsionTuning',
+    name: 'Propulsion Tuning',
+    summary: '+6% ship thrust and max speed per rank.',
+    branch: 'economy',
+    maxRank: 5,
+    baseCost: 5,
+    costScale: 1.82,
+    requires: [{ id: 'combatBounty', rank: 1 }],
+    grid: { col: 2, row: 3 }
+  },
+  {
+    id: 'vectorNozzles',
+    name: 'Vector Nozzles',
+    summary: '+8% ship thrust and max speed per rank.',
+    branch: 'economy',
+    maxRank: 3,
+    baseCost: 9,
+    costScale: 1.95,
+    requires: [
+      { id: 'propulsionTuning', rank: 3 },
+      { id: 'crystalSeam', rank: 1 }
+    ],
+    grid: { col: 4, row: 3 }
+  },
+  {
     id: 'semiAutoOptics',
     name: 'Target Optics',
     summary: 'Unlocks the semi-auto branch and adds +50 targeting range.',
@@ -335,6 +360,9 @@ export const getCrystalDropMultiplier = (progression: ProgressionState): number 
 
 export const getDeathPenaltyMultiplier = (progression: ProgressionState): number =>
   getTalentRank(progression, 'salvageLoop') > 0 ? 0.75 : 1;
+
+export const getPropulsionSkillMultiplier = (progression: ProgressionState): number =>
+  1 + getTalentRank(progression, 'propulsionTuning') * 0.06 + getTalentRank(progression, 'vectorNozzles') * 0.08;
 
 export const getSemiAutoPierceLeft = (progression: ProgressionState): number =>
   1 + getTalentRank(progression, 'semiAutoPierce');

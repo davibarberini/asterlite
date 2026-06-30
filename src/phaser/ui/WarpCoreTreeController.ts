@@ -7,10 +7,12 @@ import {
   getWarpUnlockNodeState,
   type WarpUnlockNodeState
 } from '../../game/progression/warpUnlocks';
+import type { LanguageCode } from '../../game/i18n';
 import type { ProgressionState, WarpUnlockId } from '../../game/simulation/types';
 
 type WarpCoreTreeRenderState = {
   progression: ProgressionState;
+  language: LanguageCode;
   selectedUnlockId: WarpUnlockId | null;
   onSelectUnlock: (id: WarpUnlockId | null) => void;
   onBuyUnlock: (id: WarpUnlockId) => void;
@@ -34,6 +36,74 @@ const stateLabels: Record<WarpUnlockNodeState, string> = {
   available: 'Available',
   locked: 'Locked',
   unaffordable: 'Needs cores'
+};
+
+const stateLabelsPtBr: Record<WarpUnlockNodeState, string> = {
+  owned: 'Instalada',
+  available: 'Disponível',
+  locked: 'Bloqueada',
+  unaffordable: 'Faltam núcleos'
+};
+
+const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect: string }> = {
+  droneSystems: {
+    title: 'Sistemas de Drones',
+    summary: 'Libera a baía de drones e transforma tecnologias em novas opções de gameplay.',
+    effect: 'Permite comprar drones semi-auto com créditos.'
+  },
+  deflectorFrame: {
+    title: 'Estrutura Defletora',
+    summary: 'Instala uma frente reforçada para sobreviver melhor ao atravessar detritos.',
+    effect: 'Libera a melhoria de defletor da nave.'
+  },
+  shieldBubble: {
+    title: 'Bolha de Escudo',
+    summary: 'Instala um escudo circular recarregável ao redor da nave.',
+    effect: 'Absorve um impacto antes de entrar em recarga.'
+  },
+  bossBeacon: {
+    title: 'Sinalizador de Boss',
+    summary: 'Adiciona uma forma ativa de chamar o próximo boss de portal.',
+    effect: 'Libera o botão de invocar boss em Technologies.'
+  },
+  spreadBattery: {
+    title: 'Bateria Spread',
+    summary: 'Libera um modo de arma em leque para controlar multidões.',
+    effect: 'Adiciona o modo Spread Shot na aba de armas.'
+  },
+  rangerHangar: {
+    title: 'Hangar Ranger',
+    summary: 'Amplia a baía para drones shotgun.',
+    effect: 'Permite comprar drones shotgun com créditos.'
+  },
+  missileFoundry: {
+    title: 'Fundição de Mísseis',
+    summary: 'Abre os sistemas necessários para drones de míssil.',
+    effect: 'Permite comprar drones de míssil com créditos.'
+  },
+  piercingRail: {
+    title: 'Trilho Perfurante',
+    summary: 'Libera um modo de arma focado em tiros que atravessam alvos.',
+    effect: 'Adiciona o modo Piercing na aba de armas.'
+  }
+};
+
+const getStateLabel = (language: LanguageCode, state: WarpUnlockNodeState): string =>
+  language === 'pt-BR' ? stateLabelsPtBr[state] : stateLabels[state];
+
+const getUnlockText = (language: LanguageCode, id: WarpUnlockId): { title: string; summary: string; effect: string } => {
+  const unlock = WARP_UNLOCK_BY_ID[id];
+  if (language === 'pt-BR') {
+    return unlockPtBr[id];
+  }
+  return { title: unlock.title, summary: unlock.summary, effect: unlock.effectSummary };
+};
+
+const formatCoreCost = (language: LanguageCode, count: number): string => {
+  if (language === 'pt-BR') {
+    return `${count} ${count === 1 ? 'núcleo' : 'núcleos'}`;
+  }
+  return `${count} core${count === 1 ? '' : 's'}`;
 };
 
 export class WarpCoreTreeController {
@@ -103,6 +173,7 @@ export class WarpCoreTreeController {
 
   private createNode(id: WarpUnlockId, state: WarpCoreTreeRenderState): HTMLElement {
     const unlock = WARP_UNLOCK_BY_ID[id];
+    const text = getUnlockText(state.language, id);
     const nodeState = getWarpUnlockNodeState(state.progression, getAvailableWarpCores(state.progression), id);
     const selected = state.selectedUnlockId === id;
 
@@ -112,7 +183,7 @@ export class WarpCoreTreeController {
     node.classList.toggle('is-selected', selected);
     node.style.gridColumn = `${unlock.route.col}`;
     node.style.gridRow = `${unlock.route.row}`;
-    node.setAttribute('aria-label', `${unlock.title}. ${stateLabels[nodeState]}.`);
+    node.setAttribute('aria-label', `${text.title}. ${getStateLabel(state.language, nodeState)}.`);
     node.setAttribute('aria-pressed', selected.toString());
     node.addEventListener('click', () => state.onSelectUnlock(selected ? null : id));
 
@@ -134,11 +205,12 @@ export class WarpCoreTreeController {
 
   private createTooltip(id: WarpUnlockId, state: WarpCoreTreeRenderState): HTMLElement {
     const unlock = WARP_UNLOCK_BY_ID[id];
+    const text = getUnlockText(state.language, id);
     const availableCores = getAvailableWarpCores(state.progression);
     const nodeState = getWarpUnlockNodeState(state.progression, availableCores, id);
     const requirementText = unlock.requires.length > 0
-      ? unlock.requires.map((requiredId) => WARP_UNLOCK_BY_ID[requiredId].title).join(', ')
-      : 'None';
+      ? unlock.requires.map((requiredId) => getUnlockText(state.language, requiredId).title).join(', ')
+      : (state.language === 'pt-BR' ? 'Nenhum' : 'None');
 
     const panel = document.createElement('section');
     this.positionTooltip(panel, unlock.route.col, unlock.route.row);
@@ -151,32 +223,36 @@ export class WarpCoreTreeController {
     icon.textContent = iconLabels[id];
     const titleWrap = document.createElement('div');
     const title = document.createElement('strong');
-    title.textContent = unlock.title;
+    title.textContent = text.title;
     const stateLabel = document.createElement('span');
-    stateLabel.textContent = stateLabels[nodeState];
+    stateLabel.textContent = getStateLabel(state.language, nodeState);
     titleWrap.append(title, stateLabel);
     heading.append(icon, titleWrap);
 
     const summary = document.createElement('p');
-    summary.textContent = unlock.summary;
+    summary.textContent = text.summary;
 
     const meta = document.createElement('div');
     meta.className = 'talent-tooltip__meta warp-tooltip__meta';
-    meta.textContent = `Cost ${unlock.cost} core${unlock.cost === 1 ? '' : 's'} · Requires ${requirementText}`;
+    meta.textContent = state.language === 'pt-BR'
+      ? `Custo ${formatCoreCost(state.language, unlock.cost)} · Requer ${requirementText}`
+      : `Cost ${formatCoreCost(state.language, unlock.cost)} · Requires ${requirementText}`;
 
     const balance = document.createElement('div');
     balance.className = 'talent-tooltip__meta warp-tooltip__meta';
-    balance.textContent = `Available ${availableCores} · Banked ${state.progression.prestigeCores}`;
+    balance.textContent = state.language === 'pt-BR'
+      ? `Disponíveis ${availableCores} · Guardados ${state.progression.prestigeCores}`
+      : `Available ${availableCores} · Banked ${state.progression.prestigeCores}`;
 
     const effect = document.createElement('div');
     effect.className = 'talent-tooltip__meta warp-tooltip__meta';
-    effect.textContent = unlock.effectSummary;
+    effect.textContent = text.effect;
 
     const buyButton = document.createElement('button');
     buyButton.className = 'shop-buy talent-tooltip__buy warp-tooltip__buy';
     buyButton.type = 'button';
     buyButton.disabled = nodeState !== 'available';
-    buyButton.textContent = this.getActionLabel(nodeState, unlock.cost);
+    buyButton.textContent = this.getActionLabel(state.language, nodeState, unlock.cost);
     buyButton.addEventListener('click', (event) => {
       event.stopPropagation();
       state.onBuyUnlock(id);
@@ -186,7 +262,23 @@ export class WarpCoreTreeController {
     return panel;
   }
 
-  private getActionLabel(nodeState: WarpUnlockNodeState, cost: number): string {
+  private getActionLabel(language: LanguageCode, nodeState: WarpUnlockNodeState, cost: number): string {
+    if (language === 'pt-BR') {
+      if (nodeState === 'owned') {
+        return 'Instalada';
+      }
+
+      if (nodeState === 'locked') {
+        return 'Rota bloqueada';
+      }
+
+      if (nodeState === 'unaffordable') {
+        return `Faltam ${formatCoreCost(language, cost)}`;
+      }
+
+      return `Instalar ${formatCoreCost(language, cost)}`;
+    }
+
     if (nodeState === 'owned') {
       return 'Installed';
     }
@@ -196,10 +288,10 @@ export class WarpCoreTreeController {
     }
 
     if (nodeState === 'unaffordable') {
-      return `Needs ${cost} core${cost === 1 ? '' : 's'}`;
+      return `Needs ${formatCoreCost(language, cost)}`;
     }
 
-    return `Install ${cost} core${cost === 1 ? '' : 's'}`;
+    return `Install ${formatCoreCost(language, cost)}`;
   }
 
   private positionTooltip(panel: HTMLElement, col: number, row: number): void {
