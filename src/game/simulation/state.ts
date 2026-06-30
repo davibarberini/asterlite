@@ -70,6 +70,7 @@ export const createProgression = (): ProgressionState => ({
   travelLevel: 0,
   currentZoneIndex: 0,
   unlockedZoneIndex: 0,
+  firstGateAsteroidsDestroyed: 0,
   bossDefeats: 0,
   bossDiscovery: {
     rareBossProgress: 0,

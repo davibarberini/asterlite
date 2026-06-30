@@ -67,6 +67,14 @@ export const updateDrones = (state: GameState, dt: number): void => {
 const getDroneDamageMultiplier = (state: GameState): number =>
   getAchievementMultiplier(state.progression, 'droneDamage');
 
+const getShipDamage = (state: GameState): number =>
+  Math.max(
+    0.05,
+    state.progression.shipDamageLevel *
+      balance.weapons.playerDamageMultiplier *
+      getAchievementMultiplier(state.progression, 'damage')
+  );
+
 const fireDroneWeapon = (
   state: GameState,
   drone: GameState['drones'][number],
@@ -74,6 +82,8 @@ const fireDroneWeapon = (
   target: GameState['asteroids'][number]
 ): number => {
   const inheritedVelocity = state.ship.velocity;
+  const shipDamage = getShipDamage(state);
+  const droneDamageMultiplier = getDroneDamageMultiplier(state);
 
   if (drone.type === 'sentry') {
     fireBullet(
@@ -82,7 +92,7 @@ const fireDroneWeapon = (
       drone.position,
       rotation,
       balance.weapons.droneBulletSpeed * balance.weapons.droneSpeedMultiplier.sentry,
-      Math.max(1, Math.round(getSemiAutoDamage(state.progression) * getDroneDamageMultiplier(state))),
+      Math.max(0.05, shipDamage * getSemiAutoDamage(state.progression) * droneDamageMultiplier),
       inheritedVelocity,
       getSemiAutoPierceLeft(state.progression)
     );
@@ -97,7 +107,7 @@ const fireDroneWeapon = (
         drone.position,
         rotation + offset,
         balance.weapons.droneBulletSpeed * balance.weapons.droneSpeedMultiplier.ranger,
-        Math.max(1, Math.round(getShotgunPelletDamage(state.progression) * getDroneDamageMultiplier(state))),
+        Math.max(0.05, shipDamage * 0.35 * getShotgunPelletDamage(state.progression, target.variant) * droneDamageMultiplier),
         inheritedVelocity,
         0,
         'pellet'
@@ -112,7 +122,7 @@ const fireDroneWeapon = (
     drone.position,
     rotation,
     balance.weapons.droneBulletSpeed * balance.weapons.droneSpeedMultiplier.breaker,
-    Math.max(1, Math.round(getMissileDamage(state.progression) * getDroneDamageMultiplier(state))),
+    Math.max(0.05, shipDamage * getMissileDamage(state.progression) * droneDamageMultiplier),
     inheritedVelocity,
     0,
     'missile',

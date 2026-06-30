@@ -223,6 +223,7 @@ export type ProgressionState = {
   travelLevel: number;
   currentZoneIndex: number;
   unlockedZoneIndex: number;
+  firstGateAsteroidsDestroyed: number;
   bossDefeats: number;
   bossDiscovery: BossDiscoveryState;
   prestigeCores: number;

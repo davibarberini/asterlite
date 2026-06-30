@@ -1536,9 +1536,7 @@ export class GameScene extends Phaser.Scene {
     this.shopCopyEl.classList.remove('is-hidden');
     this.shopStatsEl.replaceChildren(...[
       ['Desbloqueadas', `${unlocked} / ${ACHIEVEMENT_DEFINITIONS.length}`],
-      ['Bônus ativos', getTotalAchievementBonusSummary(this.state.progression)],
-      ['Créditos', `+${getAchievementBonusPercent(this.state.progression, 'money').toFixed(1)}%`],
-      ['Combate', `+${getAchievementBonusPercent(this.state.progression, 'damage').toFixed(1)}%`]
+      ['Atributos ganhos', getTotalAchievementBonusSummary(this.state.progression)]
     ].map(([label, value]) => {
       const stat = document.createElement('div');
       stat.className = 'shop-stat';
@@ -1709,6 +1707,13 @@ export class GameScene extends Phaser.Scene {
     let repeatTimer: number | null = null;
     let repeatStart = 0;
     let pointerHandledPurchase = false;
+    let activePointerId: number | null = null;
+
+    const removeGlobalStopListeners = (): void => {
+      window.removeEventListener('pointerup', stopRepeating);
+      window.removeEventListener('pointercancel', stopRepeating);
+      window.removeEventListener('blur', stopRepeating);
+    };
 
     const stopRepeating = (): void => {
       if (repeatTimer !== null) {
@@ -1716,6 +1721,8 @@ export class GameScene extends Phaser.Scene {
         repeatTimer = null;
       }
       repeatStart = 0;
+      activePointerId = null;
+      removeGlobalStopListeners();
     };
 
     const getNextDelay = (): number => {
@@ -1746,7 +1753,13 @@ export class GameScene extends Phaser.Scene {
       event.preventDefault();
       pointerHandledPurchase = true;
       repeatStart = performance.now();
-      button.setPointerCapture(event.pointerId);
+      activePointerId = event.pointerId;
+      window.addEventListener('pointerup', stopRepeating, { once: true });
+      window.addEventListener('pointercancel', stopRepeating, { once: true });
+      window.addEventListener('blur', stopRepeating, { once: true });
+      if (button.isConnected) {
+        button.setPointerCapture(event.pointerId);
+      }
       const purchased = action();
       if (purchased === false) {
         stopRepeating();
@@ -1754,9 +1767,17 @@ export class GameScene extends Phaser.Scene {
       }
       repeatTimer = window.setTimeout(runPurchase, 420);
     });
-    button.addEventListener('pointerup', stopRepeating);
+    button.addEventListener('pointerup', (event) => {
+      if (activePointerId === null || event.pointerId === activePointerId) {
+        stopRepeating();
+      }
+    });
     button.addEventListener('pointercancel', stopRepeating);
-    button.addEventListener('lostpointercapture', stopRepeating);
+    button.addEventListener('lostpointercapture', () => {
+      if (!repeatTimer) {
+        stopRepeating();
+      }
+    });
     button.addEventListener('pointerleave', (event) => {
       if (event.pointerType === 'mouse') {
         stopRepeating();
@@ -2103,7 +2124,7 @@ export class GameScene extends Phaser.Scene {
         facts: [
           ['Status', this.state.progression.spreadUnlocked ? 'Installed' : 'Requires Spread Battery'],
           ['Pattern', 'Three shots'],
-          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.spreadFireInterval).toFixed(2)} sec`]
+          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier).toFixed(2)} sec`]
         ]
       };
     }

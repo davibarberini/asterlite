@@ -258,6 +258,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
     travelLevel: unlockedZoneIndex,
     currentZoneIndex,
     unlockedZoneIndex,
+    firstGateAsteroidsDestroyed: Math.max(0, Math.floor(readNumber(value.firstGateAsteroidsDestroyed, 0))),
     bossDefeats: Math.max(0, Math.floor(readNumber(value.bossDefeats, unlockedZoneIndex))),
     bossDiscovery: readBossDiscovery(value.bossDiscovery),
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),

@@ -16,9 +16,9 @@ export const balance = {
   shop: {
     upgradeBaseCap: 500,
     drones: {
-      sentry: { label: 'Semi-Auto', baseCost: 260, scale: 1.48 },
-      ranger: { label: 'Shotgun', baseCost: 380, scale: 1.52 },
-      breaker: { label: 'Missile', baseCost: 520, scale: 1.58 }
+      sentry: { label: 'Semi-Auto', baseCost: 600, scale: 2 },
+      ranger: { label: 'Shotgun', baseCost: 700, scale: 2 },
+      breaker: { label: 'Missile', baseCost: 800, scale: 2 }
     } satisfies Record<DroneType, { label: string; baseCost: number; scale: number }>,
     ship: {
       hp: { baseCost: 80, scale: 1.12, gain: 25 },
@@ -79,7 +79,8 @@ export const balance = {
     droneBulletSpeed: 430,
     playerDamageMultiplier: 0.4,
     playerFireInterval: 0.8,
-    spreadFireInterval: 0.24,
+    spreadCooldownMultiplier: 1.15,
+    spreadDamageMultiplier: 0.4,
     spreadAngleOffsets: [-0.18, 0, 0.18],
     spreadSpeedMultiplier: 0.96,
     piercingSpeedMultiplier: 1.05,

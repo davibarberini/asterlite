@@ -80,7 +80,7 @@ const syncAffordableWarpUnlockAnnouncements = (state: GameState): void => {
 const updateBossDiscovery = (state: GameState): void => {
   if (
     state.progression.unlockedZoneIndex === 0 &&
-    state.progression.achievementStats.asteroidsDestroyed >= balance.bosses.firstGateAsteroids &&
+    state.progression.firstGateAsteroidsDestroyed >= balance.bosses.firstGateAsteroids &&
     !hasActiveZoneBoss(state)
   ) {
     const pendingBoss = createPendingZoneBoss(state);

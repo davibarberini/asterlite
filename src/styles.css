@@ -1915,6 +1915,10 @@ canvas {
   line-height: 1;
 }
 
+.nav-button[hidden] {
+  display: none !important;
+}
+
 .nav-button::before {
   content: "";
   position: absolute;

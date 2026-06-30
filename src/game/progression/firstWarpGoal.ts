@@ -55,7 +55,7 @@ export const getFirstWarpGoal = (state: GameState): FirstWarpGoal | null => {
       };
     }
 
-    const destroyed = state.progression.achievementStats.asteroidsDestroyed;
+    const destroyed = state.progression.firstGateAsteroidsDestroyed;
     const target = balance.bosses.firstGateAsteroids;
     return {
       type: 'drawGateBoss',

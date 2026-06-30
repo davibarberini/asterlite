@@ -353,6 +353,9 @@ const destroyAsteroid = (
   recordMoneyEarned(state.progression, reward.money);
   recordCrystalsCollected(state.progression, reward.crystals);
   state.progression.achievementStats.asteroidsDestroyed += 1;
+  if (!asteroid.bossType && state.progression.unlockedZoneIndex === 0) {
+    state.progression.firstGateAsteroidsDestroyed += 1;
+  }
   if (!asteroid.bossType && state.progression.unlockedZoneIndex > 0) {
     state.progression.bossDiscovery.rareBossProgress += 1;
   }

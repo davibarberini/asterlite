@@ -8,6 +8,7 @@ import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
+import { updateDrones } from '../simulation/systems/drones';
 import { updateBosses } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
 import { firePlayerWeapon } from '../simulation/systems/weapons';
@@ -396,7 +397,8 @@ describe('warp unlock definitions', () => {
 describe('first warp goal', () => {
   it('guides new saves toward the first gate boss', () => {
     const state = createGameState(800, 600);
-    state.progression.achievementStats.asteroidsDestroyed = 3;
+    state.progression.achievementStats.asteroidsDestroyed = 120;
+    state.progression.firstGateAsteroidsDestroyed = 3;
 
     const goal = getFirstWarpGoal(state);
 
@@ -465,6 +467,52 @@ describe('core ship upgrades', () => {
 
     expect(state.ship.fireCooldown).toBeLessThan(baseCooldown);
     expect(state.ship.fireCooldown).toBeGreaterThanOrEqual(balance.shop.ship.fireRate.minimumInterval);
+  });
+
+  it('paces spread shot from the normal cannon instead of a faster standalone cooldown', () => {
+    const state = createGameState(800, 600);
+    state.progression.spreadUnlocked = true;
+    state.progression.weaponMode = 'spread';
+    state.progression.shipDamageLevel = 10;
+
+    firePlayerWeapon(state);
+
+    expect(state.bullets).toHaveLength(balance.weapons.spreadAngleOffsets.length);
+    expect(state.ship.fireCooldown).toBeCloseTo(balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier);
+    expect(state.bullets[0]?.damage).toBeCloseTo(
+      state.progression.shipDamageLevel *
+        balance.weapons.playerDamageMultiplier *
+        balance.weapons.spreadDamageMultiplier
+    );
+  });
+
+  it('scales drone damage from the current ship damage', () => {
+    const state = createGameState(800, 600);
+    state.progression.droneCounts.sentry = 1;
+    state.drones = [
+      {
+        id: 10,
+        type: 'sentry',
+        position: { ...state.ship.position },
+        angle: 0,
+        orbitRadius: 42,
+        fireCooldown: 0
+      }
+    ];
+    state.asteroids = [
+      createAsteroid(state, 'large', { x: state.ship.position.x + 80, y: state.ship.position.y }, { x: 0, y: 0 }, 'common')
+    ];
+
+    updateDrones(state, 0);
+    const baseDamage = state.bullets[0]?.damage ?? 0;
+
+    state.bullets = [];
+    state.drones[0].fireCooldown = 0;
+    state.progression.shipDamageLevel = 5;
+    updateDrones(state, 0);
+
+    expect(state.bullets[0]?.damage).toBeGreaterThan(baseDamage);
+    expect(state.bullets[0]?.damage).toBeCloseTo(5 * balance.weapons.playerDamageMultiplier);
   });
 });
 
@@ -599,7 +647,8 @@ describe('boss gates and warp reset', () => {
 
   it('detects the first gate boss after enough asteroid kills', () => {
     const state = createGameState(800, 600);
-    state.progression.achievementStats.asteroidsDestroyed = balance.bosses.firstGateAsteroids - 1;
+    state.progression.achievementStats.asteroidsDestroyed = 1000;
+    state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids - 1;
     state.asteroids = [
       createAsteroid(state, 'small', { x: 100, y: 100 }, { x: 0, y: 0 }, 'common')
     ];
@@ -624,6 +673,20 @@ describe('boss gates and warp reset', () => {
     expect(state.pendingBoss?.bossZoneIndex).toBe(1);
     expect(state.pendingBoss?.bossType).toBe(zones[1].bossType);
     expect(state.rewardEvents.some((event) => event.kind === 'boss' && event.text.includes('First gate boss'))).toBe(true);
+  });
+
+  it('does not trigger the first boss from lifetime asteroid kills after warp reset', () => {
+    const state = createGameState(800, 600);
+    state.progression.achievementStats.asteroidsDestroyed = 1000;
+    state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids;
+
+    const nextState = createWarpResetState(state, 800, 600, 1);
+
+    updateGame(nextState, neutralInput(), 0);
+
+    expect(nextState.progression.achievementStats.asteroidsDestroyed).toBe(1000);
+    expect(nextState.progression.firstGateAsteroidsDestroyed).toBe(0);
+    expect(nextState.pendingBoss).toBeNull();
   });
 
   it('discovers rare post-first gate bosses from asteroid progress', () => {
@@ -788,6 +851,7 @@ describe('boss gates and warp reset', () => {
     state.progression.shipDamageLevel = 2;
     state.progression.unlockedZoneIndex = 3;
     state.progression.currentZoneIndex = 3;
+    state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids;
     state.progression.achievementStats.asteroidsDestroyed = 120;
     state.progression.achievementStats.prestigeWarps = 4;
     state.progression.unlockedAchievements.firstBlood = true;
@@ -804,6 +868,7 @@ describe('boss gates and warp reset', () => {
     expect(nextState.ship.maxHp).toBe(150);
     expect(nextState.progression.unlockedZoneIndex).toBe(0);
     expect(nextState.progression.currentZoneIndex).toBe(0);
+    expect(nextState.progression.firstGateAsteroidsDestroyed).toBe(0);
     expect(nextState.progression.achievementStats.asteroidsDestroyed).toBe(120);
     expect(nextState.progression.achievementStats.prestigeWarps).toBe(5);
     expect(nextState.progression.unlockedAchievements.firstBlood).toBe(true);
