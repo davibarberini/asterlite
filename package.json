@@ -3,16 +3,30 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc && vite build",
+    "build": "pnpm run build:web",
+    "build:web": "tsc && vite build --mode web",
+    "build:native": "tsc && vite build --mode native",
+    "cap:sync": "pnpm run build:native && cap sync",
+    "cap:build:android": "pnpm run cap:sync && cd android && ./gradlew assembleDebug",
+    "cap:build:ios:sim": "pnpm run cap:sync && xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build/DerivedData CODE_SIGNING_ALLOWED=NO build",
+    "cap:open:android": "cap open android",
+    "cap:open:ios": "cap open ios",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "phaser": "^3.90.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"

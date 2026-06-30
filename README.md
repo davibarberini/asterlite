@@ -58,15 +58,45 @@ Gameplay rules should stay in serializable simulation/progression modules. Phase
 
 ## Mobile Path
 
-The game is already configured as an installable web app for production builds. A future native APK/iOS route can use Capacitor:
+The game ships as a PWA for web and has native Android/iOS shells through Capacitor.
+
+Use Node 22 before running Capacitor commands:
 
 ```sh
-pnpm add @capacitor/core @capacitor/cli
-pnpm exec cap init
-pnpm exec cap add android
-pnpm exec cap add ios
-pnpm run build
-pnpm exec cap sync
+nvm use
 ```
 
-Capacitor can package the Vite `dist` output while preserving Phaser and the DOM HUD.
+Build targets:
+
+```sh
+pnpm run build:web      # GitHub Pages / PWA, Vite base /asteridle/
+pnpm run build:native   # Capacitor bundle, Vite base ./
+pnpm run cap:sync       # build native web assets and sync android/ios
+```
+
+Android debug APK:
+
+```sh
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+pnpm run cap:build:android
+```
+
+Output: `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+iOS simulator build:
+
+```sh
+pnpm run cap:build:ios:sim
+```
+
+Output: `ios/build/DerivedData/Build/Products/Debug-iphonesimulator/App.app`.
+
+Open native projects:
+
+```sh
+pnpm run cap:open:android
+pnpm run cap:open:ios
+```
+
+Release signing, store metadata, final app icons, splash screens, and TestFlight/Play Console upload are separate store-prep tasks.

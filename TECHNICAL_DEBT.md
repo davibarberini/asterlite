@@ -4,7 +4,28 @@ Use this file as the source of truth for engineering improvements. Keep items sm
 
 ## Ready
 
+### Native Release Signing and Store Prep
+
+Turn the native shells into store-ready release builds.
+
+Acceptance:
+- Configure Android release signing or document local keystore generation.
+- Configure iOS bundle signing/team settings for device/TestFlight builds.
+- Replace default native app icons and launch/splash assets with Asteridle assets.
+- Document Play Console/TestFlight build commands and artifact locations.
+
 ## Completed
+
+### Add Capacitor Native Packaging
+
+Added Android and iOS native shells around the existing Vite/Phaser game.
+
+Notes:
+- Added Capacitor 8 dependencies, `capacitor.config.ts`, and generated `android/` and `ios/` projects.
+- Split Vite builds into web (`/asteridle/`) and native (`./`) base paths.
+- Skipped service worker registration for native bundles.
+- Added Node 22 project hint and native sync/build scripts.
+- Validated `pnpm run build:native`, `cap sync`, Android debug APK generation, and iOS simulator build.
 
 ### Reduce Skill Tree DOM Churn
 

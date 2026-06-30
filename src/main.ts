@@ -44,6 +44,10 @@ const registerServiceWorker = (): void => {
   }
 
   const baseUrl = import.meta.env.BASE_URL;
+  if (baseUrl === './') {
+    return;
+  }
+
   window.addEventListener('load', () => {
     const swUrl = `${baseUrl}sw.js?v=${encodeURIComponent(__ASTERIDLE_BUILD_ID__)}`;
     navigator.serviceWorker.register(swUrl, { scope: baseUrl }).catch(() => {

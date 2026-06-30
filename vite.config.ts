@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig({
-  base: '/asteridle/',
+export default defineConfig(({ mode }) => ({
+  base: mode === 'native' ? './' : '/asteridle/',
   define: {
     __ASTERIDLE_BUILD_ID__: JSON.stringify(new Date().toISOString())
   },
@@ -11,4 +11,4 @@ export default defineConfig({
   preview: {
     port: 4173
   }
-});
+}));
