@@ -4,6 +4,21 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Core Credit Economy Curve Pass
+
+Split the long-term economy work into a first data-only tuning pass for the starting credit upgrades.
+
+Tuning notes:
+- Core credit upgrades: first purchases stay between 40 and 70 credits, level 25 costs stay under 160 credits, and final level-500 purchases benchmark at 8+ hours of capped passive income.
+- Fire rate: per-level gain moved to 3% so all 500 purchasable levels still affect the cooldown before the current minimum interval.
+- Drone costs: kept the prior 600/700/800 first-buy targets with 2x scaling per drone purchase.
+- Rewards, crystals, warp cores, skill costs, technology costs, achievements, boss rewards, passive reward multipliers, and reset pacing were reviewed as separate follow-up surfaces instead of being changed in the same slice.
+
+Notes:
+- Retuned passive income, shot damage, fire rate, and hull HP credit cost curves.
+- Added balance guard tests for early affordability, late multi-hour costs, and fire-rate cap usefulness.
+- Fixed the first-boss HUD countdown to use current first-gate progress instead of lifetime asteroid kills.
+
 ### First Warp Goal UI
 
 Added a compact current objective chip for the first warp path.
@@ -74,36 +89,20 @@ Notes:
 
 ## Ready
 
-### Long-Term Economy Balance Pass
+### Crystal, Warp, and Reward Economy Balance Pass
 
-Balance prices, rewards, and progression pacing across all modules with a focus on gameplay longevity.
+Continue balancing prices, rewards, and progression pacing across non-credit modules before adding more progression layers.
 
 Design:
-- Keep early prices low enough that the first upgrades feel impactful and frequent.
-- Make cost curves scale into multi-hour goals for late upgrade levels.
-- Review credits, crystals, warp cores, drones, skills, technologies, achievements, boss rewards, passive income, and reset pacing together.
+- Keep skill, warp, and reset prices low enough that the first unlocks feel reachable.
+- Make later crystal, warp, and technology goals stretch into longer run planning.
+- Review crystals, warp cores, skills, technologies, achievements, boss rewards, zone reward multipliers, and reset pacing together.
 - Prefer data-only tuning and targeted tests before adding new systems.
 
 Acceptance:
 - Produce a balance table or tuning notes for each module before changing values.
-- Adjust early, mid, and late price/reward curves so progression has clear short, medium, and long goals.
-- Ensure the last practical levels of uncapped/core upgrades take hours rather than minutes.
-- Verify warp reset, crystal spending, and income growth still feel coherent after tuning.
-
-### Warp Unlock Visual Polish
-
-Make the warp-core tree feel distinct from the crystal skill tree while retaining the same interaction model.
-
-Design:
-- Use the same compact square nodes and floating tooltip behavior.
-- Use a different visual theme: core/reactor/route styling instead of talent constellation styling.
-- Keep it mobile-first and readable in a bottom drawer.
-
-Acceptance:
-- Add reusable icons for warp unlock categories.
-- Add node states for owned, available, locked, and unaffordable.
-- Keep the tree mostly vertical/linear on mobile.
-- Clicking outside the tooltip closes it.
+- Adjust early, mid, and late crystal/warp/reward curves so progression has clear short, medium, and long goals.
+- Verify warp reset, crystal spending, skill costs, and technology unlock timing still feel coherent after tuning.
 
 ### Combat Readability Upgrade
 
@@ -120,35 +119,20 @@ Acceptance:
 - Add stronger boss arrival/threat telegraphing.
 - Keep effects renderer-only and avoid adding Phaser objects to simulation state.
 
-### Warp Tree Preview Details
+### Boss Gate Event Polish
 
-Make each warp unlock explain what changes in the actual run after purchase.
-
-Design:
-- Node tooltips should answer "what will I see or be able to do after buying this?"
-- Major systems should call out their affected tab, weapon mode, drone family, or defensive mechanic.
-- Keep the current compact tree interaction model.
-
-Acceptance:
-- Add run-impact details for every warp unlock tooltip.
-- Distinguish immediate stat effects from feature access unlocks.
-- For locked nodes, show missing prerequisites in player-readable terms.
-- Keep warp unlock definitions pure data.
-
-### Run Plan Drawer
-
-Add a compact current-run planning surface for long-term idle decisions.
+Make boss summoning and zone unlocking feel like deliberate route events.
 
 Design:
-- The drawer should summarize the current route, likely core gain, crystal progress, next boss, and active build identity.
-- It should bridge arcade play and idle planning without becoming a dashboard.
-- It can live in the Warp tab or as an info surface from the HUD.
+- Boss summon should feel like a chosen challenge, not just another purchase.
+- The player should see the boss, its purpose, and the unlock reward clearly.
+- Preserve the current boss-gated zone flow.
 
 Acceptance:
-- Show current zone, next zone/boss, crystals, estimated core gain, and available permanent unlock opportunities.
-- Show current build summary from owned weapon/drone/talent choices.
-- Update immediately after boss defeat, crystal spending, and warp reset.
-- Do not duplicate dense details already visible in the full skill or warp trees.
+- Add a boss HP/status strip while a gate boss is active.
+- Improve the summon countdown and arrival warning.
+- Preview the next zone reward/unlock before summoning.
+- Keep boss defeat unlocking the next map node without forced travel.
 
 ### Zone Identity Pass
 
@@ -165,20 +149,21 @@ Acceptance:
 - Add at least one per-zone presentation difference that does not affect balance.
 - Keep zone definitions serializable and data-driven.
 
-### Contextual Onboarding Beats
+### Guided Missions
 
-Add short milestone prompts for the first-time path through the game's major systems.
+Add compact mission objectives that guide short-term play and pay small permanent rewards.
 
 Design:
-- Use transient feed/modal copy sparingly.
-- Prompt around actual player milestones instead of opening a tutorial on launch.
-- Focus on first asteroid reward, first crystal, boss summon, first warp core, and first permanent unlock.
+- Missions should be small and readable during an idle/action run.
+- Use mission sequencing to teach actions instead of long descriptions.
+- Examples: destroy crystal asteroids, survive a boss, clear dense asteroids, collect credits without dying.
+- Rewards should include small permanent improvements where appropriate, plus crystals, credits, or temporary run boosts without breaking warp pacing.
 
 Acceptance:
-- Add one-time onboarding flags to serializable progression state.
-- Trigger concise messages for the first few major milestones.
-- Avoid repeating messages on existing saves that already passed the milestone.
-- Keep combat input uninterrupted.
+- Add serializable active mission state.
+- Generate or select objectives appropriate to current zone/progression.
+- Show active mission progress in a compact UI surface that does not eat the playfield.
+- Reward completion through existing currency, permanent progression, and reward feed systems.
 
 ### Drone Bay Personality Pass
 
@@ -196,110 +181,36 @@ Acceptance:
 - Add concise info modal facts for target range, fire rhythm, and combat role.
 - Keep drone behavior unchanged unless a follow-up explicitly tunes balance.
 
-### Boss Gate Event Polish
+### Technology Tree Clarity Pass
 
-Make boss summoning and zone unlocking feel like deliberate route events.
-
-Design:
-- Boss summon should feel like a chosen challenge, not just another purchase.
-- The player should see the boss, its purpose, and the unlock reward clearly.
-- Preserve the current boss-gated zone flow.
-
-Acceptance:
-- Add a boss HP/status strip while a gate boss is active.
-- Improve the summon countdown and arrival warning.
-- Preview the next zone reward/unlock before summoning.
-- Keep boss defeat unlocking the next map node without forced travel.
-
-### Achievement Presentation Polish
-
-Make achievements easier to scan and more satisfying to complete.
+Make the Technologies tree distinct from the crystal skill tree and clearer about what each node changes in the run.
 
 Design:
-- Achievements should support motivation without dominating the idle UI.
-- The player should see recent unlocks and near-complete goals quickly.
-- Grouping should make bonus categories more understandable.
+- Use a core/reactor/route visual theme instead of talent constellation styling.
+- Node tooltips should answer "what will I see or be able to do after buying this?"
+- Major systems should call out their affected tab, weapon mode, drone family, or defensive mechanic.
+- Keep it mobile-first and readable in a bottom drawer.
 
 Acceptance:
-- Group achievements by category or bonus type.
-- Highlight recent unlocks and near-complete achievements.
-- Add clearer progress text for locked/incomplete achievements.
-- Preserve existing achievement save data.
+- Add reusable icons for technology unlock categories.
+- Add run-impact details for every technology tooltip.
+- For locked nodes, show missing prerequisites in player-readable terms.
+- Keep technology definitions pure data.
 
-### Warp Route Specialization
+### Contextual Onboarding Beats
 
-Expand the warp route into recognizable long-term playstyles.
+Add short milestone prompts for the first-time path through the game's major systems.
 
 Design:
-- Add branches that support manual ace, drone commander, tank/shield, and crystal miner directions.
-- Early route should stay guided; specialization should open after the first few permanent unlocks.
-- Each branch should have clear tradeoffs and readable identity.
+- Use transient feed/modal copy sparingly.
+- Prompt around actual player milestones instead of opening a tutorial on launch.
+- Focus on first asteroid reward, first crystal, boss summon, first warp core, and first permanent unlock.
 
 Acceptance:
-- Add data definitions for a second set of warp unlock nodes beyond the current route.
-- Keep unlock effects serializable and pure.
-- Show branch identity in the warp tree UI.
-- Do not rebalance the whole economy in the same slice.
-
-### Contracts and Missions
-
-Add optional run objectives that give short-term direction and rewards.
-
-Design:
-- Contracts should be small and readable during an idle/action run.
-- Examples: destroy crystal asteroids, survive a boss, clear dense asteroids, collect credits without dying.
-- Rewards should include small permanent improvements where appropriate, plus crystals, credits, or temporary run boosts without breaking warp pacing.
-
-Acceptance:
-- Add serializable active contract state.
-- Generate a small set of objectives appropriate to current zone/progression.
-- Show active contract progress in a compact UI surface.
-- Reward completion through existing currency, permanent progression, and reward feed systems.
-
-### Run Modifiers After Warp
-
-Offer temporary modifiers after warp reset to make each run feel a little different.
-
-Design:
-- After a warp, offer a small choice of temporary run traits.
-- Modifiers should create tradeoffs, not only flat bonuses.
-- Examples: richer crystals but denser belts, faster drones but fragile hull, higher boss rewards but stronger bosses.
-
-Acceptance:
-- Add serializable current-run modifier state.
-- Present a choice after warp reset before normal play resumes.
-- Apply modifiers through existing balance/system helpers.
-- Clear or replace modifiers on the next warp reset.
-
-### Sector Events
-
-Add lightweight random events during play to reduce run flatness.
-
-Design:
-- Events should be readable and time-limited.
-- Examples: comet storm, derelict cache, unstable crystal cluster, saucer wave, rich metallic belt.
-- Events should create a short decision or opportunity without requiring a new screen.
-
-Acceptance:
-- Add serializable event state with timer/type.
-- Render event announcements through the reward/system feed.
-- Add at least two event types with distinct gameplay effects.
-- Keep event spawning tuned so normal asteroid play remains stable.
-
-### Ship Module Slots
-
-Add a small active/passive module layer for ship build expression.
-
-Design:
-- Modules should be unlocked by warp route progression.
-- Keep the first module set small and easy to understand.
-- Examples: shield burst, salvage magnet, overdrive, mine pulse, emergency repair.
-
-Acceptance:
-- Add serializable module ownership/equip state.
-- Add a UI surface for viewing and equipping modules.
-- Implement one passive module and one active module as the first slice.
-- Keep input mapping mobile-friendly and avoid crowding the HUD.
+- Add one-time onboarding flags to serializable progression state.
+- Trigger concise messages for the first few major milestones.
+- Avoid repeating messages on existing saves that already passed the milestone.
+- Keep combat input uninterrupted.
 
 ## Process Notes
 

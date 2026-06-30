@@ -873,7 +873,7 @@ export class GameScene extends Phaser.Scene {
     } else if (hasWarpUnlock(this.state.progression, 'shieldBubble') && this.state.shieldBubble.active) {
       this.setText(this.statusEl, translate(this.language, 'status.shieldReady'));
     } else if (this.state.progression.unlockedZoneIndex === 0 && !hasActiveZoneBoss(this.state)) {
-      const remaining = Math.max(0, balance.bosses.firstGateAsteroids - this.state.progression.achievementStats.asteroidsDestroyed);
+      const remaining = Math.max(0, balance.bosses.firstGateAsteroids - this.state.progression.firstGateAsteroidsDestroyed);
       this.setText(this.statusEl, remaining > 0 ? translate(this.language, 'status.firstBossCountdown', { remaining }) : translate(this.language, 'status.firstBossDetected'));
     } else {
       this.setText(this.statusEl, translate(this.language, 'status.default'));

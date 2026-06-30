@@ -3,7 +3,7 @@ import type { AsteroidSize, AsteroidVariant, BossType, DroneType } from './simul
 export const balance = {
   economy: {
     passiveIncomePerLevel: 1.25,
-    passiveCost: { base: 45, scale: 1.12 },
+    passiveCost: { base: 45, scale: 1.035 },
     mapUnlockCost: 260,
     deathIncomeMultiplier: 0.35,
     maxOfflineSeconds: 8 * 60 * 60,
@@ -21,10 +21,10 @@ export const balance = {
       breaker: { label: 'Missile', baseCost: 800, scale: 2 }
     } satisfies Record<DroneType, { label: string; baseCost: number; scale: number }>,
     ship: {
-      hp: { baseCost: 80, scale: 1.12, gain: 25 },
+      hp: { baseCost: 70, scale: 1.0335, gain: 25 },
       armor: { baseCost: 240, scale: 1.72, gain: 5 },
-      damage: { baseCost: 55, scale: 1.14 },
-      fireRate: { baseCost: 70, scale: 1.13, bonusPercentPerLevel: 4, minimumInterval: 0.045 },
+      damage: { baseCost: 40, scale: 1.036 },
+      fireRate: { baseCost: 55, scale: 1.034, bonusPercentPerLevel: 3, minimumInterval: 0.045 },
       speed: { baseCost: 160, scale: 1.68, bonusPercentPerLevel: 12 },
       deflector: { baseCost: 320, scale: 1.78 },
       spreadShotCost: 620,

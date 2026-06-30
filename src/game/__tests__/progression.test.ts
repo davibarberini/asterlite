@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { neutralInput } from '../input/actions';
 import { getCrystalBalance, purchaseTalentRank, spendCrystals } from '../progression/currency';
 import { createProgression } from '../simulation/state';
+import { getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../progression/idleBonuses';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../progression/prestige';
 import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
@@ -17,6 +18,7 @@ import type { AsteroidState, PendingBossState } from '../simulation/types';
 import { balance } from '../balance';
 
 const saveKey = 'asteridle.save.v1';
+const scaledCost = (baseCost: number, level: number, scale: number): number => Math.round(baseCost * scale ** level);
 
 const createLocalStorage = (): Storage => {
   const store = new Map<string, string>();
@@ -455,6 +457,33 @@ describe('crystal spending and talents', () => {
 });
 
 describe('core ship upgrades', () => {
+  it('keeps core credit upgrade curves cheap early and multi-hour near the level cap', () => {
+    const tracks = [
+      { baseCost: balance.economy.passiveCost.base, scale: balance.economy.passiveCost.scale },
+      { baseCost: balance.shop.ship.damage.baseCost, scale: balance.shop.ship.damage.scale },
+      { baseCost: balance.shop.ship.fireRate.baseCost, scale: balance.shop.ship.fireRate.scale },
+      { baseCost: balance.shop.ship.hp.baseCost, scale: balance.shop.ship.hp.scale }
+    ];
+    const lateIncomePerSecond =
+      balance.shop.upgradeBaseCap *
+      balance.economy.passiveIncomePerLevel *
+      getRefineryMilestoneMultiplier(balance.shop.upgradeBaseCap);
+
+    tracks.forEach(({ baseCost, scale }) => {
+      expect(scaledCost(baseCost, 0, scale)).toBeLessThanOrEqual(70);
+      expect(scaledCost(baseCost, 25, scale)).toBeLessThanOrEqual(160);
+      expect(scaledCost(baseCost, balance.shop.upgradeBaseCap - 1, scale) / lateIncomePerSecond).toBeGreaterThanOrEqual(8 * 60 * 60);
+    });
+  });
+
+  it('keeps capped fire-rate purchases effective through the current upgrade cap', () => {
+    const progression = createProgression();
+    progression.shipFireRateLevel = balance.shop.upgradeBaseCap;
+
+    expect(getFireRateMultiplier(progression)).toBe(16);
+    expect(getPlayerFireInterval(progression)).toBeGreaterThan(balance.shop.ship.fireRate.minimumInterval);
+  });
+
   it('applies fire rate levels to player weapon cooldown', () => {
     const state = createGameState(800, 600);
 
