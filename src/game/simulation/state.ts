@@ -1,6 +1,7 @@
 import type { DroneState, DroneType, GameState, ProgressionState, ShieldBubbleState, ShipState } from './types';
 import { createAchievementStats, createUnlockedAchievements, getEffectiveMaxHp } from '../progression/achievements';
 import { createGuidedMissionState } from '../progression/guidedMissions';
+import { getShipFrameBonusMultiplier } from '../progression/shipFrames';
 import { createTalentRanks } from '../progression/talentTree';
 import { emitAudio } from './events';
 import { createAsteroidField } from './systems/asteroids';
@@ -8,7 +9,7 @@ import { maxTravelLevel } from './zones';
 import { balance } from '../balance';
 
 const createShip = (width: number, height: number, progression: ProgressionState, position = { x: width / 2, y: height / 2 }): ShipState => {
-  const maxHp = getEffectiveMaxHp(progression);
+  const maxHp = Math.round(getEffectiveMaxHp(progression) * getShipFrameBonusMultiplier(progression, 'maxHpMultiplier'));
   return {
     position,
     velocity: { x: 0, y: 0 },
@@ -78,6 +79,9 @@ export const createProgression = (): ProgressionState => ({
     rareBossesFound: 0
   },
   guidedMissions: createGuidedMissionState(),
+  activeShipFrameId: 'vector',
+  unlockedShipFrameIds: ['vector'],
+  shipExchanges: 0,
   prestigeCores: 0,
   ownedWarpUnlockIds: [],
   announcedAffordableWarpUnlockIds: [],

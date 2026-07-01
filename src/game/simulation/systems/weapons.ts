@@ -1,5 +1,6 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
 import { getPlayerFireInterval } from '../../progression/idleBonuses';
+import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 import { getMissileTurnRateMultiplier } from '../../progression/talentTree';
 import { balance } from '../../balance';
 import { emitAudio } from '../events';
@@ -63,7 +64,13 @@ export const fireBullet = (
 export const firePlayerWeapon = (state: GameState): void => {
   const ship = state.ship;
   const damageMultiplier = getAchievementMultiplier(state.progression, 'damage');
-  const baseDamage = Math.max(0.05, state.progression.shipDamageLevel * balance.weapons.playerDamageMultiplier * damageMultiplier);
+  const baseDamage = Math.max(
+    0.05,
+    state.progression.shipDamageLevel *
+      balance.weapons.playerDamageMultiplier *
+      damageMultiplier *
+      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
+  );
 
   if (state.progression.weaponMode === 'spread' && state.progression.spreadUnlocked) {
     const spreadDamage = Math.max(0.05, baseDamage * balance.weapons.spreadDamageMultiplier);

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getActiveShipFrame } from '../../game/progression/shipFrames';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
 import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
@@ -111,12 +112,8 @@ export class VectorRenderer {
     }
 
     const viewScale = this.getViewScale(state);
-    const points = [
-      { x: 18, y: 0 },
-      { x: -13, y: 12 },
-      { x: -7, y: 0 },
-      { x: -13, y: -12 }
-    ].map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y)));
+    const points = getActiveShipFrame(state.progression).shape
+      .map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y)));
 
     this.graphics.lineStyle(2, 0xf2fbff, 0.96);
     this.graphics.beginPath();

@@ -1,4 +1,5 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
+import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 import {
   getMissileDamage,
   getMissileFireIntervalMultiplier,
@@ -72,7 +73,8 @@ const getShipDamage = (state: GameState): number =>
     0.05,
     state.progression.shipDamageLevel *
       balance.weapons.playerDamageMultiplier *
-      getAchievementMultiplier(state.progression, 'damage')
+      getAchievementMultiplier(state.progression, 'damage') *
+      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
   );
 
 const fireDroneWeapon = (

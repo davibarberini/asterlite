@@ -2,6 +2,7 @@ import type { GameState, ProgressionState } from '../simulation/types';
 import { createGameState, createProgression } from '../simulation/state';
 import { balance } from '../balance';
 import { applyOwnedWarpUnlockEffects } from './warpUnlocks';
+import { getNextShipFrameId, getUnlockedShipFrameIdsForExchangeCount } from './shipFrames';
 
 export const crystalsPerPrestigeCore = balance.economy.prestige.crystalsPerCore;
 export const prestigeBonusPerCore = balance.economy.prestige.bonusPerCore;
@@ -20,20 +21,20 @@ export const getPrestigeCoreGain = (state: GameState): number => {
 
 export const createWarpResetState = (previousState: GameState, width: number, height: number, coreGain: number): GameState => {
   const permanentProgression = createProgression();
+  const nextExchangeCount = previousState.progression.shipExchanges + 1;
+  const nextShipFrameId = getNextShipFrameId(previousState.progression, nextExchangeCount);
   permanentProgression.prestigeCores = previousState.progression.prestigeCores + Math.max(0, Math.floor(coreGain));
   permanentProgression.ownedWarpUnlockIds = [...previousState.progression.ownedWarpUnlockIds];
   permanentProgression.announcedAffordableWarpUnlockIds = [...previousState.progression.announcedAffordableWarpUnlockIds];
   permanentProgression.guidedMissions = {
     activeMissionId: previousState.progression.guidedMissions.activeMissionId,
     completedMissionIds: [...previousState.progression.guidedMissions.completedMissionIds],
+    repeatCompletions: previousState.progression.guidedMissions.repeatCompletions,
     startedAt: { ...previousState.progression.guidedMissions.startedAt }
   };
-  permanentProgression.maxHp = previousState.progression.maxHp;
-  permanentProgression.armor = previousState.progression.armor;
-  permanentProgression.shipDamageLevel = previousState.progression.shipDamageLevel;
-  permanentProgression.shipFireRateLevel = previousState.progression.shipFireRateLevel;
-  permanentProgression.shipSpeedLevel = previousState.progression.shipSpeedLevel;
-  permanentProgression.deflectorLevel = previousState.progression.deflectorLevel;
+  permanentProgression.shipExchanges = nextExchangeCount;
+  permanentProgression.unlockedShipFrameIds = getUnlockedShipFrameIdsForExchangeCount(nextExchangeCount);
+  permanentProgression.activeShipFrameId = nextShipFrameId;
   permanentProgression.spreadUnlocked = previousState.progression.spreadUnlocked;
   permanentProgression.piercingUnlocked = previousState.progression.piercingUnlocked;
   applyOwnedWarpUnlockEffects(permanentProgression);

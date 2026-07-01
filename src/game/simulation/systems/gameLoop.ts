@@ -23,6 +23,7 @@ import {
   getRefineryIncomeMultiplier
 } from '../../progression/talentTree';
 import { syncGuidedMissions } from '../../progression/guidedMissions';
+import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 import { balance } from '../../balance';
 import { hasShieldBubbleUnlocked } from '../state';
 export const updateGame = (state: GameState, input: InputActions, dt: number): void => {
@@ -153,6 +154,7 @@ const updateIdleIncome = (state: GameState, dt: number): void => {
     getRefineryMilestoneMultiplier(state.progression.passiveIncomeLevel) *
     getRefineryIncomeMultiplier(state.progression) *
     getPrestigeMoneyMultiplier(state.progression) *
+    getShipFrameBonusMultiplier(state.progression, 'incomeMultiplier') *
     getAchievementMultiplier(state.progression, 'passive') *
     getAchievementMultiplier(state.progression, 'money') *
     deathPenaltyMultiplier *

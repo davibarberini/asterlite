@@ -11,12 +11,13 @@ export type GuidedMissionProgress = {
   current: number;
   target: number;
   ready: boolean;
-  rewardKind: 'damage' | 'hull' | 'income' | 'fireRate' | 'drone';
+  rewardKind: 'damage' | 'hull' | 'income' | 'fireRate' | 'drone' | 'credits' | 'speed' | 'crystals';
 };
 
 type GuidedMissionDefinition = {
   id: GuidedMissionId;
-  target: number;
+  repeatable?: boolean;
+  target: number | ((state: GameState) => number);
   rewardKind: GuidedMissionProgress['rewardKind'];
   getCurrent: (state: GameState) => number;
   isAvailable?: (state: GameState) => boolean;
@@ -27,6 +28,10 @@ const clampProgress = (value: number): number => Math.max(0, Math.min(1, value))
 
 export const createGuidedMissionSnapshot = (progression: ProgressionState, crystals = 0): GuidedMissionSnapshot => ({
   firstGateAsteroidsDestroyed: progression.firstGateAsteroidsDestroyed,
+  asteroidsDestroyed: progression.achievementStats.asteroidsDestroyed,
+  moneyEarned: progression.achievementStats.moneyEarned,
+  crystalsCollected: progression.achievementStats.crystalsCollected,
+  deaths: progression.achievementStats.deaths,
   bossDefeats: progression.bossDefeats,
   crystals,
   prestigeCores: progression.prestigeCores
@@ -35,8 +40,13 @@ export const createGuidedMissionSnapshot = (progression: ProgressionState, cryst
 export const createGuidedMissionState = (): GuidedMissionState => ({
   activeMissionId: 'drawGateBoss',
   completedMissionIds: [],
+  repeatCompletions: 0,
   startedAt: {
     firstGateAsteroidsDestroyed: 0,
+    asteroidsDestroyed: 0,
+    moneyEarned: 0,
+    crystalsCollected: 0,
+    deaths: 0,
     bossDefeats: 0,
     crystals: 0,
     prestigeCores: 0
@@ -55,8 +65,17 @@ const completeRewardText = (rewardKind: GuidedMissionProgress['rewardKind']): st
       return '+1 Attack speed level';
     case 'drone':
       return '+1 Drone damage level';
+    case 'credits':
+      return 'Credits cache';
+    case 'speed':
+      return '+1 Thruster speed level';
+    case 'crystals':
+      return 'Crystal cache';
   }
 };
+
+const getMissionMoneyReward = (state: GameState, base: number): number =>
+  Math.round(base * (1 + state.progression.currentZoneIndex * 0.55 + state.progression.guidedMissions.repeatCompletions * 0.08));
 
 export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
@@ -111,25 +130,127 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
     applyReward: (state) => {
       state.progression.droneDamageLevel += 1;
     }
+  },
+  {
+    id: 'clearAsteroids',
+    repeatable: true,
+    target: (state) => 24 + state.progression.currentZoneIndex * 8,
+    rewardKind: 'credits',
+    getCurrent: (state) => state.progression.achievementStats.asteroidsDestroyed - state.progression.guidedMissions.startedAt.asteroidsDestroyed,
+    applyReward: (state) => {
+      state.money += getMissionMoneyReward(state, 450);
+      if ((state.progression.guidedMissions.repeatCompletions + 1) % 3 === 0) {
+        state.progression.passiveIncomeLevel += 1;
+      }
+    }
+  },
+  {
+    id: 'collectCredits',
+    repeatable: true,
+    target: (state) => Math.round(1200 * (1 + state.progression.currentZoneIndex * 0.7)),
+    rewardKind: 'speed',
+    getCurrent: (state) => state.progression.achievementStats.moneyEarned - state.progression.guidedMissions.startedAt.moneyEarned,
+    applyReward: (state) => {
+      state.progression.shipSpeedLevel += 1;
+      state.money += getMissionMoneyReward(state, 300);
+    }
+  },
+  {
+    id: 'surviveAsteroids',
+    repeatable: true,
+    target: (state) => 18 + state.progression.currentZoneIndex * 6,
+    rewardKind: 'credits',
+    getCurrent: (state) => {
+      if (state.progression.achievementStats.deaths > state.progression.guidedMissions.startedAt.deaths) {
+        return 0;
+      }
+      return state.progression.achievementStats.asteroidsDestroyed - state.progression.guidedMissions.startedAt.asteroidsDestroyed;
+    },
+    applyReward: (state) => {
+      state.money += getMissionMoneyReward(state, 600);
+    }
+  },
+  {
+    id: 'collectCrystals',
+    repeatable: true,
+    target: (state) => 3 + Math.max(0, state.progression.currentZoneIndex),
+    rewardKind: 'credits',
+    isAvailable: (state) => state.progression.unlockedZoneIndex >= 1,
+    getCurrent: (state) => state.progression.achievementStats.crystalsCollected - state.progression.guidedMissions.startedAt.crystalsCollected,
+    applyReward: (state) => {
+      state.money += getMissionMoneyReward(state, 250);
+    }
+  },
+  {
+    id: 'defeatZoneBoss',
+    repeatable: true,
+    target: 1,
+    rewardKind: 'damage',
+    isAvailable: (state) => state.progression.unlockedZoneIndex >= 1,
+    getCurrent: (state) => state.progression.bossDefeats - state.progression.guidedMissions.startedAt.bossDefeats,
+    applyReward: (state) => {
+      state.progression.shipDamageLevel += 1;
+    }
   }
+];
+
+const INITIAL_MISSION_IDS: GuidedMissionId[] = [
+  'drawGateBoss',
+  'defeatGateBoss',
+  'collectWarpCrystals',
+  'warpForFirstCore',
+  'installDroneSystems'
+];
+
+const REPEATABLE_MISSION_IDS: GuidedMissionId[] = [
+  'clearAsteroids',
+  'collectCredits',
+  'surviveAsteroids',
+  'collectCrystals',
+  'defeatZoneBoss'
 ];
 
 const getMissionDefinition = (id: GuidedMissionId): GuidedMissionDefinition | undefined =>
   GUIDED_MISSION_DEFINITIONS.find((mission) => mission.id === id);
 
+const getMissionTarget = (state: GameState, mission: GuidedMissionDefinition): number =>
+  typeof mission.target === 'function' ? mission.target(state) : mission.target;
+
 const selectNextMission = (state: GameState): GuidedMissionId | null => {
-  const mission = GUIDED_MISSION_DEFINITIONS.find(
-    (definition) =>
-      !state.progression.guidedMissions.completedMissionIds.includes(definition.id) &&
-      (definition.isAvailable?.(state) ?? true)
-  );
-  return mission?.id ?? null;
+  const initialMission = INITIAL_MISSION_IDS
+    .map((id) => getMissionDefinition(id))
+    .find(
+      (definition): definition is GuidedMissionDefinition =>
+        definition !== undefined &&
+        !state.progression.guidedMissions.completedMissionIds.includes(definition.id) &&
+        (definition.isAvailable?.(state) ?? true)
+    );
+  if (initialMission) {
+    return initialMission.id;
+  }
+
+  const repeatableMissions = REPEATABLE_MISSION_IDS
+    .map((id) => getMissionDefinition(id))
+    .filter((definition): definition is GuidedMissionDefinition => definition !== undefined && (definition.isAvailable?.(state) ?? true));
+  if (repeatableMissions.length <= 0) {
+    return null;
+  }
+
+  const index = state.progression.guidedMissions.repeatCompletions % repeatableMissions.length;
+  return repeatableMissions[index].id;
 };
 
 export const syncGuidedMissions = (state: GameState): void => {
   const missions = state.progression.guidedMissions;
   if (!missions.activeMissionId) {
     missions.activeMissionId = selectNextMission(state);
+    missions.startedAt = createGuidedMissionSnapshot(state.progression, state.crystals);
+  }
+
+  if (
+    missions.activeMissionId === 'surviveAsteroids' &&
+    state.progression.achievementStats.deaths > missions.startedAt.deaths
+  ) {
     missions.startedAt = createGuidedMissionSnapshot(state.progression, state.crystals);
   }
 
@@ -144,7 +265,11 @@ export const syncGuidedMissions = (state: GameState): void => {
   }
 
   mission.applyReward(state);
-  missions.completedMissionIds = Array.from(new Set([...missions.completedMissionIds, progress.id]));
+  if (mission.repeatable) {
+    missions.repeatCompletions += 1;
+  } else {
+    missions.completedMissionIds = Array.from(new Set([...missions.completedMissionIds, progress.id]));
+  }
   missions.activeMissionId = selectNextMission(state);
   missions.startedAt = createGuidedMissionSnapshot(state.progression, state.crystals);
   emitReward(state, `Mission complete: ${completeRewardText(mission.rewardKind)}`, 'unlock');
@@ -162,7 +287,7 @@ export const getActiveGuidedMissionProgress = (state: GameState): GuidedMissionP
   }
 
   const current = Math.max(0, mission.getCurrent(state));
-  const target = Math.max(1, mission.target);
+  const target = Math.max(1, getMissionTarget(state, mission));
   return {
     id: mission.id,
     progress: clampProgress(current / target),

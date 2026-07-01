@@ -10,7 +10,8 @@ import {
 } from './achievements';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
 import { createGuidedMissionState } from './guidedMissions';
-import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import { SHIP_FRAME_BY_ID, normalizeShipFrameIds } from './shipFrames';
+import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
@@ -156,11 +157,19 @@ const guidedMissionIds: GuidedMissionId[] = [
   'defeatGateBoss',
   'collectWarpCrystals',
   'warpForFirstCore',
-  'installDroneSystems'
+  'installDroneSystems',
+  'clearAsteroids',
+  'surviveAsteroids',
+  'collectCredits',
+  'collectCrystals',
+  'defeatZoneBoss'
 ];
 
 const isGuidedMissionId = (value: unknown): value is GuidedMissionId =>
   typeof value === 'string' && guidedMissionIds.includes(value as GuidedMissionId);
+
+const isShipFrameId = (value: unknown): value is ShipFrameId =>
+  typeof value === 'string' && value in SHIP_FRAME_BY_ID;
 
 const readGuidedMissions = (value: unknown): GuidedMissionState => {
   const fallback = createGuidedMissionState();
@@ -174,8 +183,13 @@ const readGuidedMissions = (value: unknown): GuidedMissionState => {
     completedMissionIds: Array.isArray(value.completedMissionIds)
       ? Array.from(new Set(value.completedMissionIds.filter(isGuidedMissionId)))
       : [],
+    repeatCompletions: Math.max(0, Math.floor(readNumber(value.repeatCompletions, 0))),
     startedAt: {
       firstGateAsteroidsDestroyed: Math.max(0, Math.floor(readNumber(startedAt.firstGateAsteroidsDestroyed, 0))),
+      asteroidsDestroyed: Math.max(0, Math.floor(readNumber(startedAt.asteroidsDestroyed, 0))),
+      moneyEarned: Math.max(0, readNumber(startedAt.moneyEarned, 0)),
+      crystalsCollected: Math.max(0, Math.floor(readNumber(startedAt.crystalsCollected, 0))),
+      deaths: Math.max(0, Math.floor(readNumber(startedAt.deaths, 0))),
       bossDefeats: Math.max(0, Math.floor(readNumber(startedAt.bossDefeats, 0))),
       crystals: Math.max(0, Math.floor(readNumber(startedAt.crystals, 0))),
       prestigeCores: Math.max(0, Math.floor(readNumber(startedAt.prestigeCores, 0)))
@@ -239,6 +253,10 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
   const currentZoneIndex = Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex))));
   const ownedWarpUnlockIds = readWarpUnlockIds(value.ownedWarpUnlockIds);
+  const unlockedShipFrameIds = normalizeShipFrameIds(value.unlockedShipFrameIds);
+  const activeShipFrameId = isShipFrameId(value.activeShipFrameId) && unlockedShipFrameIds.includes(value.activeShipFrameId)
+    ? value.activeShipFrameId
+    : 'vector';
   const legacyUnlockIds = value.ownedWarpUnlockIds;
   if (droneCounts.sentry > 0 || droneCounts.ranger > 0 || droneCounts.breaker > 0) {
     addWarpUnlockId(ownedWarpUnlockIds, 'droneSystems');
@@ -295,6 +313,9 @@ const readProgression = (value: unknown): ProgressionState | null => {
     bossDefeats: Math.max(0, Math.floor(readNumber(value.bossDefeats, unlockedZoneIndex))),
     bossDiscovery: readBossDiscovery(value.bossDiscovery),
     guidedMissions: readGuidedMissions(value.guidedMissions),
+    activeShipFrameId,
+    unlockedShipFrameIds,
+    shipExchanges: Math.max(0, Math.floor(readNumber(value.shipExchanges, Math.max(0, unlockedShipFrameIds.length - 1)))),
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
     ownedWarpUnlockIds,
     announcedAffordableWarpUnlockIds: readWarpUnlockIds(value.announcedAffordableWarpUnlockIds),

@@ -1046,6 +1046,51 @@ canvas {
   line-height: 1.3;
 }
 
+.ship-frame-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ship-frame-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(216, 255, 245, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.ship-frame-item.is-active {
+  border-color: rgba(131, 255, 220, 0.42);
+  background: rgba(131, 255, 220, 0.1);
+}
+
+.ship-frame-item.is-locked {
+  opacity: 0.48;
+}
+
+.ship-frame-item strong,
+.ship-frame-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ship-frame-item strong {
+  color: rgba(245, 253, 255, 0.95);
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.ship-frame-item span {
+  color: rgba(198, 222, 238, 0.7);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
 .ui-modal {
   position: fixed;
   inset: 0;

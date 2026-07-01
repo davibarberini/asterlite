@@ -7,6 +7,17 @@ export type AsteroidSize = 'large' | 'medium' | 'small';
 export type AsteroidVariant = 'common' | 'metallic' | 'crystal' | 'dense';
 export type BossType = 'sentinel' | 'crusher' | 'prism';
 export type DroneType = 'sentry' | 'ranger' | 'breaker';
+export type ShipFrameId =
+  | 'vector'
+  | 'kestrel'
+  | 'bulwark'
+  | 'prism'
+  | 'voidRunner'
+  | 'needle'
+  | 'atlas'
+  | 'ember'
+  | 'wraith'
+  | 'aurora';
 export type TalentId =
   | 'refineryYield'
   | 'combatBounty'
@@ -211,10 +222,19 @@ export type GuidedMissionId =
   | 'defeatGateBoss'
   | 'collectWarpCrystals'
   | 'warpForFirstCore'
-  | 'installDroneSystems';
+  | 'installDroneSystems'
+  | 'clearAsteroids'
+  | 'surviveAsteroids'
+  | 'collectCredits'
+  | 'collectCrystals'
+  | 'defeatZoneBoss';
 
 export type GuidedMissionSnapshot = {
   firstGateAsteroidsDestroyed: number;
+  asteroidsDestroyed: number;
+  moneyEarned: number;
+  crystalsCollected: number;
+  deaths: number;
   bossDefeats: number;
   crystals: number;
   prestigeCores: number;
@@ -223,6 +243,7 @@ export type GuidedMissionSnapshot = {
 export type GuidedMissionState = {
   activeMissionId: GuidedMissionId | null;
   completedMissionIds: GuidedMissionId[];
+  repeatCompletions: number;
   startedAt: GuidedMissionSnapshot;
 };
 
@@ -247,6 +268,9 @@ export type ProgressionState = {
   bossDefeats: number;
   bossDiscovery: BossDiscoveryState;
   guidedMissions: GuidedMissionState;
+  activeShipFrameId: ShipFrameId;
+  unlockedShipFrameIds: ShipFrameId[];
+  shipExchanges: number;
   prestigeCores: number;
   ownedWarpUnlockIds: WarpUnlockId[];
   announcedAffordableWarpUnlockIds: WarpUnlockId[];

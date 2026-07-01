@@ -5,7 +5,7 @@ import { clearAllAsteridleData, loadGameState, saveGameState } from '../../game/
 import { emitReward } from '../../game/simulation/events';
 import { createDrone, createGameState, syncShieldBubbleState } from '../../game/simulation/state';
 import { createAsteroidField, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
-import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, TalentId, Vec2, WarpUnlockId, WeaponMode } from '../../game/simulation/types';
+import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, ShipFrameId, TalentId, Vec2, WarpUnlockId, WeaponMode } from '../../game/simulation/types';
 import { getCoreUpgradeCap, getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../../game/progression/idleBonuses';
 import {
   TALENT_DEFINITIONS,
@@ -42,6 +42,7 @@ import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
 import { balance } from '../../game/balance';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
+import { SHIP_FRAME_DEFINITIONS, SHIP_FRAME_BY_ID, getActiveShipFrame, getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
 import { formatCoreUnit, formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
 
 type ShopTab = 'upgrades' | 'warp' | 'drones' | 'skills' | 'weapons' | 'achievements';
@@ -942,24 +943,46 @@ export class GameScene extends Phaser.Scene {
       drawGateBoss: this.language === 'pt-BR' ? 'Atrair o boss do portal' : 'Draw out the gate boss',
       defeatGateBoss: this.language === 'pt-BR' ? 'Derrotar o boss' : 'Defeat the boss',
       collectWarpCrystals: this.language === 'pt-BR' ? 'Coletar cristais de warp' : 'Collect warp crystals',
-      warpForFirstCore: this.language === 'pt-BR' ? 'Fazer warp' : 'Warp for a core',
-      installDroneSystems: this.language === 'pt-BR' ? 'Instalar sistemas de drones' : 'Install Drone Systems'
+      warpForFirstCore: this.language === 'pt-BR' ? 'Trocar de nave' : 'Exchange ships',
+      installDroneSystems: this.language === 'pt-BR' ? 'Instalar sistemas de drones' : 'Install Drone Systems',
+      clearAsteroids: this.language === 'pt-BR' ? 'Limpar asteroides' : 'Clear asteroids',
+      surviveAsteroids: this.language === 'pt-BR' ? 'Limpar sem morrer' : 'Clear without dying',
+      collectCredits: this.language === 'pt-BR' ? 'Coletar créditos' : 'Collect credits',
+      collectCrystals: this.language === 'pt-BR' ? 'Coletar cristais' : 'Collect crystals',
+      defeatZoneBoss: this.language === 'pt-BR' ? 'Derrotar boss de zona' : 'Defeat zone boss'
     };
     return titles[goal.id];
   }
 
   private getFirstWarpGoalProgressLabel(goal: GuidedMissionProgress): string {
-    if (goal.id === 'defeatGateBoss') {
-      return goal.ready
+    const reward = this.getGuidedMissionRewardLabel(goal);
+    if (goal.id === 'defeatGateBoss' || goal.id === 'defeatZoneBoss') {
+      const progress = goal.ready
         ? (this.language === 'pt-BR' ? 'Completa' : 'Complete')
         : (this.language === 'pt-BR' ? 'Boss ativo' : 'Boss active');
+      return `${progress} · ${reward}`;
     }
     if (goal.id === 'warpForFirstCore') {
-      return goal.ready
+      const progress = goal.ready
         ? (this.language === 'pt-BR' ? 'Núcleo obtido' : 'Core earned')
         : `${goal.current}/${goal.target}`;
+      return `${progress} · ${reward}`;
     }
-    return `${goal.current}/${goal.target}`;
+    return `${goal.current}/${goal.target} · ${reward}`;
+  }
+
+  private getGuidedMissionRewardLabel(goal: GuidedMissionProgress): string {
+    const labels: Record<GuidedMissionProgress['rewardKind'], string> = {
+      damage: this.language === 'pt-BR' ? '+Dano' : '+Damage',
+      hull: this.language === 'pt-BR' ? '+Vida' : '+Hull',
+      income: this.language === 'pt-BR' ? '+Renda' : '+Income',
+      fireRate: this.language === 'pt-BR' ? '+Ataque' : '+Attack',
+      drone: this.language === 'pt-BR' ? '+Drone' : '+Drone',
+      credits: this.language === 'pt-BR' ? '+Créditos' : '+Credits',
+      speed: this.language === 'pt-BR' ? '+Velocidade' : '+Speed',
+      crystals: this.language === 'pt-BR' ? '+Cristais' : '+Crystals'
+    };
+    return labels[goal.rewardKind];
   }
 
   private updateBossHealth(): void {
@@ -1296,6 +1319,9 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.shipFireRateLevel,
       this.state.progression.shipSpeedLevel,
       this.state.progression.deflectorLevel,
+      this.state.progression.activeShipFrameId,
+      this.state.progression.unlockedShipFrameIds.join(','),
+      this.state.progression.shipExchanges,
       this.state.progression.mapUnlocked,
       this.state.progression.travelLevel,
       this.state.progression.currentZoneIndex,
@@ -1461,6 +1487,8 @@ export class GameScene extends Phaser.Scene {
     const crystals = this.getCrystalBalance();
     const availableAfterReset = getAvailableWarpCores(this.state.progression) + coreGain;
     const resetReady = coreGain > 0;
+    const activeFrame = getActiveShipFrame(this.state.progression);
+    const nextFrame = SHIP_FRAME_BY_ID[this.getNextExchangeShipFrameId()];
     const panel = document.createElement('section');
     panel.className = 'warp-reset-panel';
 
@@ -1472,7 +1500,9 @@ export class GameScene extends Phaser.Scene {
     kicker.textContent = translate(this.language, 'shop.warpReset');
     const title = document.createElement('strong');
     title.textContent = resetReady
-      ? translate(this.language, 'shop.gainCores', { count: coreGain, unit: formatCoreUnit(this.language, coreGain) })
+      ? (this.language === 'pt-BR'
+        ? `${nextFrame.name} pronta · +${coreGain} ${formatCoreUnit(this.language, coreGain)}`
+        : `${nextFrame.name} ready · +${coreGain} ${formatCoreUnit(this.language, coreGain)}`)
       : this.getWarpResetBlockedTitle();
     titleWrap.append(kicker, title);
 
@@ -1480,7 +1510,9 @@ export class GameScene extends Phaser.Scene {
     resetButton.className = 'shop-buy warp-reset-panel__button';
     resetButton.type = 'button';
     resetButton.disabled = !resetReady;
-    resetButton.textContent = resetReady ? translate(this.language, 'shop.resetRun') : translate(this.language, 'shop.notReady');
+    resetButton.textContent = resetReady
+      ? (this.language === 'pt-BR' ? 'Trocar nave' : 'Exchange ship')
+      : translate(this.language, 'shop.notReady');
     resetButton.addEventListener('click', () => this.warpReset(coreGain));
     header.append(titleWrap, resetButton);
 
@@ -1488,16 +1520,69 @@ export class GameScene extends Phaser.Scene {
     stats.className = 'warp-reset-panel__stats';
     stats.replaceChildren(
       this.createWarpResetStat(translate(this.language, 'shop.crystals'), `${crystals} / ${crystalsPerPrestigeCore}`),
-      this.createWarpResetStat(translate(this.language, 'shop.availableAfter'), `${availableAfterReset} ${formatCoreUnit(this.language, availableAfterReset)}`),
-      this.createWarpResetStat(translate(this.language, 'shop.route'), translate(this.language, 'shop.owned', { count: getOwnedWarpUnlockCount(this.state.progression) }))
+      this.createWarpResetStat(this.language === 'pt-BR' ? 'Nave atual' : 'Current ship', activeFrame.name),
+      this.createWarpResetStat(translate(this.language, 'shop.availableAfter'), `${availableAfterReset} ${formatCoreUnit(this.language, availableAfterReset)}`)
     );
 
     const preview = document.createElement('p');
     preview.className = 'warp-reset-panel__preview';
     preview.textContent = this.getWarpResetPreviewText(availableAfterReset, coreGain);
 
-    panel.append(header, stats, preview);
+    panel.append(header, stats, this.createShipFrameList(), preview);
     return panel;
+  }
+
+  private createShipFrameList(): HTMLElement {
+    const list = document.createElement('div');
+    list.className = 'ship-frame-list';
+    [...SHIP_FRAME_DEFINITIONS]
+      .sort((a, b) => a.unlockExchange - b.unlockExchange)
+      .forEach((frame) => {
+        const unlocked = this.state.progression.unlockedShipFrameIds.includes(frame.id);
+        const active = this.state.progression.activeShipFrameId === frame.id;
+        const item = document.createElement('div');
+        item.className = 'ship-frame-item';
+        item.classList.toggle('is-locked', !unlocked);
+        item.classList.toggle('is-active', active);
+        const name = document.createElement('strong');
+        name.textContent = frame.name;
+        const meta = document.createElement('span');
+        meta.textContent = unlocked
+          ? (active ? (this.language === 'pt-BR' ? 'Atual' : 'Current') : this.getShipFrameBonusText(frame.id))
+          : (this.language === 'pt-BR' ? `Libera na troca ${frame.unlockExchange}` : `Unlocks on exchange ${frame.unlockExchange}`);
+        item.append(name, meta);
+        list.append(item);
+      });
+    return list;
+  }
+
+  private getShipFrameBonusText(id: ShipFrameId): string {
+    const bonuses = SHIP_FRAME_BY_ID[id].bonuses;
+    const parts: string[] = [];
+    if (bonuses.damageMultiplier) {
+      parts.push(this.language === 'pt-BR' ? 'Dano' : 'Damage');
+    }
+    if (bonuses.fireRateMultiplier) {
+      parts.push(this.language === 'pt-BR' ? 'Ataque' : 'Attack');
+    }
+    if (bonuses.speedMultiplier) {
+      parts.push(this.language === 'pt-BR' ? 'Velocidade' : 'Speed');
+    }
+    if (bonuses.maxHpMultiplier) {
+      parts.push(this.language === 'pt-BR' ? 'Vida' : 'Hull');
+    }
+    if (bonuses.incomeMultiplier) {
+      parts.push(this.language === 'pt-BR' ? 'Renda' : 'Income');
+    }
+    return parts.length > 0 ? parts.join(' + ') : (this.language === 'pt-BR' ? 'Base' : 'Base');
+  }
+
+  private getNextExchangeShipFrameId(): ShipFrameId {
+    const nextExchange = this.state.progression.shipExchanges + 1;
+    const nextFrame = [...SHIP_FRAME_DEFINITIONS]
+      .sort((a, b) => a.unlockExchange - b.unlockExchange)
+      .find((frame) => frame.unlockExchange === nextExchange);
+    return nextFrame?.id ?? this.state.progression.activeShipFrameId;
   }
 
   private createWarpResetStat(label: string, value: string): HTMLElement {
@@ -2171,7 +2256,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getPlayerShotDamage(): number {
-    return this.state.progression.shipDamageLevel * balance.weapons.playerDamageMultiplier;
+    return this.state.progression.shipDamageLevel *
+      balance.weapons.playerDamageMultiplier *
+      getShipFrameBonusMultiplier(this.state.progression, 'damageMultiplier');
   }
 
   private getPassiveIncomeCost(): number {

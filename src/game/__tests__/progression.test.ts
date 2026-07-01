@@ -83,8 +83,13 @@ describe('save loading', () => {
     savedState.progression.guidedMissions = {
       activeMissionId: 'defeatGateBoss',
       completedMissionIds: ['drawGateBoss'],
+      repeatCompletions: 0,
       startedAt: {
         firstGateAsteroidsDestroyed: balance.bosses.firstGateAsteroids,
+        asteroidsDestroyed: 0,
+        moneyEarned: 0,
+        crystalsCollected: 0,
+        deaths: 0,
         bossDefeats: 0,
         crystals: 0,
         prestigeCores: 0
@@ -480,6 +485,79 @@ describe('guided missions', () => {
     expect(state.progression.shipDamageLevel).toBe(2);
     expect(state.money).toBeGreaterThanOrEqual(75);
     expect(state.rewardEvents.some((event) => event.text.includes('Mission complete'))).toBe(true);
+  });
+
+  it('selects repeatable missions after the first guided path', () => {
+    const state = createGameState(800, 600);
+    state.progression.guidedMissions.completedMissionIds = [
+      'drawGateBoss',
+      'defeatGateBoss',
+      'collectWarpCrystals',
+      'warpForFirstCore',
+      'installDroneSystems'
+    ];
+    state.progression.guidedMissions.activeMissionId = null;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(state.progression.guidedMissions.activeMissionId).toBe('clearAsteroids');
+    state.progression.achievementStats.asteroidsDestroyed = state.progression.guidedMissions.startedAt.asteroidsDestroyed + 24;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(state.progression.guidedMissions.repeatCompletions).toBe(1);
+    expect(state.progression.guidedMissions.activeMissionId).toBe('collectCredits');
+    expect(state.money).toBeGreaterThan(0);
+  });
+
+  it('resets the deathless repeatable mission window after a death', () => {
+    const state = createGameState(800, 600);
+    state.progression.guidedMissions.completedMissionIds = [
+      'drawGateBoss',
+      'defeatGateBoss',
+      'collectWarpCrystals',
+      'warpForFirstCore',
+      'installDroneSystems'
+    ];
+    state.progression.guidedMissions.repeatCompletions = 2;
+    state.progression.guidedMissions.activeMissionId = null;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(state.progression.guidedMissions.activeMissionId).toBe('surviveAsteroids');
+    state.progression.achievementStats.asteroidsDestroyed = state.progression.guidedMissions.startedAt.asteroidsDestroyed + 10;
+    state.progression.achievementStats.deaths += 1;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(getActiveGuidedMissionProgress(state)?.current).toBe(0);
+    expect(state.progression.guidedMissions.startedAt.deaths).toBe(state.progression.achievementStats.deaths);
+  });
+
+  it('adds crystal and boss repeatable missions once later zones are unlocked', () => {
+    const state = createGameState(800, 600);
+    state.progression.unlockedZoneIndex = 1;
+    state.progression.currentZoneIndex = 1;
+    state.progression.guidedMissions.completedMissionIds = [
+      'drawGateBoss',
+      'defeatGateBoss',
+      'collectWarpCrystals',
+      'warpForFirstCore',
+      'installDroneSystems'
+    ];
+    state.progression.guidedMissions.repeatCompletions = 3;
+    state.progression.guidedMissions.activeMissionId = null;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(state.progression.guidedMissions.activeMissionId).toBe('collectCrystals');
+    expect(getActiveGuidedMissionProgress(state)?.target).toBe(4);
+    state.progression.achievementStats.crystalsCollected = state.progression.guidedMissions.startedAt.crystalsCollected + 4;
+    const crystalsBeforeReward = state.crystals;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(state.crystals).toBe(crystalsBeforeReward);
   });
 });
 
@@ -956,7 +1034,7 @@ describe('boss gates and warp reset', () => {
     expect(state.shieldBubble.broken).toBe(true);
   });
 
-  it('warp reset preserves cores and achievements while clearing run state', () => {
+  it('ship exchange preserves meta progress while resetting bought ship upgrades', () => {
     const state = createGameState(800, 600);
     state.money = 5000;
     state.crystals = 48;
@@ -968,8 +1046,13 @@ describe('boss gates and warp reset', () => {
     state.progression.guidedMissions = {
       activeMissionId: 'warpForFirstCore',
       completedMissionIds: ['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals'],
+      repeatCompletions: 0,
       startedAt: {
         firstGateAsteroidsDestroyed: balance.bosses.firstGateAsteroids,
+        asteroidsDestroyed: 0,
+        moneyEarned: 0,
+        crystalsCollected: 0,
+        deaths: 0,
         bossDefeats: 1,
         crystals: 0,
         prestigeCores: 2
@@ -989,11 +1072,16 @@ describe('boss gates and warp reset', () => {
     expect(nextState.progression.prestigeCores).toBe(5);
     expect(nextState.progression.ownedWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon', 'spreadBattery']);
     expect(nextState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon']);
-    expect(nextState.progression.maxHp).toBe(150);
-    expect(nextState.progression.shipDamageLevel).toBe(2);
+    expect(nextState.progression.maxHp).toBe(100);
+    expect(nextState.progression.shipDamageLevel).toBe(1);
+    expect(nextState.progression.shipFireRateLevel).toBe(0);
+    expect(nextState.progression.passiveIncomeLevel).toBe(0);
+    expect(nextState.progression.shipExchanges).toBe(1);
+    expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector', 'kestrel']);
+    expect(nextState.progression.activeShipFrameId).toBe('kestrel');
     expect(nextState.progression.guidedMissions.activeMissionId).toBe('warpForFirstCore');
     expect(nextState.progression.guidedMissions.completedMissionIds).toEqual(['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals']);
-    expect(nextState.ship.maxHp).toBe(150);
+    expect(nextState.ship.maxHp).toBe(100);
     expect(nextState.progression.unlockedZoneIndex).toBe(0);
     expect(nextState.progression.currentZoneIndex).toBe(0);
     expect(nextState.progression.firstGateAsteroidsDestroyed).toBe(0);

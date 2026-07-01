@@ -4,6 +4,39 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Guided Mission UI and Balance Polish
+
+Polished repeatable Guided Missions after the first implementation.
+
+Notes:
+- Added compact reward previews to the existing Guided Mission pill.
+- Added a deathless asteroid-clear mission that resets its progress window after a death.
+- Removed extra crystal rewards from repeatable crystal and boss missions so missions do not bypass ship-exchange/core pacing.
+- Added tests for deathless mission reset behavior and crystal mission reward pacing.
+
+### Ship Exchange Reset
+
+Reframed the reset loop as exchanging into a new ship frame.
+
+Notes:
+- Added a 10-ship frame catalog with simple vector shapes, rarity labels, unlock order, and light bonuses.
+- Each ship exchange unlocks and equips the next ship in the catalog.
+- The exchange still grants cores for Technologies, but the player-facing reset copy now talks about changing ships.
+- Normal run upgrades such as damage, fire rate, income, hull, speed, armor, drones, money, crystals, zone progress, and boss progress reset with the new ship.
+- Meta progress such as technologies, cores, achievements, guided missions, and ship collection persists.
+- The active ship frame changes the rendered ship shape and applies small damage, speed, attack speed, hull, or income bonuses.
+
+### Guided Mission Variety and Reward Expansion
+
+Expanded Guided Missions beyond the first path with repeatable mission selection.
+
+Notes:
+- Added repeatable mission rotation after the first Drone Systems path.
+- Added clear asteroid, collect credits, collect crystals, and defeat zone boss mission types.
+- Mission targets now scale with current zone where appropriate.
+- Repeatable mission rewards use small credit, crystal, and existing permanent stat rewards without adding paid-style progression.
+- Added tests covering repeatable mission selection and later-zone crystal mission availability.
+
 ### Guided Missions: First Path
 
 Converted the existing next-objective pill into the first Guided Missions surface.
@@ -158,22 +191,37 @@ Notes:
 
 ## Ready
 
-### Guided Mission Variety and Reward Expansion
+### Guided Mission Tuning Follow-Up
 
-Expand Guided Missions beyond the first path with repeatable and zone-aware objectives.
+Tune repeatable Guided Missions after playtesting the current implementation.
 
 Design:
 - Missions should be small and readable during an idle/action run.
-- Use mission sequencing to teach actions instead of long descriptions.
-- Examples: destroy crystal asteroids, survive a boss, clear dense asteroids, collect credits without dying.
-- Rewards should include small permanent improvements where appropriate, plus crystals, credits, or temporary run boosts without breaking warp pacing.
 - Keep using the existing compact Guided Mission pill unless a later UI pass proves it needs a separate surface.
+- Tune repeatable mission targets and rewards against real early/mid-game pacing.
+- Consider adding mission completion priority popups only for major milestone missions.
 
 Acceptance:
-- Add zone-aware or repeatable mission selection after the first Drone Systems path.
-- Add crystal asteroid, survival, dense asteroid, and credit streak objective types.
-- Add reward balancing tests for permanent and temporary mission rewards.
-- Keep mission rewards from bypassing warp pacing.
+- Audit whether mission rewards accelerate warp pacing too much.
+- Adjust repeatable mission targets after mobile playtesting.
+- Add clearer completion feedback if the feed is still too easy to miss.
+- Keep the playfield footprint equal to or smaller than the current mission pill.
+
+### Ship Exchange Gating Refinement
+
+Refine how the player earns a ship exchange so it is not too easy to reset repeatedly.
+
+Design:
+- Keep the new ship-exchange fantasy.
+- Replace or augment the current crystal/core reset requirement with a more deliberate exchange requirement.
+- Consider requiring route milestones, mission completion, special boss salvage, ship parts, or a hangar charge.
+- Avoid making the first exchange feel blocked after the player has already learned the loop.
+
+Acceptance:
+- Define the new exchange requirement in data or a small progression module.
+- Update the Ship Exchange panel to explain the requirement compactly.
+- Add tests for first exchange pacing and repeated exchange pacing.
+- Do not remove existing save compatibility for current cores or Technologies.
 
 ### Drone Bay Personality Pass
 
