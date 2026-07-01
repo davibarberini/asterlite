@@ -16,7 +16,7 @@ import {
   getTalentRank,
 } from '../../game/progression/talentTree';
 import { updateGame } from '../../game/simulation/systems/gameLoop';
-import { getExplorationZone, getNextZone, isZoneUnlocked, zones } from '../../game/simulation/zones';
+import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, zones } from '../../game/simulation/zones';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../../game/progression/prestige';
 import { getFirstWarpGoal } from '../../game/progression/firstWarpGoal';
 import {
@@ -100,6 +100,11 @@ export class GameScene extends Phaser.Scene {
   private firstWarpGoalTitleEl!: HTMLElement;
   private firstWarpGoalProgressEl!: HTMLElement;
   private firstWarpGoalProgressTextEl!: HTMLElement;
+  private bossEventEl!: HTMLElement;
+  private bossEventKickerEl!: HTMLElement;
+  private bossEventTitleEl!: HTMLElement;
+  private bossEventMetaEl!: HTMLElement;
+  private bossEventProgressEl!: HTMLElement;
   private rewardFeed!: RewardFeedController;
   private shopPanelEl!: HTMLElement;
   private shopDrawerBackdropEl!: HTMLElement;
@@ -214,6 +219,11 @@ export class GameScene extends Phaser.Scene {
     this.firstWarpGoalTitleEl = document.getElementById('first-warp-goal-title')!;
     this.firstWarpGoalProgressEl = document.getElementById('first-warp-goal-progress')!;
     this.firstWarpGoalProgressTextEl = document.getElementById('first-warp-goal-progress-text')!;
+    this.bossEventEl = document.getElementById('boss-event')!;
+    this.bossEventKickerEl = document.getElementById('boss-event-kicker')!;
+    this.bossEventTitleEl = document.getElementById('boss-event-title')!;
+    this.bossEventMetaEl = document.getElementById('boss-event-meta')!;
+    this.bossEventProgressEl = document.getElementById('boss-event-progress')!;
     this.rewardFeed = new RewardFeedController(document.getElementById('reward-feed')!);
     this.audioSettings = new AudioSettingsController(document.getElementById('settings-toggle') as HTMLButtonElement, {
       setSfxVolume: (volume) => this.retroSound.setVolume(volume),
@@ -881,13 +891,15 @@ export class GameScene extends Phaser.Scene {
 
     this.syncVisibleShopTabs();
     this.updateFirstWarpGoal();
+    this.updateBossEvent();
     this.updateShop();
   }
 
   private updateFirstWarpGoal(): void {
     const goal = getFirstWarpGoal(this.state);
+    const bossEvent = this.getBossEventState();
     this.firstWarpGoalEl.classList.toggle('is-hidden', goal === null);
-    this.firstWarpGoalEl.classList.toggle('is-muted', this.isBlockingDrawerOpen());
+    this.firstWarpGoalEl.classList.toggle('is-muted', this.isBlockingDrawerOpen() || bossEvent !== null);
     if (!goal) {
       return;
     }
@@ -925,6 +937,54 @@ export class GameScene extends Phaser.Scene {
       current: goal.crystals ?? 0,
       target: goal.crystalTarget ?? crystalsPerPrestigeCore
     });
+  }
+
+  private updateBossEvent(): void {
+    const event = this.getBossEventState();
+    this.bossEventEl.classList.toggle('is-hidden', event === null);
+    this.bossEventEl.classList.toggle('is-muted', this.isBlockingDrawerOpen());
+    if (!event) {
+      return;
+    }
+
+    this.setText(this.bossEventKickerEl, event.kicker);
+    this.setText(this.bossEventTitleEl, event.title);
+    this.setText(this.bossEventMetaEl, event.meta);
+    this.bossEventProgressEl.style.setProperty('--boss-event-progress', `${Math.round(event.progress * 100)}%`);
+  }
+
+  private getBossEventState(): { kicker: string; title: string; meta: string; progress: number } | null {
+    if (this.state.pendingBoss) {
+      const nextZone = getZoneByIndex(this.state.pendingBoss.bossZoneIndex);
+      const seconds = Math.max(0, Math.ceil(this.state.pendingBoss.spawnIn));
+      return {
+        kicker: this.language === 'pt-BR' ? 'Chegada' : 'Arrival',
+        title: this.language === 'pt-BR'
+          ? `${this.formatBossName(this.state.pendingBoss.bossType)} chegando`
+          : `${this.formatBossName(this.state.pendingBoss.bossType)} incoming`,
+        meta: this.language === 'pt-BR'
+          ? `${seconds}s · libera ${nextZone.name}`
+          : `${seconds}s · unlocks ${nextZone.name}`,
+        progress: 1 - Math.max(0, Math.min(1, this.state.pendingBoss.spawnIn / balance.bosses.pendingSpawnIn))
+      };
+    }
+
+    const boss = this.state.asteroids.find((asteroid) => asteroid.bossType);
+    if (!boss?.bossType || boss.bossZoneIndex === undefined) {
+      return null;
+    }
+
+    const nextZone = getZoneByIndex(boss.bossZoneIndex);
+    const hp = Math.max(0, Math.ceil(boss.hp));
+    const maxHp = Math.max(1, Math.ceil(boss.maxHp));
+    return {
+      kicker: this.language === 'pt-BR' ? 'Boss ativo' : 'Boss active',
+      title: this.formatBossName(boss.bossType),
+      meta: this.language === 'pt-BR'
+        ? `${hp}/${maxHp} HP · libera ${nextZone.name}`
+        : `${hp}/${maxHp} HP · unlocks ${nextZone.name}`,
+      progress: Math.max(0, Math.min(1, boss.hp / Math.max(1, boss.maxHp)))
+    };
   }
 
   private updateDeathFade(): void {
@@ -1413,13 +1473,31 @@ export class GameScene extends Phaser.Scene {
     summonButton.addEventListener('click', () => this.summonZoneBoss());
     header.append(titleWrap, summonButton);
 
+    const stats = document.createElement('div');
+    stats.className = 'warp-reset-panel__stats';
+    if (nextZone) {
+      const bossStats = balance.bosses.stats[nextZone.bossType];
+      const bossHp = bossStats.hpBase + nextZone.index * bossStats.hpPerZone;
+      const bossMoney = balance.bosses.reward.baseMoney + nextZone.index * balance.bosses.reward.moneyPerZone;
+      const bossCrystals = balance.bosses.reward.baseCrystals + nextZone.index * balance.bosses.reward.crystalsPerZone;
+      stats.replaceChildren(
+        this.createWarpResetStat(this.language === 'pt-BR' ? 'Libera' : 'Unlocks', nextZone.name),
+        this.createWarpResetStat('HP', bossHp.toString()),
+        this.createWarpResetStat(this.language === 'pt-BR' ? 'Base' : 'Base', `${this.formatMoney(bossMoney)} + ${bossCrystals} ${formatCrystalUnit(this.language, bossCrystals)}`)
+      );
+    }
+
     const preview = document.createElement('p');
     preview.className = 'warp-reset-panel__preview';
     preview.textContent = nextZone
-      ? (this.language === 'pt-BR' ? 'Chama o próximo boss de portal imediatamente, sem esperar por um sinal raro no campo.' : 'Call the next gate boss immediately instead of waiting for a rare field signal.')
+      ? (this.language === 'pt-BR' ? `Invoca um desafio de rota para abrir ${nextZone.name}.` : `Summon a route challenge to open ${nextZone.name}.`)
       : (this.language === 'pt-BR' ? 'Não há mais sinais de boss de portal disponíveis nesta rota.' : 'No further gate boss signals are available on this route.');
 
-    panel.append(header, preview);
+    panel.append(header);
+    if (nextZone) {
+      panel.append(stats);
+    }
+    panel.append(preview);
     return panel;
   }
 
@@ -2307,7 +2385,14 @@ export class GameScene extends Phaser.Scene {
     this.state.pendingBoss = pendingBoss;
     this.state.progression.bossDiscovery.rareBossProgress = 0;
     this.closeShopDrawer();
-    emitReward(this.state, `${this.formatBossName(pendingBoss.bossType)} arriving in 3 sec`, 'boss');
+    const nextZone = getZoneByIndex(pendingBoss.bossZoneIndex);
+    emitReward(
+      this.state,
+      this.language === 'pt-BR'
+        ? `${this.formatBossName(pendingBoss.bossType)} chegando - libera ${nextZone.name}`
+        : `${this.formatBossName(pendingBoss.bossType)} incoming - unlocks ${nextZone.name}`,
+      'boss'
+    );
     this.retroSound.play({ type: 'bossSummoned' });
     saveGameState(this.state);
     this.updateHud();
@@ -2548,6 +2633,6 @@ export class GameScene extends Phaser.Scene {
     const sectorSize = 2200;
     const sectorX = Math.floor(this.state.ship.position.x / sectorSize);
     const sectorY = Math.floor(this.state.ship.position.y / sectorSize);
-    return `${zone.name} ${sectorX},${sectorY}`;
+    return `${zone.identity.callsign} ${sectorX},${sectorY}`;
   }
 }

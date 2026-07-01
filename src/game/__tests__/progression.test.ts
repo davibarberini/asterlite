@@ -587,6 +587,14 @@ describe('boss gates and warp reset', () => {
     expect(midBoss.maxHp).toBeGreaterThan(firstBoss.maxHp);
     expect(finalBoss.maxHp).toBeGreaterThan(midBoss.maxHp);
     expect(zones.map((zone) => zone.asteroidDensityBonus)).toEqual([0, 1, 3, 6, 9]);
+    expect(zones.map((zone) => zone.asteroidDamageMultiplier)).toEqual([1, 1.25, 1.55, 1.95, 2.45]);
+    expect(zones.at(-1)?.rewardMultiplier).toBeGreaterThan(zones.at(-1)?.asteroidHpMultiplier ?? 0);
+    zones.forEach((zone) => {
+      expect(zone.identity.callsign.length).toBeGreaterThan(0);
+      expect(zone.identity.accent).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(zone.identity.fieldTintAlpha).toBeGreaterThan(0);
+      expect(balance.asteroids.variantWeights[zone.id].some((entry) => entry.variant === zone.identity.variantFocus)).toBe(true);
+    });
   });
 
   it('fires prism boss shots as limited ricochet projectiles', () => {
@@ -852,6 +860,29 @@ describe('boss gates and warp reset', () => {
     expect(state.shieldBubble.hitFlashFor).toBeGreaterThan(0);
   });
 
+  it('pushes the ship out of asteroid overlap on direct collision', () => {
+    const state = createGameState(800, 600);
+    const asteroid = createAsteroid(state, 'large', { ...state.ship.position }, { x: 0, y: 0 }, 'common');
+    state.ship.invulnerableFor = 0;
+    state.ship.velocity = { x: 0, y: 0 };
+    state.asteroids = [asteroid];
+
+    updateGame(state, neutralInput(), 0);
+
+    const separation = Math.hypot(
+      state.ship.position.x - asteroid.position.x,
+      state.ship.position.y - asteroid.position.y
+    );
+    const minimumSeparation =
+      state.ship.radius +
+      asteroid.radius * balance.asteroids.collisionRadiusMultiplier +
+      balance.collisions.shipContactSeparationPadding;
+
+    expect(separation).toBeGreaterThanOrEqual(minimumSeparation);
+    expect(Math.hypot(state.ship.velocity.x, state.ship.velocity.y)).toBeGreaterThan(0);
+    expect(state.ship.hp).toBeLessThan(state.ship.maxHp);
+  });
+
   it('shield bubble absorbs one hostile projectile before hull damage', () => {
     const state = createGameState(800, 600);
     state.progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
@@ -951,5 +982,29 @@ describe('asteroid rewards', () => {
       money: 35,
       crystals: 0
     });
+  });
+
+  it('scales asteroid durability contact damage and rewards by current zone', () => {
+    const firstZone = createGameState(800, 600);
+    const finalZone = createGameState(800, 600);
+    finalZone.progression.unlockedZoneIndex = 4;
+    finalZone.progression.currentZoneIndex = 4;
+    finalZone.progression.travelLevel = 4;
+
+    const firstAsteroid = createAsteroid(firstZone, 'small', { x: 0, y: 0 }, { x: 0, y: 0 }, 'common');
+    const finalAsteroid = createAsteroid(finalZone, 'small', { x: 0, y: 0 }, { x: 0, y: 0 }, 'common');
+
+    expect(finalAsteroid.maxHp).toBeGreaterThan(firstAsteroid.maxHp);
+    expect(getAsteroidReward(finalZone, finalAsteroid).money).toBeGreaterThan(getAsteroidReward(firstZone, firstAsteroid).money);
+
+    firstZone.ship.invulnerableFor = 0;
+    finalZone.ship.invulnerableFor = 0;
+    firstZone.asteroids = [createAsteroid(firstZone, 'small', { ...firstZone.ship.position }, { x: 0, y: 0 }, 'common')];
+    finalZone.asteroids = [createAsteroid(finalZone, 'small', { ...finalZone.ship.position }, { x: 0, y: 0 }, 'common')];
+
+    updateGame(firstZone, neutralInput(), 0);
+    updateGame(finalZone, neutralInput(), 0);
+
+    expect(100 - finalZone.ship.hp).toBeGreaterThan(100 - firstZone.ship.hp);
   });
 });

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
+import { getExplorationZone } from '../../game/simulation/zones';
 import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
 
@@ -43,6 +44,7 @@ export class VectorRenderer {
     this.graphics.clear();
     const now = this.scene.time.now / 1000;
     this.updateAsteroidReadabilityState(state, now);
+    this.drawZoneFieldTint(state);
     this.drawGridGlow(state);
 
     state.asteroids.forEach((asteroid) => {
@@ -81,7 +83,8 @@ export class VectorRenderer {
   }
 
   private drawGridGlow(state: GameState): void {
-    this.graphics.lineStyle(1, 0x6fb7d8, 0.035);
+    const zone = getExplorationZone(state);
+    this.graphics.lineStyle(1, zone.identity.accentColor, 0.026 + zone.identity.fieldTintAlpha * 0.28);
     const viewScale = this.getViewScale(state);
     const gap = 96 * viewScale;
     const xOffset = ((-state.camera.x * viewScale + state.width / 2) % gap + gap) % gap;
@@ -93,6 +96,12 @@ export class VectorRenderer {
     for (let y = yOffset; y < state.height; y += gap) {
       this.graphics.lineBetween(0, y, state.width, y);
     }
+  }
+
+  private drawZoneFieldTint(state: GameState): void {
+    const zone = getExplorationZone(state);
+    this.graphics.fillStyle(zone.identity.fieldTintColor, zone.identity.fieldTintAlpha);
+    this.graphics.fillRect(0, 0, state.width, state.height);
   }
 
   private drawShip(state: GameState, ship: ShipState, thrusting: boolean): void {

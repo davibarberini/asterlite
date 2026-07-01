@@ -2,7 +2,7 @@ import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } 
 import { getMissileSplashDamage, getMissileSplashRadius, getShotgunPelletDamage, hasMissileExplosion } from '../../progression/talentTree';
 import type { GameState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
-import { getExplorationZone, getZoneByIndex } from '../zones';
+import { getExplorationZone, getZoneAsteroidDamageMultiplier, getZoneByIndex } from '../zones';
 import { getAsteroidReward, splitAsteroid } from './asteroids';
 import { burstParticles } from './particles';
 import { emitAudio, emitReward } from '../events';
@@ -96,6 +96,7 @@ export const resolveCollisions = (state: GameState): void => {
     }
 
     if (state.saucer && distance(state.ship.position, state.saucer.position) < state.ship.radius + state.saucer.radius) {
+      repelShipFromContact(state, state.saucer.position, state.ship.radius + state.saucer.radius, balance.collisions.enemyContactKnockback);
       state.saucer.alive = false;
       damageShip(state, balance.saucer.collisionDamage);
     }
@@ -231,8 +232,17 @@ const collideShipWithAsteroid = (
     return;
   }
 
-  damageShip(state, balance.collisions.asteroidDamage[asteroid.size]);
+  repelShipFromContact(
+    state,
+    asteroid.position,
+    getShipThreatRadius(state) + asteroid.radius * balance.asteroids.collisionRadiusMultiplier,
+    asteroid.bossType ? balance.collisions.enemyContactKnockback : balance.collisions.shipContactKnockback
+  );
+  damageShip(state, getAsteroidContactDamage(state, asteroid));
 };
+
+const getAsteroidContactDamage = (state: GameState, asteroid: GameState['asteroids'][number]): number =>
+  Math.round(balance.collisions.asteroidDamage[asteroid.size] * getZoneAsteroidDamageMultiplier(state));
 
 const getShipThreatRadius = (state: GameState): number =>
   state.shieldBubble.active && !state.shieldBubble.broken
@@ -268,6 +278,30 @@ const repelAsteroidFromShip = (state: GameState, asteroid: GameState['asteroids'
   asteroid.velocity.y += away.y * impulse;
   asteroid.position.x = state.ship.position.x + away.x * (state.ship.radius + asteroid.radius * 0.92 + balance.ship.shieldBubbleRadius);
   asteroid.position.y = state.ship.position.y + away.y * (state.ship.radius + asteroid.radius * 0.92 + balance.ship.shieldBubbleRadius);
+};
+
+const repelShipFromContact = (state: GameState, contactPosition: Vec2, minimumDistance: number, knockback: number): void => {
+  let away = normalize({
+    x: state.ship.position.x - contactPosition.x,
+    y: state.ship.position.y - contactPosition.y
+  });
+  if (away.x === 0 && away.y === 0) {
+    away = normalize({
+      x: state.ship.velocity.x,
+      y: state.ship.velocity.y
+    });
+  }
+  if (away.x === 0 && away.y === 0) {
+    away = {
+      x: -Math.cos(state.ship.rotation),
+      y: -Math.sin(state.ship.rotation)
+    };
+  }
+  const safeDistance = minimumDistance + balance.collisions.shipContactSeparationPadding;
+  state.ship.position.x = contactPosition.x + away.x * safeDistance;
+  state.ship.position.y = contactPosition.y + away.y * safeDistance;
+  state.ship.velocity.x += away.x * knockback;
+  state.ship.velocity.y += away.y * knockback;
 };
 
 const isInShipFrontArc = (state: GameState, target: Vec2): boolean => {

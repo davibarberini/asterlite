@@ -4,6 +4,37 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Zone Identity Pass
+
+Made each zone more distinct through data-driven presentation instead of new mechanics.
+
+Notes:
+- Added serializable zone identity data: callsign, flavor, dominant asteroid variant, accent color, and field tint.
+- The playfield now uses the current zone's tint and grid color so travel has immediate visual feedback.
+- The map route nodes now show each zone's callsign and expected dominant asteroid variant.
+- The HUD map label uses the current zone callsign to keep zone identity visible without adding a new panel.
+
+### Boss Gate Event Polish
+
+Made boss summoning and zone unlocking read as deliberate route events.
+
+Notes:
+- Added a compact boss event strip to the HUD for pending and active gate bosses.
+- Pending bosses now show countdown progress and the zone they will unlock.
+- Active bosses now show HP progress and the zone reward target.
+- The Boss Beacon panel now previews the next zone, boss HP, and base boss reward before summoning.
+- Manual boss summon feed text now names the zone unlocked by the incoming boss.
+
+### Zone Asteroid Scaling
+
+Added stronger per-zone asteroid scaling for durability, contact damage, and rewards.
+
+Notes:
+- Asteroid HP multipliers now ramp harder across zones so later belts require stronger ship upgrades.
+- Asteroid contact damage now scales by zone through serializable zone data instead of staying flat.
+- Zone reward multipliers now scale above HP multipliers in later zones so harder belts pay meaningfully more credits.
+- Added tests covering zone reward/HP/damage progression and direct collision damage scaling.
+
 ### Combat Readability Upgrade
 
 Improved moment-to-moment combat readability while keeping the effects renderer-local.
@@ -115,36 +146,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Boss Gate Event Polish
-
-Make boss summoning and zone unlocking feel like deliberate route events.
-
-Design:
-- Boss summon should feel like a chosen challenge, not just another purchase.
-- The player should see the boss, its purpose, and the unlock reward clearly.
-- Preserve the current boss-gated zone flow.
-
-Acceptance:
-- Add a boss HP/status strip while a gate boss is active.
-- Improve the summon countdown and arrival warning.
-- Preview the next zone reward/unlock before summoning.
-- Keep boss defeat unlocking the next map node without forced travel.
-
-### Zone Identity Pass
-
-Make each zone feel distinct beyond reward, asteroid HP, and density tuning.
-
-Design:
-- Each zone should have a readable combat flavor and visual identity.
-- Start with lightweight differences before adding heavy new systems.
-- Use background tint, asteroid variant bias, map copy, boss intro, and music/filter changes where useful.
-
-Acceptance:
-- Add visible zone identity to the HUD/map or playfield.
-- Make asteroid variant expectations legible per zone.
-- Add at least one per-zone presentation difference that does not affect balance.
-- Keep zone definitions serializable and data-driven.
 
 ### Guided Missions
 

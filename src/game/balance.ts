@@ -293,6 +293,9 @@ export const balance = {
     repairZoneMultiplierPerIndex: 0.45,
     deathPenaltyBaseSeconds: 18,
     deathPenaltySecondsPerZone: 8,
-    deflectorArcDot: 0.38
+    deflectorArcDot: 0.38,
+    shipContactSeparationPadding: 4,
+    shipContactKnockback: 190,
+    enemyContactKnockback: 240
   }
 } as const;

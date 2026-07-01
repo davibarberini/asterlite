@@ -46,6 +46,7 @@ export class ZoneMapController {
       node.classList.toggle('is-locked', !unlocked);
       node.style.left = `${x}%`;
       node.style.top = `${y}%`;
+      node.style.setProperty('--zone-accent', zone.identity.accent);
       node.disabled = !unlocked;
       node.addEventListener('click', () => state.onTravel(zone.index));
       node.setAttribute('aria-label', unlocked ? `Travel to ${zone.name}` : `${zone.name} locked`);
@@ -55,7 +56,13 @@ export class ZoneMapController {
       icon.textContent = zone.index === state.currentZoneIndex ? '◆' : '➤';
       const label = document.createElement('strong');
       label.textContent = zone.name;
-      node.append(icon, label);
+      const text = document.createElement('span');
+      text.className = 'zone-node__text';
+      const meta = document.createElement('small');
+      meta.className = 'zone-node__meta';
+      meta.textContent = `${zone.identity.callsign} · ${zone.identity.variantFocus}`;
+      text.append(label, meta);
+      node.append(icon, text);
       nodes.append(node);
     });
 

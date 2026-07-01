@@ -549,6 +549,84 @@ canvas {
   white-space: nowrap;
 }
 
+.boss-event {
+  --boss-event-progress: 0%;
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: min(320px, 34vw);
+  gap: 5px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 241, 168, 0.3);
+  border-radius: 6px;
+  background: rgba(24, 12, 10, 0.58);
+  box-shadow: 0 0 18px rgba(255, 139, 107, 0.16);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.boss-event.is-hidden {
+  display: none;
+}
+
+.boss-event.is-muted {
+  opacity: 0.38;
+  transform: translateY(-4px);
+}
+
+.boss-event__body {
+  min-width: 0;
+}
+
+.boss-event__kicker {
+  display: inline;
+  margin-right: 6px;
+  color: rgba(255, 195, 111, 0.86);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.boss-event strong {
+  display: inline;
+  color: rgba(255, 251, 224, 0.96);
+  font-size: 12px;
+  line-height: 1.12;
+}
+
+.boss-event__body span:last-child {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: rgba(255, 225, 196, 0.74);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boss-event__progress {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 241, 168, 0.12);
+}
+
+.boss-event__progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--boss-event-progress);
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(255, 139, 107, 0.75), rgba(255, 241, 168, 0.95));
+}
+
 #idle-dock {
   position: fixed;
   right: max(12px, env(safe-area-inset-right));
@@ -1393,9 +1471,10 @@ canvas {
 }
 
 .zone-node {
+  --zone-accent: rgba(131, 255, 220, 0.9);
   position: absolute;
   display: inline-grid;
-  grid-template-columns: 28px max-content;
+  grid-template-columns: 28px minmax(0, max-content);
   align-items: center;
   gap: 6px;
   min-height: 34px;
@@ -1409,6 +1488,7 @@ canvas {
 }
 
 .zone-node strong {
+  display: block;
   max-width: 116px;
   overflow: hidden;
   color: rgba(245, 253, 255, 0.96);
@@ -1418,23 +1498,41 @@ canvas {
   white-space: nowrap;
 }
 
+.zone-node__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.zone-node__meta {
+  overflow: hidden;
+  max-width: 138px;
+  color: rgba(198, 222, 238, 0.62);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .zone-node__icon {
   display: grid;
   place-items: center;
   width: 28px;
   height: 28px;
-  border: 1px solid rgba(131, 255, 220, 0.34);
+  border: 1px solid color-mix(in srgb, var(--zone-accent), transparent 56%);
   border-radius: 999px;
-  background: radial-gradient(circle at 50% 45%, rgba(216, 255, 245, 0.24), rgba(131, 255, 220, 0.08));
-  color: var(--accent-strong);
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--zone-accent), transparent 72%), rgba(131, 255, 220, 0.08));
+  color: var(--zone-accent);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 11px;
   line-height: 1;
 }
 
 .zone-node.is-current {
-  border-color: rgba(255, 241, 168, 0.58);
-  box-shadow: 0 0 0 1px rgba(255, 241, 168, 0.18), 0 0 22px rgba(255, 241, 168, 0.16);
+  border-color: color-mix(in srgb, var(--zone-accent), white 22%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--zone-accent), transparent 78%), 0 0 22px color-mix(in srgb, var(--zone-accent), transparent 82%);
 }
 
 .zone-node.is-unlocked {
@@ -2089,6 +2187,13 @@ canvas {
 
   .first-warp-goal strong {
     font-size: 11px;
+  }
+
+  .boss-event {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: start;
+    width: min(250px, calc(100vw - 112px));
   }
 
   .hud-right-cluster {
