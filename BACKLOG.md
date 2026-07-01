@@ -4,6 +4,17 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Technology Tree Clarity Pass
+
+Made the Technologies tree clearer as a gameplay expansion route.
+
+Notes:
+- Added pure data impact categories and run-impact descriptions to every Technology.
+- Replaced node abbreviations with reusable SVG icons for drone, boss, weapon, and defense unlocks.
+- Added category styling so drone, boss, weapon, and defensive technologies read differently on mobile.
+- Updated tooltips to highlight the actual gameplay surface affected and show missing prerequisites in player-readable text.
+- Kept Technology behavior and costs unchanged.
+
 ### Drone Bay Personality Pass
 
 Gave each drone family clearer identity in the Drones tab.
@@ -221,22 +232,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Technology Tree Clarity Pass
-
-Make the Technologies tree distinct from the crystal skill tree and clearer about what each node changes in the run.
-
-Design:
-- Use a core/reactor/route visual theme instead of talent constellation styling.
-- Node tooltips should answer "what will I see or be able to do after buying this?"
-- Major systems should call out their affected tab, weapon mode, drone family, or defensive mechanic.
-- Keep it mobile-first and readable in a bottom drawer.
-
-Acceptance:
-- Add reusable icons for technology unlock categories.
-- Add run-impact details for every technology tooltip.
-- For locked nodes, show missing prerequisites in player-readable terms.
-- Keep technology definitions pure data.
 
 ### Contextual Onboarding Beats
 

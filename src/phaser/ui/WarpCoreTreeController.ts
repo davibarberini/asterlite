@@ -20,17 +20,6 @@ type WarpCoreTreeRenderState = {
 
 const nodeWidth = 72;
 const nodeHeight = 72;
-const iconLabels: Record<WarpUnlockId, string> = {
-  droneSystems: 'DRN',
-  deflectorFrame: 'DEF',
-  shieldBubble: 'SHD',
-  bossBeacon: 'BOSS',
-  spreadBattery: 'SPR',
-  rangerHangar: 'RNG',
-  missileFoundry: 'MSL',
-  piercingRail: 'RIL'
-};
-
 const stateLabels: Record<WarpUnlockNodeState, string> = {
   owned: 'Owned',
   available: 'Available',
@@ -45,58 +34,66 @@ const stateLabelsPtBr: Record<WarpUnlockNodeState, string> = {
   unaffordable: 'Faltam núcleos'
 };
 
-const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect: string }> = {
+const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect: string; impact: string }> = {
   droneSystems: {
     title: 'Sistemas de Drones',
     summary: 'Libera a baía de drones e transforma tecnologias em novas opções de gameplay.',
-    effect: 'Permite comprar drones semi-auto com créditos.'
+    effect: 'Permite comprar drones semi-auto com créditos.',
+    impact: 'Aba Drones: libera a compra de drones Semi-Auto.'
   },
   deflectorFrame: {
     title: 'Estrutura Defletora',
     summary: 'Instala uma frente reforçada para sobreviver melhor ao atravessar detritos.',
-    effect: 'Libera a melhoria de defletor da nave.'
+    effect: 'Libera a melhoria de defletor da nave.',
+    impact: 'Sistemas da nave: ativa o defletor direcional.'
   },
   shieldBubble: {
     title: 'Bolha de Escudo',
     summary: 'Instala um escudo circular recarregável ao redor da nave.',
-    effect: 'Absorve um impacto antes de entrar em recarga.'
+    effect: 'Absorve um impacto antes de entrar em recarga.',
+    impact: 'Sistemas da nave: adiciona um escudo recarregável contra impactos.'
   },
   bossBeacon: {
     title: 'Sinalizador de Boss',
     summary: 'Adiciona uma forma ativa de chamar o próximo boss de portal.',
-    effect: 'Libera o botão de invocar boss em Technologies.'
+    effect: 'Libera o botão de invocar boss em Technologies.',
+    impact: 'Painel Technologies: adiciona invocação manual de boss.'
   },
   spreadBattery: {
     title: 'Bateria Spread',
     summary: 'Libera um modo de arma em leque para controlar multidões.',
-    effect: 'Adiciona o modo Spread Shot na aba de armas.'
+    effect: 'Adiciona o modo Spread Shot na aba de armas.',
+    impact: 'Aba Armas: adiciona o modo Spread Shot.'
   },
   rangerHangar: {
     title: 'Hangar Ranger',
     summary: 'Amplia a baía para drones shotgun.',
-    effect: 'Permite comprar drones shotgun com créditos.'
+    effect: 'Permite comprar drones shotgun com créditos.',
+    impact: 'Aba Drones: libera a compra de drones Shotgun.'
   },
   missileFoundry: {
     title: 'Fundição de Mísseis',
     summary: 'Abre os sistemas necessários para drones de míssil.',
-    effect: 'Permite comprar drones de míssil com créditos.'
+    effect: 'Permite comprar drones de míssil com créditos.',
+    impact: 'Aba Drones: libera a compra de drones de Míssil.'
   },
   piercingRail: {
     title: 'Trilho Perfurante',
     summary: 'Libera um modo de arma focado em tiros que atravessam alvos.',
-    effect: 'Adiciona o modo Piercing na aba de armas.'
+    effect: 'Adiciona o modo Piercing na aba de armas.',
+    impact: 'Aba Armas: adiciona o modo Tiros Perfurantes.'
   }
 };
 
 const getStateLabel = (language: LanguageCode, state: WarpUnlockNodeState): string =>
   language === 'pt-BR' ? stateLabelsPtBr[state] : stateLabels[state];
 
-const getUnlockText = (language: LanguageCode, id: WarpUnlockId): { title: string; summary: string; effect: string } => {
+const getUnlockText = (language: LanguageCode, id: WarpUnlockId): { title: string; summary: string; effect: string; impact: string } => {
   const unlock = WARP_UNLOCK_BY_ID[id];
   if (language === 'pt-BR') {
     return unlockPtBr[id];
   }
-  return { title: unlock.title, summary: unlock.summary, effect: unlock.effectSummary };
+  return { title: unlock.title, summary: unlock.summary, effect: unlock.effectSummary, impact: unlock.impactDetail };
 };
 
 const formatCoreCost = (language: LanguageCode, count: number): string => {
@@ -179,7 +176,7 @@ export class WarpCoreTreeController {
 
     const node = document.createElement('button');
     node.type = 'button';
-    node.className = `talent-node talent-node--compact warp-node is-${nodeState}`;
+    node.className = `talent-node talent-node--compact warp-node warp-node--${unlock.impactTarget} is-${nodeState}`;
     node.classList.toggle('is-selected', selected);
     node.style.gridColumn = `${unlock.route.col}`;
     node.style.gridRow = `${unlock.route.row}`;
@@ -189,7 +186,7 @@ export class WarpCoreTreeController {
 
     const icon = document.createElement('span');
     icon.className = 'talent-node-icon warp-node-icon';
-    icon.textContent = iconLabels[id];
+    icon.append(this.createTechnologyIcon(id));
 
     const cost = document.createElement('span');
     cost.className = 'talent-node-rank warp-node-cost';
@@ -208,9 +205,16 @@ export class WarpCoreTreeController {
     const text = getUnlockText(state.language, id);
     const availableCores = getAvailableWarpCores(state.progression);
     const nodeState = getWarpUnlockNodeState(state.progression, availableCores, id);
-    const requirementText = unlock.requires.length > 0
-      ? unlock.requires.map((requiredId) => getUnlockText(state.language, requiredId).title).join(', ')
-      : (state.language === 'pt-BR' ? 'Nenhum' : 'None');
+    const missingRequirements = unlock.requires.filter((requiredId) => !state.progression.ownedWarpUnlockIds.includes(requiredId));
+    const hasRequirements = unlock.requires.length > 0;
+    const requirementText = missingRequirements.length > 0
+      ? missingRequirements.map((requiredId) => getUnlockText(state.language, requiredId).title).join(', ')
+      : (hasRequirements
+        ? (state.language === 'pt-BR' ? 'Pré-requisitos instalados' : 'Requirements installed')
+        : (state.language === 'pt-BR' ? 'Nenhum' : 'None'));
+    const requirementLabel = missingRequirements.length > 0
+      ? (state.language === 'pt-BR' ? 'Falta' : 'Missing')
+      : (state.language === 'pt-BR' ? 'Requisito' : 'Requirement');
 
     const panel = document.createElement('section');
     this.positionTooltip(panel, unlock.route.col, unlock.route.row);
@@ -220,7 +224,7 @@ export class WarpCoreTreeController {
     heading.className = 'talent-tooltip__heading';
     const icon = document.createElement('span');
     icon.className = 'talent-tooltip__icon warp-tooltip__icon';
-    icon.textContent = iconLabels[id];
+    icon.append(this.createTechnologyIcon(id));
     const titleWrap = document.createElement('div');
     const title = document.createElement('strong');
     title.textContent = text.title;
@@ -235,8 +239,8 @@ export class WarpCoreTreeController {
     const meta = document.createElement('div');
     meta.className = 'talent-tooltip__meta warp-tooltip__meta';
     meta.textContent = state.language === 'pt-BR'
-      ? `Custo ${formatCoreCost(state.language, unlock.cost)} · Requer ${requirementText}`
-      : `Cost ${formatCoreCost(state.language, unlock.cost)} · Requires ${requirementText}`;
+      ? `Custo ${formatCoreCost(state.language, unlock.cost)} · ${requirementLabel} ${requirementText}`
+      : `Cost ${formatCoreCost(state.language, unlock.cost)} · ${requirementLabel} ${requirementText}`;
 
     const balance = document.createElement('div');
     balance.className = 'talent-tooltip__meta warp-tooltip__meta';
@@ -248,6 +252,10 @@ export class WarpCoreTreeController {
     effect.className = 'talent-tooltip__meta warp-tooltip__meta';
     effect.textContent = text.effect;
 
+    const impact = document.createElement('div');
+    impact.className = 'talent-tooltip__impact warp-tooltip__impact';
+    impact.textContent = text.impact;
+
     const buyButton = document.createElement('button');
     buyButton.className = 'shop-buy talent-tooltip__buy warp-tooltip__buy';
     buyButton.type = 'button';
@@ -258,7 +266,7 @@ export class WarpCoreTreeController {
       state.onBuyUnlock(id);
     });
 
-    panel.append(heading, summary, effect, meta, balance, buyButton);
+    panel.append(heading, summary, impact, effect, meta, balance, buyButton);
     return panel;
   }
 
@@ -294,12 +302,90 @@ export class WarpCoreTreeController {
     return `Install ${formatCoreCost(language, cost)}`;
   }
 
+  private createTechnologyIcon(id: WarpUnlockId): Element {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 48 48');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('technology-icon', `technology-icon--${id}`);
+
+    const make = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] => {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+      return el;
+    };
+
+    if (id === 'droneSystems') {
+      svg.append(
+        make('path', { d: 'M24 8 L34 24 L24 40 L14 24 Z', class: 'technology-icon__shell' }),
+        make('circle', { cx: '24', cy: '24', r: '5', class: 'technology-icon__core' }),
+        make('path', { d: 'M8 24 H15 M33 24 H40 M24 4 V11 M24 37 V44', class: 'technology-icon__line' })
+      );
+      return svg;
+    }
+
+    if (id === 'bossBeacon') {
+      svg.append(
+        make('circle', { cx: '24', cy: '24', r: '8', class: 'technology-icon__core' }),
+        make('path', { d: 'M24 6 V12 M24 36 V42 M6 24 H12 M36 24 H42 M12 12 L16 16 M36 12 L32 16 M12 36 L16 32 M36 36 L32 32', class: 'technology-icon__line' }),
+        make('path', { d: 'M18 24 C20 18 28 18 30 24 C28 30 20 30 18 24 Z', class: 'technology-icon__shell' })
+      );
+      return svg;
+    }
+
+    if (id === 'spreadBattery') {
+      svg.append(
+        make('path', { d: 'M12 34 L24 10 L36 34 Z', class: 'technology-icon__shell' }),
+        make('path', { d: 'M24 16 V38 M17 22 L8 34 M31 22 L40 34', class: 'technology-icon__line' })
+      );
+      return svg;
+    }
+
+    if (id === 'deflectorFrame') {
+      svg.append(
+        make('path', { d: 'M11 24 C16 10 32 10 37 24 C32 38 16 38 11 24 Z', class: 'technology-icon__shell' }),
+        make('path', { d: 'M18 24 H38 M30 17 L38 24 L30 31', class: 'technology-icon__line' })
+      );
+      return svg;
+    }
+
+    if (id === 'shieldBubble') {
+      svg.append(
+        make('circle', { cx: '24', cy: '24', r: '17', class: 'technology-icon__shell' }),
+        make('path', { d: 'M24 13 L32 19 V27 C32 33 28 37 24 39 C20 37 16 33 16 27 V19 Z', class: 'technology-icon__core' })
+      );
+      return svg;
+    }
+
+    if (id === 'rangerHangar') {
+      svg.append(
+        make('path', { d: 'M10 16 H38 L42 34 H6 Z', class: 'technology-icon__shell' }),
+        make('path', { d: 'M14 34 V23 H34 V34 M18 27 H30 M24 23 V34', class: 'technology-icon__line' })
+      );
+      return svg;
+    }
+
+    if (id === 'missileFoundry') {
+      svg.append(
+        make('path', { d: 'M24 6 C31 13 34 22 33 32 C30 39 18 39 15 32 C14 22 17 13 24 6 Z', class: 'technology-icon__shell' }),
+        make('path', { d: 'M19 33 L14 43 M29 33 L34 43 M20 22 H28', class: 'technology-icon__line' })
+      );
+      return svg;
+    }
+
+    svg.append(
+      make('path', { d: 'M9 27 H30 L39 18 M31 17 H39 V25', class: 'technology-icon__line' }),
+      make('path', { d: 'M9 33 H24 M9 21 H20', class: 'technology-icon__line' }),
+      make('circle', { cx: '12', cy: '27', r: '4', class: 'technology-icon__core' })
+    );
+    return svg;
+  }
+
   private positionTooltip(panel: HTMLElement, col: number, row: number): void {
     const nodeSize = 54;
     const gridGap = 10;
     const boardPadding = 10;
     const tooltipWidth = 196;
-    const tooltipHeight = 206;
+    const tooltipHeight = 238;
     const boardWidth = boardPadding * 2 + WARP_UNLOCK_GRID_COLUMNS * nodeSize + (WARP_UNLOCK_GRID_COLUMNS - 1) * gridGap;
     const boardHeight = boardPadding * 2 + WARP_UNLOCK_GRID_ROWS * nodeSize + (WARP_UNLOCK_GRID_ROWS - 1) * gridGap;
     const nodeLeft = boardPadding + (col - 1) * (nodeSize + gridGap);

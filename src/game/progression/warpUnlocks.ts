@@ -5,6 +5,8 @@ export type WarpUnlockDefinition = {
   title: string;
   summary: string;
   effectSummary: string;
+  impactTarget: 'drones' | 'boss' | 'weapons' | 'defense';
+  impactDetail: string;
   iconId: string;
   cost: number;
   route: { col: number; row: number };
@@ -22,6 +24,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Drone Systems',
     summary: 'Authorizes drone bay systems and the first semi-auto support drone package.',
     effectSummary: 'Unlocks drone purchases after this node.',
+    impactTarget: 'drones',
+    impactDetail: 'Drones tab: enables Semi-Auto drone purchases.',
     iconId: 'warp-drone',
     cost: 1,
     route: { col: 2, row: 1 },
@@ -32,6 +36,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Boss Beacon',
     summary: 'Installs a gate-boss signal beacon for deliberate route challenges.',
     effectSummary: 'Unlocks manual boss summoning from Technologies.',
+    impactTarget: 'boss',
+    impactDetail: 'Technologies panel: adds manual boss summoning.',
     iconId: 'warp-boss',
     cost: 2,
     route: { col: 1, row: 2 },
@@ -42,6 +48,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Spread Battery',
     summary: 'Installs spread shot and opens the weapon-mode layer.',
     effectSummary: 'Unlocks Spread Shot immediately.',
+    impactTarget: 'weapons',
+    impactDetail: 'Weapons tab: adds Spread Shot mode.',
     iconId: 'warp-spread',
     cost: 3,
     route: { col: 3, row: 2 },
@@ -52,6 +60,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Deflector Prow',
     summary: 'Installs a directional prow deflector for collision-based asteroid control.',
     effectSummary: 'Unlocks the directional deflector mechanic.',
+    impactTarget: 'defense',
+    impactDetail: 'Ship systems: enables the directional deflector.',
     iconId: 'warp-deflector',
     cost: 4,
     route: { col: 1, row: 3 },
@@ -62,6 +72,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Shield Bubble',
     summary: 'Installs a circular rechargeable shield envelope around the ship.',
     effectSummary: 'Absorbs one hit, breaks, then recharges.',
+    impactTarget: 'defense',
+    impactDetail: 'Ship systems: adds a rechargeable hit shield.',
     iconId: 'warp-shield',
     cost: 7,
     route: { col: 1, row: 4 },
@@ -72,6 +84,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Ranger Hangar',
     summary: 'Adds hangar capacity for shotgun-focused ranger drones.',
     effectSummary: 'Unlocks shotgun drone purchases after this node.',
+    impactTarget: 'drones',
+    impactDetail: 'Drones tab: enables Shotgun drone purchases.',
     iconId: 'warp-ranger',
     cost: 5,
     route: { col: 2, row: 3 },
@@ -82,6 +96,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Missile Foundry',
     summary: 'Opens the foundry systems needed for missile breaker drones.',
     effectSummary: 'Unlocks missile drone purchases after this node.',
+    impactTarget: 'drones',
+    impactDetail: 'Drones tab: enables Missile drone purchases.',
     iconId: 'warp-missile',
     cost: 8,
     route: { col: 2, row: 4 },
@@ -92,6 +108,8 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     title: 'Piercing Rail',
     summary: 'Stabilizes rail capacitors and installs piercing rounds immediately.',
     effectSummary: 'Unlocks Piercing Rounds immediately.',
+    impactTarget: 'weapons',
+    impactDetail: 'Weapons tab: adds Piercing Rounds mode.',
     iconId: 'warp-piercing',
     cost: 8,
     route: { col: 3, row: 3 },

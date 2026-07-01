@@ -1758,8 +1758,11 @@ canvas {
   min-height: 532px;
   border-color: rgba(167, 211, 255, 0.18);
   background:
-    linear-gradient(180deg, rgba(167, 211, 255, 0.05), transparent 34%),
+    linear-gradient(180deg, rgba(167, 211, 255, 0.07), transparent 34%),
+    linear-gradient(90deg, rgba(131, 255, 220, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(131, 255, 220, 0.028) 1px, transparent 1px),
     rgba(255, 255, 255, 0.02);
+  background-size: auto, 36px 36px, 36px 36px, auto;
 }
 
 .warp-tree-board--inline {
@@ -1905,6 +1908,26 @@ canvas {
   background: rgba(167, 211, 255, 0.06);
 }
 
+.warp-node--drones {
+  border-color: rgba(131, 255, 220, 0.34);
+  background: rgba(131, 255, 220, 0.07);
+}
+
+.warp-node--boss {
+  border-color: rgba(255, 220, 138, 0.34);
+  background: rgba(255, 220, 138, 0.07);
+}
+
+.warp-node--weapons {
+  border-color: rgba(164, 214, 255, 0.34);
+  background: rgba(164, 214, 255, 0.07);
+}
+
+.warp-node--defense {
+  border-color: rgba(255, 142, 142, 0.32);
+  background: rgba(255, 142, 142, 0.065);
+}
+
 .warp-node.is-owned {
   border-color: rgba(255, 241, 168, 0.58);
   background: rgba(255, 241, 168, 0.09);
@@ -1936,10 +1959,49 @@ canvas {
 }
 
 .warp-node-icon {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0;
+  color: rgba(245, 253, 255, 0.96);
+}
+
+.technology-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.technology-icon__shell,
+.technology-icon__core {
+  fill: rgba(245, 253, 255, 0.08);
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 2.1;
+}
+
+.technology-icon__core {
+  fill: rgba(245, 253, 255, 0.14);
+  stroke-width: 1.8;
+}
+
+.technology-icon__line {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.warp-node--drones .technology-icon {
+  color: rgba(131, 255, 220, 0.96);
+}
+
+.warp-node--boss .technology-icon {
+  color: rgba(255, 220, 138, 0.96);
+}
+
+.warp-node--weapons .technology-icon {
+  color: rgba(164, 214, 255, 0.96);
+}
+
+.warp-node--defense .technology-icon {
+  color: rgba(255, 142, 142, 0.94);
 }
 
 .talent-node-rank {
@@ -2087,6 +2149,11 @@ canvas {
   font-size: 10px;
 }
 
+.warp-tooltip__icon .technology-icon {
+  width: 27px;
+  height: 27px;
+}
+
 .warp-tooltip__buy {
   min-height: 34px;
   margin-top: 2px;
@@ -2111,6 +2178,17 @@ canvas {
   color: rgba(198, 222, 238, 0.82);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.warp-tooltip__impact {
+  padding: 7px 8px;
+  border: 1px solid rgba(131, 255, 220, 0.16);
+  border-radius: 6px;
+  background: rgba(131, 255, 220, 0.07);
+  color: rgba(245, 253, 255, 0.92);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .talent-tooltip__meta {
