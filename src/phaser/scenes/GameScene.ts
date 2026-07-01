@@ -5,7 +5,7 @@ import { clearAllAsteridleData, loadGameState, saveGameState } from '../../game/
 import { emitReward } from '../../game/simulation/events';
 import { createDrone, createGameState, syncShieldBubbleState } from '../../game/simulation/state';
 import { createAsteroidField, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
-import type { BossType, DroneType, GameState, TalentId, Vec2, WarpUnlockId, WeaponMode } from '../../game/simulation/types';
+import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, TalentId, Vec2, WarpUnlockId, WeaponMode } from '../../game/simulation/types';
 import { getCoreUpgradeCap, getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../../game/progression/idleBonuses';
 import {
   TALENT_DEFINITIONS,
@@ -58,6 +58,14 @@ type ShopAction = {
   info?: () => ModalContent;
 };
 
+type PriorityPopupContent = {
+  key: string;
+  kicker: string;
+  title: string;
+  copy: string;
+  okLabel: string;
+};
+
 const SLINGSHOT_MAX_DRAG_MOBILE = 150;
 const SLINGSHOT_MAX_DRAG_DESKTOP = 172;
 const SLINGSHOT_DEADZONE_MOBILE = 58;
@@ -100,11 +108,15 @@ export class GameScene extends Phaser.Scene {
   private firstWarpGoalTitleEl!: HTMLElement;
   private firstWarpGoalProgressEl!: HTMLElement;
   private firstWarpGoalProgressTextEl!: HTMLElement;
-  private bossEventEl!: HTMLElement;
-  private bossEventKickerEl!: HTMLElement;
-  private bossEventTitleEl!: HTMLElement;
-  private bossEventMetaEl!: HTMLElement;
-  private bossEventProgressEl!: HTMLElement;
+  private bossHealthEl!: HTMLElement;
+  private bossHealthNameEl!: HTMLElement;
+  private bossHealthValueEl!: HTMLElement;
+  private bossHealthProgressEl!: HTMLElement;
+  private priorityPopupEl!: HTMLElement;
+  private priorityPopupKickerEl!: HTMLElement;
+  private priorityPopupTitleEl!: HTMLElement;
+  private priorityPopupCopyEl!: HTMLElement;
+  private priorityPopupOkEl!: HTMLButtonElement;
   private rewardFeed!: RewardFeedController;
   private shopPanelEl!: HTMLElement;
   private shopDrawerBackdropEl!: HTMLElement;
@@ -128,6 +140,8 @@ export class GameScene extends Phaser.Scene {
   private bottomNavEl!: HTMLElement;
   private navButtons!: NodeListOf<HTMLButtonElement>;
   private activeTab: ShopTab = 'upgrades';
+  private priorityPopupQueue: PriorityPopupContent[] = [];
+  private activePriorityPopup: PriorityPopupContent | null = null;
   private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | null = null;
   private activeModalInfo: ModalContent | null = null;
   private activeTalentTooltipId: TalentId | null = null;
@@ -219,11 +233,15 @@ export class GameScene extends Phaser.Scene {
     this.firstWarpGoalTitleEl = document.getElementById('first-warp-goal-title')!;
     this.firstWarpGoalProgressEl = document.getElementById('first-warp-goal-progress')!;
     this.firstWarpGoalProgressTextEl = document.getElementById('first-warp-goal-progress-text')!;
-    this.bossEventEl = document.getElementById('boss-event')!;
-    this.bossEventKickerEl = document.getElementById('boss-event-kicker')!;
-    this.bossEventTitleEl = document.getElementById('boss-event-title')!;
-    this.bossEventMetaEl = document.getElementById('boss-event-meta')!;
-    this.bossEventProgressEl = document.getElementById('boss-event-progress')!;
+    this.bossHealthEl = document.getElementById('boss-health')!;
+    this.bossHealthNameEl = document.getElementById('boss-health-name')!;
+    this.bossHealthValueEl = document.getElementById('boss-health-value')!;
+    this.bossHealthProgressEl = document.getElementById('boss-health-progress')!;
+    this.priorityPopupEl = document.getElementById('priority-popup')!;
+    this.priorityPopupKickerEl = document.getElementById('priority-popup-kicker')!;
+    this.priorityPopupTitleEl = document.getElementById('priority-popup-title')!;
+    this.priorityPopupCopyEl = document.getElementById('priority-popup-copy')!;
+    this.priorityPopupOkEl = document.getElementById('priority-popup-ok') as HTMLButtonElement;
     this.rewardFeed = new RewardFeedController(document.getElementById('reward-feed')!);
     this.audioSettings = new AudioSettingsController(document.getElementById('settings-toggle') as HTMLButtonElement, {
       setSfxVolume: (volume) => this.retroSound.setVolume(volume),
@@ -266,6 +284,7 @@ export class GameScene extends Phaser.Scene {
     this.bindSettingsUi();
     this.bindShopUi();
     this.bindModalUi();
+    this.bindPriorityPopupUi();
     this.bindMainMenuUi();
     this.applyLanguage();
     this.showMainMenu();
@@ -304,6 +323,7 @@ export class GameScene extends Phaser.Scene {
 
     updateGame(this.state, this.inputState, dt);
     this.playAudioEvents();
+    this.queuePriorityPopups(this.state.rewardEvents);
     this.rewardFeed.showEvents(this.state.rewardEvents);
     this.offlineStatusFor = Math.max(0, this.offlineStatusFor - dt);
     this.saveElapsed += dt;
@@ -422,7 +442,7 @@ export class GameScene extends Phaser.Scene {
 
   private isUiPointerEvent(event: PointerEvent): boolean {
     const target = event.target;
-    return target instanceof Element && target.closest('#main-menu, #idle-dock, #ui-modal, .hud-right-cluster') !== null;
+    return target instanceof Element && target.closest('#main-menu, #idle-dock, #ui-modal, #priority-popup, .hud-right-cluster') !== null;
   }
 
   private bindMainMenuUi(): void {
@@ -526,6 +546,8 @@ export class GameScene extends Phaser.Scene {
     });
     this.moneyKickerEl.textContent = translate(this.language, 'hud.money');
     this.firstWarpGoalEl.setAttribute('aria-label', translate(this.language, 'hud.currentObjective'));
+    this.bossHealthEl.setAttribute('aria-label', this.language === 'pt-BR' ? 'Vida do boss' : 'Boss health');
+    this.priorityPopupOkEl.textContent = this.language === 'pt-BR' ? 'OK' : 'OK';
     const kicker = this.firstWarpGoalEl.querySelector<HTMLElement>('.first-warp-goal__kicker');
     if (kicker) {
       kicker.textContent = translate(this.language, 'hud.next');
@@ -595,7 +617,8 @@ export class GameScene extends Phaser.Scene {
   private isBlockingDrawerOpen(): boolean {
     return (
       !this.shopPanelEl.classList.contains('is-hidden') ||
-      !this.modalEl.classList.contains('is-hidden')
+      !this.modalEl.classList.contains('is-hidden') ||
+      this.activePriorityPopup !== null
     );
   }
 
@@ -891,16 +914,16 @@ export class GameScene extends Phaser.Scene {
 
     this.syncVisibleShopTabs();
     this.updateFirstWarpGoal();
-    this.updateBossEvent();
+    this.updateBossHealth();
     this.updateShop();
   }
 
   private updateFirstWarpGoal(): void {
     const goal = getFirstWarpGoal(this.state);
-    const bossEvent = this.getBossEventState();
-    this.firstWarpGoalEl.classList.toggle('is-hidden', goal === null);
-    this.firstWarpGoalEl.classList.toggle('is-muted', this.isBlockingDrawerOpen() || bossEvent !== null);
-    if (!goal) {
+    const activeBoss = this.getActiveBoss();
+    this.firstWarpGoalEl.classList.toggle('is-hidden', goal === null || activeBoss !== null);
+    this.firstWarpGoalEl.classList.toggle('is-muted', this.isBlockingDrawerOpen());
+    if (!goal || activeBoss) {
       return;
     }
 
@@ -939,52 +962,24 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private updateBossEvent(): void {
-    const event = this.getBossEventState();
-    this.bossEventEl.classList.toggle('is-hidden', event === null);
-    this.bossEventEl.classList.toggle('is-muted', this.isBlockingDrawerOpen());
-    if (!event) {
-      return;
-    }
-
-    this.setText(this.bossEventKickerEl, event.kicker);
-    this.setText(this.bossEventTitleEl, event.title);
-    this.setText(this.bossEventMetaEl, event.meta);
-    this.bossEventProgressEl.style.setProperty('--boss-event-progress', `${Math.round(event.progress * 100)}%`);
-  }
-
-  private getBossEventState(): { kicker: string; title: string; meta: string; progress: number } | null {
-    if (this.state.pendingBoss) {
-      const nextZone = getZoneByIndex(this.state.pendingBoss.bossZoneIndex);
-      const seconds = Math.max(0, Math.ceil(this.state.pendingBoss.spawnIn));
-      return {
-        kicker: this.language === 'pt-BR' ? 'Chegada' : 'Arrival',
-        title: this.language === 'pt-BR'
-          ? `${this.formatBossName(this.state.pendingBoss.bossType)} chegando`
-          : `${this.formatBossName(this.state.pendingBoss.bossType)} incoming`,
-        meta: this.language === 'pt-BR'
-          ? `${seconds}s · libera ${nextZone.name}`
-          : `${seconds}s · unlocks ${nextZone.name}`,
-        progress: 1 - Math.max(0, Math.min(1, this.state.pendingBoss.spawnIn / balance.bosses.pendingSpawnIn))
-      };
-    }
-
-    const boss = this.state.asteroids.find((asteroid) => asteroid.bossType);
+  private updateBossHealth(): void {
+    const boss = this.getActiveBoss();
+    this.bossHealthEl.classList.toggle('is-hidden', boss === null);
     if (!boss?.bossType || boss.bossZoneIndex === undefined) {
-      return null;
+      return;
     }
 
     const nextZone = getZoneByIndex(boss.bossZoneIndex);
     const hp = Math.max(0, Math.ceil(boss.hp));
     const maxHp = Math.max(1, Math.ceil(boss.maxHp));
-    return {
-      kicker: this.language === 'pt-BR' ? 'Boss ativo' : 'Boss active',
-      title: this.formatBossName(boss.bossType),
-      meta: this.language === 'pt-BR'
-        ? `${hp}/${maxHp} HP · libera ${nextZone.name}`
-        : `${hp}/${maxHp} HP · unlocks ${nextZone.name}`,
-      progress: Math.max(0, Math.min(1, boss.hp / Math.max(1, boss.maxHp)))
-    };
+    this.setText(this.bossHealthNameEl, this.formatBossName(boss.bossType));
+    this.setText(this.bossHealthValueEl, `${hp} / ${maxHp}`);
+    this.bossHealthEl.setAttribute('aria-label', this.language === 'pt-BR' ? `Vida do boss ${nextZone.name}` : `${nextZone.name} boss health`);
+    this.bossHealthProgressEl.style.setProperty('--boss-health-progress', `${Math.round(Math.max(0, Math.min(1, boss.hp / Math.max(1, boss.maxHp))) * 100)}%`);
+  }
+
+  private getActiveBoss(): AsteroidState | null {
+    return this.state.asteroids.find((asteroid) => asteroid.bossType) ?? null;
   }
 
   private updateDeathFade(): void {
@@ -1112,6 +1107,74 @@ export class GameScene extends Phaser.Scene {
       this.modalHandleEl,
       this.modalPanelEl.querySelector<HTMLElement>('.ui-modal__header')!
     ]);
+  }
+
+  private bindPriorityPopupUi(): void {
+    this.priorityPopupOkEl.addEventListener('click', () => this.closePriorityPopup());
+  }
+
+  private queuePriorityPopups(events: GameRewardEvent[]): void {
+    events.forEach((event) => {
+      const popup = this.createPriorityPopupForReward(event);
+      if (!popup || this.isPriorityPopupQueued(popup.key)) {
+        return;
+      }
+      this.priorityPopupQueue.push(popup);
+    });
+
+    this.showNextPriorityPopup();
+  }
+
+  private createPriorityPopupForReward(event: GameRewardEvent): PriorityPopupContent | null {
+    if (event.kind !== 'unlock') {
+      return null;
+    }
+
+    const unlockedZone = zones.find((zone) => event.text === `${zone.name} unlocked on map`);
+    if (!unlockedZone) {
+      return null;
+    }
+
+    return {
+      key: `zone-${unlockedZone.index}`,
+      kicker: this.language === 'pt-BR' ? 'Nova zona' : 'New zone',
+      title: this.language === 'pt-BR' ? `${unlockedZone.name} liberada` : `${unlockedZone.name} unlocked`,
+      copy: this.language === 'pt-BR'
+        ? 'Uma nova rota está disponível no mapa.'
+        : 'A new route is available on the map.',
+      okLabel: 'OK'
+    };
+  }
+
+  private isPriorityPopupQueued(key: string): boolean {
+    return this.activePriorityPopup?.key === key || this.priorityPopupQueue.some((popup) => popup.key === key);
+  }
+
+  private showNextPriorityPopup(): void {
+    if (this.activePriorityPopup || this.priorityPopupQueue.length <= 0) {
+      return;
+    }
+
+    const popup = this.priorityPopupQueue.shift();
+    if (!popup) {
+      return;
+    }
+
+    this.activePriorityPopup = popup;
+    this.priorityPopupKickerEl.textContent = popup.kicker;
+    this.priorityPopupTitleEl.textContent = popup.title;
+    this.priorityPopupCopyEl.textContent = popup.copy;
+    this.priorityPopupOkEl.textContent = popup.okLabel;
+    this.priorityPopupEl.classList.remove('is-hidden');
+    this.priorityPopupEl.setAttribute('aria-hidden', 'false');
+    window.setTimeout(() => this.priorityPopupOkEl.focus({ preventScroll: true }), 0);
+  }
+
+  private closePriorityPopup(): void {
+    this.activePriorityPopup = null;
+    this.priorityPopupEl.classList.add('is-hidden');
+    this.priorityPopupEl.setAttribute('aria-hidden', 'true');
+    this.showNextPriorityPopup();
   }
 
   private bindDrawerDrag(panel: HTMLElement, close: () => void, handles: HTMLElement[]): void {
@@ -1481,7 +1544,6 @@ export class GameScene extends Phaser.Scene {
       const bossMoney = balance.bosses.reward.baseMoney + nextZone.index * balance.bosses.reward.moneyPerZone;
       const bossCrystals = balance.bosses.reward.baseCrystals + nextZone.index * balance.bosses.reward.crystalsPerZone;
       stats.replaceChildren(
-        this.createWarpResetStat(this.language === 'pt-BR' ? 'Libera' : 'Unlocks', nextZone.name),
         this.createWarpResetStat('HP', bossHp.toString()),
         this.createWarpResetStat(this.language === 'pt-BR' ? 'Base' : 'Base', `${this.formatMoney(bossMoney)} + ${bossCrystals} ${formatCrystalUnit(this.language, bossCrystals)}`)
       );
@@ -1490,7 +1552,7 @@ export class GameScene extends Phaser.Scene {
     const preview = document.createElement('p');
     preview.className = 'warp-reset-panel__preview';
     preview.textContent = nextZone
-      ? (this.language === 'pt-BR' ? `Invoca um desafio de rota para abrir ${nextZone.name}.` : `Summon a route challenge to open ${nextZone.name}.`)
+      ? (this.language === 'pt-BR' ? 'Invoca um desafio de rota.' : 'Summon a route challenge.')
       : (this.language === 'pt-BR' ? 'Não há mais sinais de boss de portal disponíveis nesta rota.' : 'No further gate boss signals are available on this route.');
 
     panel.append(header);
@@ -2385,12 +2447,11 @@ export class GameScene extends Phaser.Scene {
     this.state.pendingBoss = pendingBoss;
     this.state.progression.bossDiscovery.rareBossProgress = 0;
     this.closeShopDrawer();
-    const nextZone = getZoneByIndex(pendingBoss.bossZoneIndex);
     emitReward(
       this.state,
       this.language === 'pt-BR'
-        ? `${this.formatBossName(pendingBoss.bossType)} chegando - libera ${nextZone.name}`
-        : `${this.formatBossName(pendingBoss.bossType)} incoming - unlocks ${nextZone.name}`,
+        ? `${this.formatBossName(pendingBoss.bossType)} chegando`
+        : `${this.formatBossName(pendingBoss.bossType)} incoming`,
       'boss'
     );
     this.retroSound.play({ type: 'bossSummoned' });
