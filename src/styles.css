@@ -2159,7 +2159,7 @@ canvas {
 }
 
 .bottom-nav:not(.is-collapsed) .nav-button__label {
-  animation: nav-label-reveal 180ms ease 0.5s forwards;
+  animation: nav-label-reveal 180ms ease forwards;
   clip: auto;
 }
 

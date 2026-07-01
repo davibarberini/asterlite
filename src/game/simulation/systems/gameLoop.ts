@@ -22,6 +22,7 @@ import {
   getDeathPenaltyMultiplier,
   getRefineryIncomeMultiplier
 } from '../../progression/talentTree';
+import { syncGuidedMissions } from '../../progression/guidedMissions';
 import { balance } from '../../balance';
 import { hasShieldBubbleUnlocked } from '../state';
 export const updateGame = (state: GameState, input: InputActions, dt: number): void => {
@@ -56,6 +57,7 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
     }
   });
   syncAffordableWarpUnlockAnnouncements(state);
+  syncGuidedMissions(state);
 };
 
 const syncAffordableWarpUnlockAnnouncements = (state: GameState): void => {

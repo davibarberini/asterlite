@@ -206,6 +206,26 @@ export type BossDiscoveryState = {
   rareBossesFound: number;
 };
 
+export type GuidedMissionId =
+  | 'drawGateBoss'
+  | 'defeatGateBoss'
+  | 'collectWarpCrystals'
+  | 'warpForFirstCore'
+  | 'installDroneSystems';
+
+export type GuidedMissionSnapshot = {
+  firstGateAsteroidsDestroyed: number;
+  bossDefeats: number;
+  crystals: number;
+  prestigeCores: number;
+};
+
+export type GuidedMissionState = {
+  activeMissionId: GuidedMissionId | null;
+  completedMissionIds: GuidedMissionId[];
+  startedAt: GuidedMissionSnapshot;
+};
+
 export type ProgressionState = {
   passiveIncomeLevel: number;
   shipDamageLevel: number;
@@ -226,6 +246,7 @@ export type ProgressionState = {
   firstGateAsteroidsDestroyed: number;
   bossDefeats: number;
   bossDiscovery: BossDiscoveryState;
+  guidedMissions: GuidedMissionState;
   prestigeCores: number;
   ownedWarpUnlockIds: WarpUnlockId[];
   announcedAffordableWarpUnlockIds: WarpUnlockId[];

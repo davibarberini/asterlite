@@ -18,7 +18,7 @@ import {
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, zones } from '../../game/simulation/zones';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../../game/progression/prestige';
-import { getFirstWarpGoal } from '../../game/progression/firstWarpGoal';
+import { getActiveGuidedMissionProgress, type GuidedMissionProgress } from '../../game/progression/guidedMissions';
 import {
   ACHIEVEMENT_BONUS_LABELS,
   ACHIEVEMENT_DEFINITIONS,
@@ -550,7 +550,7 @@ export class GameScene extends Phaser.Scene {
     this.priorityPopupOkEl.textContent = this.language === 'pt-BR' ? 'OK' : 'OK';
     const kicker = this.firstWarpGoalEl.querySelector<HTMLElement>('.first-warp-goal__kicker');
     if (kicker) {
-      kicker.textContent = translate(this.language, 'hud.next');
+      kicker.textContent = this.language === 'pt-BR' ? 'Missão' : 'Mission';
     }
     this.hpMeterEl.setAttribute('aria-label', translate(this.language, 'hud.shipHull'));
     this.mapToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openZoneMap'));
@@ -924,7 +924,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateFirstWarpGoal(): void {
-    const goal = getFirstWarpGoal(this.state);
+    const goal = getActiveGuidedMissionProgress(this.state);
     const activeBoss = this.getActiveBoss();
     this.firstWarpGoalEl.classList.toggle('is-hidden', goal === null || activeBoss !== null);
     this.firstWarpGoalEl.classList.toggle('is-muted', this.isBlockingDrawerOpen());
@@ -937,34 +937,29 @@ export class GameScene extends Phaser.Scene {
     this.firstWarpGoalProgressEl.style.setProperty('--goal-progress', `${Math.round(goal.progress * 100)}%`);
   }
 
-  private getFirstWarpGoalTitle(goal: NonNullable<ReturnType<typeof getFirstWarpGoal>>): string {
-    return translate(this.language, `goal.${goal.type}`);
+  private getFirstWarpGoalTitle(goal: GuidedMissionProgress): string {
+    const titles: Record<GuidedMissionProgress['id'], string> = {
+      drawGateBoss: this.language === 'pt-BR' ? 'Atrair o boss do portal' : 'Draw out the gate boss',
+      defeatGateBoss: this.language === 'pt-BR' ? 'Derrotar o boss' : 'Defeat the boss',
+      collectWarpCrystals: this.language === 'pt-BR' ? 'Coletar cristais de warp' : 'Collect warp crystals',
+      warpForFirstCore: this.language === 'pt-BR' ? 'Fazer warp' : 'Warp for a core',
+      installDroneSystems: this.language === 'pt-BR' ? 'Instalar sistemas de drones' : 'Install Drone Systems'
+    };
+    return titles[goal.id];
   }
 
-  private getFirstWarpGoalProgressLabel(goal: NonNullable<ReturnType<typeof getFirstWarpGoal>>): string {
-    if (goal.type === 'installDroneSystems') {
-      return translate(this.language, 'goal.cores', {
-        current: goal.availableCores ?? 0,
-        target: goal.firstTechnologyCost ?? 1
-      });
+  private getFirstWarpGoalProgressLabel(goal: GuidedMissionProgress): string {
+    if (goal.id === 'defeatGateBoss') {
+      return goal.ready
+        ? (this.language === 'pt-BR' ? 'Completa' : 'Complete')
+        : (this.language === 'pt-BR' ? 'Boss ativo' : 'Boss active');
     }
-    if (goal.type === 'warpForFirstCore') {
-      const count = goal.coreGain ?? 0;
-      return translate(this.language, 'goal.coreReady', { count, unit: formatCoreUnit(this.language, count) });
+    if (goal.id === 'warpForFirstCore') {
+      return goal.ready
+        ? (this.language === 'pt-BR' ? 'Núcleo obtido' : 'Core earned')
+        : `${goal.current}/${goal.target}`;
     }
-    if (goal.type === 'defeatGateBoss') {
-      return translate(this.language, 'goal.bossActive');
-    }
-    if (goal.type === 'drawGateBoss') {
-      return translate(this.language, 'goal.asteroids', {
-        current: goal.destroyed ?? 0,
-        target: goal.asteroidTarget ?? 1
-      });
-    }
-    return translate(this.language, 'goal.crystals', {
-      current: goal.crystals ?? 0,
-      target: goal.crystalTarget ?? crystalsPerPrestigeCore
-    });
+    return `${goal.current}/${goal.target}`;
   }
 
   private updateBossHealth(): void {

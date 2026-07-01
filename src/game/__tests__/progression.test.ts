@@ -6,6 +6,7 @@ import { getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMulti
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../progression/prestige';
 import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
+import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
@@ -79,6 +80,16 @@ describe('save loading', () => {
     };
     savedState.progression.ownedWarpUnlockIds = ['droneSystems'];
     savedState.progression.announcedAffordableWarpUnlockIds = ['droneSystems'];
+    savedState.progression.guidedMissions = {
+      activeMissionId: 'defeatGateBoss',
+      completedMissionIds: ['drawGateBoss'],
+      startedAt: {
+        firstGateAsteroidsDestroyed: balance.bosses.firstGateAsteroids,
+        bossDefeats: 0,
+        crystals: 0,
+        prestigeCores: 0
+      }
+    };
     savedState.ship.position = { x: 180, y: 220 };
     savedState.ship.hp = 72;
 
@@ -99,6 +110,8 @@ describe('save loading', () => {
     });
     expect(loadedState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
     expect(loadedState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems']);
+    expect(loadedState.progression.guidedMissions.activeMissionId).toBe('defeatGateBoss');
+    expect(loadedState.progression.guidedMissions.completedMissionIds).toEqual(['drawGateBoss']);
     expect(loadedState.ship.position).toEqual({ x: 180, y: 220 });
     expect(loadedState.ship.hp).toBe(72);
   });
@@ -443,6 +456,30 @@ describe('first warp goal', () => {
     state.progression.ownedWarpUnlockIds = ['droneSystems'];
 
     expect(getFirstWarpGoal(state)).toBeNull();
+  });
+});
+
+describe('guided missions', () => {
+  it('starts the guided mission sequence in the existing objective pill flow', () => {
+    const state = createGameState(800, 600);
+
+    const mission = getActiveGuidedMissionProgress(state);
+
+    expect(mission?.id).toBe('drawGateBoss');
+    expect(mission?.target).toBe(balance.bosses.firstGateAsteroids);
+  });
+
+  it('rewards mission completion and advances to the next mission', () => {
+    const state = createGameState(800, 600);
+    state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(state.progression.guidedMissions.completedMissionIds).toContain('drawGateBoss');
+    expect(state.progression.guidedMissions.activeMissionId).toBe('defeatGateBoss');
+    expect(state.progression.shipDamageLevel).toBe(2);
+    expect(state.money).toBeGreaterThanOrEqual(75);
+    expect(state.rewardEvents.some((event) => event.text.includes('Mission complete'))).toBe(true);
   });
 });
 
@@ -928,6 +965,16 @@ describe('boss gates and warp reset', () => {
     state.progression.announcedAffordableWarpUnlockIds = ['droneSystems', 'bossBeacon'];
     state.progression.maxHp = 150;
     state.progression.shipDamageLevel = 2;
+    state.progression.guidedMissions = {
+      activeMissionId: 'warpForFirstCore',
+      completedMissionIds: ['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals'],
+      startedAt: {
+        firstGateAsteroidsDestroyed: balance.bosses.firstGateAsteroids,
+        bossDefeats: 1,
+        crystals: 0,
+        prestigeCores: 2
+      }
+    };
     state.progression.unlockedZoneIndex = 3;
     state.progression.currentZoneIndex = 3;
     state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids;
@@ -944,6 +991,8 @@ describe('boss gates and warp reset', () => {
     expect(nextState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon']);
     expect(nextState.progression.maxHp).toBe(150);
     expect(nextState.progression.shipDamageLevel).toBe(2);
+    expect(nextState.progression.guidedMissions.activeMissionId).toBe('warpForFirstCore');
+    expect(nextState.progression.guidedMissions.completedMissionIds).toEqual(['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals']);
     expect(nextState.ship.maxHp).toBe(150);
     expect(nextState.progression.unlockedZoneIndex).toBe(0);
     expect(nextState.progression.currentZoneIndex).toBe(0);

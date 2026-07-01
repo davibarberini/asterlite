@@ -9,7 +9,8 @@ import {
   syncAchievements
 } from './achievements';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
-import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, ProgressionState, ShieldBubbleState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import { createGuidedMissionState } from './guidedMissions';
+import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
@@ -22,7 +23,7 @@ const SAVE_VERSION: SaveVersion = 1;
 type SaveVersion = 1;
 
 export const SAVE_VERSION_NOTES: Record<SaveVersion, string> = {
-  1: 'Stores credits, crystals, offline timestamp, normalized progression, ship position/health/respawn state, and shield bubble state.'
+  1: 'Stores credits, crystals, offline timestamp, normalized progression including guided missions, ship position/health/respawn state, and shield bubble state.'
 };
 
 type SavedGameV1 = {
@@ -150,6 +151,38 @@ const readBossDiscovery = (value: unknown): BossDiscoveryState => {
   };
 };
 
+const guidedMissionIds: GuidedMissionId[] = [
+  'drawGateBoss',
+  'defeatGateBoss',
+  'collectWarpCrystals',
+  'warpForFirstCore',
+  'installDroneSystems'
+];
+
+const isGuidedMissionId = (value: unknown): value is GuidedMissionId =>
+  typeof value === 'string' && guidedMissionIds.includes(value as GuidedMissionId);
+
+const readGuidedMissions = (value: unknown): GuidedMissionState => {
+  const fallback = createGuidedMissionState();
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const startedAt = isRecord(value.startedAt) ? value.startedAt : {};
+  return {
+    activeMissionId: isGuidedMissionId(value.activeMissionId) ? value.activeMissionId : fallback.activeMissionId,
+    completedMissionIds: Array.isArray(value.completedMissionIds)
+      ? Array.from(new Set(value.completedMissionIds.filter(isGuidedMissionId)))
+      : [],
+    startedAt: {
+      firstGateAsteroidsDestroyed: Math.max(0, Math.floor(readNumber(startedAt.firstGateAsteroidsDestroyed, 0))),
+      bossDefeats: Math.max(0, Math.floor(readNumber(startedAt.bossDefeats, 0))),
+      crystals: Math.max(0, Math.floor(readNumber(startedAt.crystals, 0))),
+      prestigeCores: Math.max(0, Math.floor(readNumber(startedAt.prestigeCores, 0)))
+    }
+  };
+};
+
 const readWarpUnlockIds = (value: unknown): WarpUnlockId[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -261,6 +294,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
     firstGateAsteroidsDestroyed: Math.max(0, Math.floor(readNumber(value.firstGateAsteroidsDestroyed, 0))),
     bossDefeats: Math.max(0, Math.floor(readNumber(value.bossDefeats, unlockedZoneIndex))),
     bossDiscovery: readBossDiscovery(value.bossDiscovery),
+    guidedMissions: readGuidedMissions(value.guidedMissions),
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
     ownedWarpUnlockIds,
     announcedAffordableWarpUnlockIds: readWarpUnlockIds(value.announcedAffordableWarpUnlockIds),

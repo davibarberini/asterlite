@@ -1,5 +1,6 @@
 import type { DroneState, DroneType, GameState, ProgressionState, ShieldBubbleState, ShipState } from './types';
 import { createAchievementStats, createUnlockedAchievements, getEffectiveMaxHp } from '../progression/achievements';
+import { createGuidedMissionState } from '../progression/guidedMissions';
 import { createTalentRanks } from '../progression/talentTree';
 import { emitAudio } from './events';
 import { createAsteroidField } from './systems/asteroids';
@@ -76,6 +77,7 @@ export const createProgression = (): ProgressionState => ({
     rareBossProgress: 0,
     rareBossesFound: 0
   },
+  guidedMissions: createGuidedMissionState(),
   prestigeCores: 0,
   ownedWarpUnlockIds: [],
   announcedAffordableWarpUnlockIds: [],

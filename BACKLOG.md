@@ -4,6 +4,17 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Guided Missions: First Path
+
+Converted the existing next-objective pill into the first Guided Missions surface.
+
+Notes:
+- Added serializable guided mission state with active mission, completed mission ids, and mission start snapshots.
+- Reused the compact objective pill for mission title and progress so no new persistent HUD panel was added.
+- Added an initial sequence for drawing the first boss, defeating it, collecting warp crystals, warping for a core, and installing Drone Systems.
+- Mission completions now grant small permanent rewards through existing progression stats plus modest credits.
+- Guided mission state is saved, loaded, and preserved through warp reset.
+
 ### Zone Identity Pass
 
 Made each zone more distinct through data-driven presentation instead of new mechanics.
@@ -147,21 +158,22 @@ Notes:
 
 ## Ready
 
-### Guided Missions
+### Guided Mission Variety and Reward Expansion
 
-Add compact mission objectives that guide short-term play and pay small permanent rewards.
+Expand Guided Missions beyond the first path with repeatable and zone-aware objectives.
 
 Design:
 - Missions should be small and readable during an idle/action run.
 - Use mission sequencing to teach actions instead of long descriptions.
 - Examples: destroy crystal asteroids, survive a boss, clear dense asteroids, collect credits without dying.
 - Rewards should include small permanent improvements where appropriate, plus crystals, credits, or temporary run boosts without breaking warp pacing.
+- Keep using the existing compact Guided Mission pill unless a later UI pass proves it needs a separate surface.
 
 Acceptance:
-- Add serializable active mission state.
-- Generate or select objectives appropriate to current zone/progression.
-- Show active mission progress in a compact UI surface that does not eat the playfield.
-- Reward completion through existing currency, permanent progression, and reward feed systems.
+- Add zone-aware or repeatable mission selection after the first Drone Systems path.
+- Add crystal asteroid, survival, dense asteroid, and credit streak objective types.
+- Add reward balancing tests for permanent and temporary mission rewards.
+- Keep mission rewards from bypassing warp pacing.
 
 ### Drone Bay Personality Pass
 
@@ -209,6 +221,25 @@ Acceptance:
 - Trigger concise messages for the first few major milestones.
 - Avoid repeating messages on existing saves that already passed the milestone.
 - Keep combat input uninterrupted.
+
+## Conditional
+
+### Monetization Foundation Readiness Check
+
+Read `MONETIZATION_PLAN.md` and implement monetization only if the readiness gate in that document is clearly satisfied.
+
+Design:
+- This task is intentionally not part of `Ready`; do not pick it from a normal `develop-feature` pass.
+- First verify that the core loop, mid-game progression, balance, mobile publishing path, and cosmetic surfaces are mature enough.
+- If the gate is not satisfied, leave monetization blocked and optionally implement only non-monetized foundations that improve the game independently.
+- Prefer cosmetics, optional rewarded ads, and temporary convenience boosts over direct permanent power.
+
+Acceptance:
+- Start by reading and summarizing `MONETIZATION_PLAN.md`.
+- Explicitly decide whether the readiness gate is satisfied before implementation.
+- If satisfied, implement the smallest safe foundation slice from the plan.
+- If not satisfied, do not add ads, purchases, premium currency, store prompts, or paid progression.
+- Keep gameplay state serializable and isolated from platform SDK objects.
 
 ## Process Notes
 
