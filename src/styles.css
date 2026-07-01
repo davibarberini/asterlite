@@ -903,6 +903,74 @@ canvas {
   font-weight: 800;
 }
 
+.shop-buy--drone {
+  min-height: 76px;
+  border-color: rgba(131, 255, 220, 0.24);
+  background:
+    linear-gradient(135deg, rgba(131, 255, 220, 0.12), rgba(111, 168, 255, 0.07)),
+    rgba(5, 14, 20, 0.58);
+}
+
+.shop-buy--drone-ready {
+  border-color: rgba(131, 255, 220, 0.4);
+}
+
+.shop-buy--drone-owned {
+  border-color: rgba(164, 214, 255, 0.34);
+  background:
+    linear-gradient(135deg, rgba(164, 214, 255, 0.13), rgba(131, 255, 220, 0.08)),
+    rgba(5, 14, 20, 0.62);
+}
+
+.shop-buy--drone-locked {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.shop-buy--drone .shop-action-icon {
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+}
+
+.drone-type-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.drone-type-icon__hull,
+.drone-type-icon__core {
+  fill: rgba(131, 255, 220, 0.14);
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.drone-type-icon__core {
+  fill: rgba(245, 253, 255, 0.18);
+  stroke-width: 1.8;
+}
+
+.drone-type-icon__line,
+.drone-type-icon__fan {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.3;
+}
+
+.drone-type-icon__fan {
+  opacity: 0.78;
+}
+
+.drone-type-icon--ranger {
+  color: rgba(255, 220, 138, 0.98);
+}
+
+.drone-type-icon--breaker {
+  color: rgba(255, 142, 142, 0.98);
+}
+
 .shop-action-body {
   display: grid;
   min-width: 0;

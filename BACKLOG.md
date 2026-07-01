@@ -4,6 +4,16 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Drone Bay Personality Pass
+
+Gave each drone family clearer identity in the Drones tab.
+
+Notes:
+- Replaced abbreviation-only drone icons with compact SVG icons for Semi-Auto, Shotgun, and Missile drones.
+- Added role, rhythm, and purchase-state copy to each drone row so families read differently before buying.
+- Improved locked, ready, and owned row styling without changing drone behavior or balance.
+- Expanded drone info modals with combat role, range, fire rhythm, owned count, and next cost.
+
 ### Ship Exchange Gating Refinement
 
 Refined when the player earns a ship exchange after the first loop.
@@ -211,22 +221,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Drone Bay Personality Pass
-
-Give each drone family a stronger identity in the UI and progression presentation.
-
-Design:
-- Semi-Auto should read as precision support.
-- Shotgun should read as close burst control.
-- Missile should read as slower heavy area control.
-- The Drones tab should preview behavior before the player invests.
-
-Acceptance:
-- Add distinct iconography and behavior copy for each drone family.
-- Improve locked, owned, and buyable drone row states.
-- Add concise info modal facts for target range, fire rhythm, and combat role.
-- Keep drone behavior unchanged unless a follow-up explicitly tunes balance.
 
 ### Technology Tree Clarity Pass
 

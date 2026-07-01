@@ -54,10 +54,12 @@ type ShopAction = {
   disabled: boolean;
   onClick: () => boolean | void;
   icon?: string;
+  iconNode?: () => Element;
   title?: string;
   meta?: string;
   repeatable?: boolean;
   info?: () => ModalContent;
+  className?: string;
 };
 
 type PriorityPopupContent = {
@@ -1764,17 +1766,24 @@ export class GameScene extends Phaser.Scene {
         const requiredUnlock = this.getDroneTypeWarpUnlock(type);
         const requiredTitle = this.getWarpUnlockTitle(requiredUnlock);
         const count = this.state.progression.droneCounts[type];
+        const profile = this.getDroneTypeProfile(type);
         const status = unlocked
-          ? (this.language === 'pt-BR' ? `${count} comprados · ${requiredTitle} online` : `${count} owned · ${requiredTitle} online`)
+          ? (this.language === 'pt-BR'
+            ? `${profile.role} · ${count} ativos · ${profile.rhythm}`
+            : `${profile.role} · ${count} active · ${profile.rhythm}`)
           : (this.language === 'pt-BR' ? `Requer ${requiredTitle}` : `Requires ${requiredTitle}`);
+        const actionClass = unlocked
+          ? (count > 0 ? 'shop-buy--drone shop-buy--drone-owned' : 'shop-buy--drone shop-buy--drone-ready')
+          : 'shop-buy--drone shop-buy--drone-locked';
         return {
-          icon: this.getDroneTypeIcon(type),
+          iconNode: () => this.createDroneTypeIcon(type),
           title: `${config.label} Drone`,
           meta: status,
           label: unlocked ? this.formatMoney(cost) : (this.language === 'pt-BR' ? 'Bloqueado' : 'Warp locked'),
           disabled: !unlocked || this.state.money < cost,
           onClick: () => this.buyDrone(type, cost),
-          info: () => this.getDroneTypeInfo(type)
+          info: () => this.getDroneTypeInfo(type),
+          className: actionClass
         };
       }),
       true
@@ -1911,13 +1920,20 @@ export class GameScene extends Phaser.Scene {
 
     const button = document.createElement('button');
     button.className = action.title ? 'shop-buy shop-buy--row' : 'shop-buy';
+    if (action.className) {
+      button.className = `${button.className} ${action.className}`;
+    }
     button.type = 'button';
     button.disabled = action.disabled;
 
     if (action.title) {
       const icon = document.createElement('span');
       icon.className = 'shop-action-icon';
-      icon.textContent = action.icon ?? '+';
+      if (action.iconNode) {
+        icon.append(action.iconNode());
+      } else {
+        icon.textContent = action.icon ?? '+';
+      }
       const body = document.createElement('span');
       body.className = 'shop-action-body';
       const title = document.createElement('strong');
@@ -2415,16 +2431,22 @@ export class GameScene extends Phaser.Scene {
     const requiredUnlock = this.getDroneTypeWarpUnlock(type);
     const requiredTitle = WARP_UNLOCK_BY_ID[requiredUnlock].title;
     const unlocked = this.canBuyDroneType(type);
+    const profile = this.getDroneTypeProfile(type);
     return {
-      kicker: 'Drone Bay',
+      kicker: this.language === 'pt-BR' ? 'Baía de Drones' : 'Drone Bay',
       title: `${config.label} Drone`,
       copy: unlocked
-        ? 'Credits build this drone family for the current permanent loadout.'
-        : `Install ${requiredTitle} in Technologies before this drone family can be purchased.`,
+        ? profile.copy
+        : (this.language === 'pt-BR'
+          ? `Instale ${this.getWarpUnlockTitle(requiredUnlock)} em Tecnologias antes de comprar esta família.`
+          : `Install ${requiredTitle} in Technologies before this drone family can be purchased.`),
       facts: [
-        ['Status', unlocked ? 'Available' : `Requires ${requiredTitle}`],
-        ['Owned', this.state.progression.droneCounts[type].toString()],
-        ['Next cost', this.formatMoney(this.getDroneTypeCost(type))]
+        [this.language === 'pt-BR' ? 'Status' : 'Status', unlocked ? (this.language === 'pt-BR' ? 'Disponível' : 'Available') : (this.language === 'pt-BR' ? `Requer ${this.getWarpUnlockTitle(requiredUnlock)}` : `Requires ${requiredTitle}`)],
+        [this.language === 'pt-BR' ? 'Função' : 'Role', profile.role],
+        [this.language === 'pt-BR' ? 'Alcance' : 'Range', profile.range],
+        [this.language === 'pt-BR' ? 'Ritmo' : 'Rhythm', profile.rhythm],
+        [this.language === 'pt-BR' ? 'Comprados' : 'Owned', this.state.progression.droneCounts[type].toString()],
+        [this.language === 'pt-BR' ? 'Próximo preço' : 'Next cost', this.formatMoney(this.getDroneTypeCost(type))]
       ]
     };
   }
@@ -2753,16 +2775,90 @@ export class GameScene extends Phaser.Scene {
     return titles[id];
   }
 
-  private getDroneTypeIcon(type: DroneType): string {
+  private getDroneTypeProfile(type: DroneType): { role: string; range: string; rhythm: string; copy: string } {
     if (type === 'sentry') {
-      return 'SA';
+      return this.language === 'pt-BR'
+        ? {
+          role: 'Precisão',
+          range: 'Médio',
+          rhythm: 'Disparo constante',
+          copy: 'Suporte preciso que mantém pressão constante em alvos próximos da rota da nave.'
+        }
+        : {
+          role: 'Precision',
+          range: 'Medium',
+          rhythm: 'Steady fire',
+          copy: 'Precise support that keeps steady pressure on targets near the ship route.'
+        };
     }
 
     if (type === 'ranger') {
-      return 'SG';
+      return this.language === 'pt-BR'
+        ? {
+          role: 'Controle próximo',
+          range: 'Curto',
+          rhythm: 'Rajadas abertas',
+          copy: 'Drones de contenção que limpam grupos próximos com rajadas espalhadas.'
+        }
+        : {
+          role: 'Close control',
+          range: 'Short',
+          rhythm: 'Wide bursts',
+          copy: 'Containment drones that clear nearby clusters with spread bursts.'
+        };
     }
 
-    return 'MS';
+    return this.language === 'pt-BR'
+      ? {
+        role: 'Artilharia',
+        range: 'Longo',
+        rhythm: 'Mísseis lentos',
+        copy: 'Suporte pesado de longo alcance que prioriza impactos maiores em cadência menor.'
+      }
+      : {
+        role: 'Artillery',
+        range: 'Long',
+        rhythm: 'Slow missiles',
+        copy: 'Heavy long-range support that favors larger hits at a slower cadence.'
+      };
+  }
+
+  private createDroneTypeIcon(type: DroneType): Element {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 48 48');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('drone-type-icon', `drone-type-icon--${type}`);
+
+    const make = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] => {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+      return el;
+    };
+
+    if (type === 'sentry') {
+      svg.append(
+        make('path', { d: 'M24 7 L34 24 L24 41 L14 24 Z', class: 'drone-type-icon__hull' }),
+        make('circle', { cx: '24', cy: '24', r: '6', class: 'drone-type-icon__core' }),
+        make('path', { d: 'M8 24 H16 M32 24 H40 M24 4 V12 M24 36 V44', class: 'drone-type-icon__line' })
+      );
+      return svg;
+    }
+
+    if (type === 'ranger') {
+      svg.append(
+        make('path', { d: 'M14 14 L34 14 L40 24 L34 34 L14 34 L8 24 Z', class: 'drone-type-icon__hull' }),
+        make('path', { d: 'M17 24 H31 M24 17 V31', class: 'drone-type-icon__line' }),
+        make('path', { d: 'M8 38 C15 30 33 30 40 38', class: 'drone-type-icon__fan' })
+      );
+      return svg;
+    }
+
+    svg.append(
+      make('path', { d: 'M24 6 C31 12 35 20 35 29 C35 38 29 43 24 43 C19 43 13 38 13 29 C13 20 17 12 24 6 Z', class: 'drone-type-icon__hull' }),
+      make('path', { d: 'M24 13 L29 29 H19 Z', class: 'drone-type-icon__core' }),
+      make('path', { d: 'M16 36 L11 44 M32 36 L37 44', class: 'drone-type-icon__line' })
+    );
+    return svg;
   }
 
   private canBuyDroneType(type: DroneType): boolean {
