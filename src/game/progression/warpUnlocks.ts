@@ -43,7 +43,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     summary: 'Installs spread shot and opens the weapon-mode layer.',
     effectSummary: 'Unlocks Spread Shot immediately.',
     iconId: 'warp-spread',
-    cost: 2,
+    cost: 3,
     route: { col: 3, row: 2 },
     requires: ['droneSystems']
   },
@@ -53,7 +53,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     summary: 'Installs a directional prow deflector for collision-based asteroid control.',
     effectSummary: 'Unlocks the directional deflector mechanic.',
     iconId: 'warp-deflector',
-    cost: 3,
+    cost: 4,
     route: { col: 1, row: 3 },
     requires: ['bossBeacon']
   },
@@ -63,7 +63,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     summary: 'Installs a circular rechargeable shield envelope around the ship.',
     effectSummary: 'Absorbs one hit, breaks, then recharges.',
     iconId: 'warp-shield',
-    cost: 5,
+    cost: 7,
     route: { col: 1, row: 4 },
     requires: ['deflectorFrame']
   },
@@ -83,7 +83,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     summary: 'Opens the foundry systems needed for missile breaker drones.',
     effectSummary: 'Unlocks missile drone purchases after this node.',
     iconId: 'warp-missile',
-    cost: 6,
+    cost: 8,
     route: { col: 2, row: 4 },
     requires: ['rangerHangar']
   },
@@ -93,7 +93,7 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     summary: 'Stabilizes rail capacitors and installs piercing rounds immediately.',
     effectSummary: 'Unlocks Piercing Rounds immediately.',
     iconId: 'warp-piercing',
-    cost: 6,
+    cost: 8,
     route: { col: 3, row: 3 },
     requires: ['spreadBattery']
   }

@@ -8,7 +8,7 @@ export const balance = {
     deathIncomeMultiplier: 0.35,
     maxOfflineSeconds: 8 * 60 * 60,
     prestige: {
-      crystalsPerCore: 10,
+      crystalsPerCore: 12,
       bonusPerCore: 0.08,
       minimumTravelLevel: 1
     }
@@ -131,7 +131,7 @@ export const balance = {
       dense: 1.75
     } satisfies Record<AsteroidVariant, number>,
     crystalReward: {
-      large: 2,
+      large: 3,
       medium: 1,
       small: 1
     } satisfies Record<AsteroidSize, number>,
@@ -188,7 +188,7 @@ export const balance = {
     movementAngleJitter: 0.2,
     shipCollisionDamage: 24,
     ricochetBounces: 3,
-    reward: { baseMoney: 260, moneyPerZone: 180, baseCrystals: 2, crystalsPerZone: 1 },
+    reward: { baseMoney: 260, moneyPerZone: 180, baseCrystals: 3, crystalsPerZone: 1 },
     stats: {
       sentinel: {
         spawnSpeedBase: 106,

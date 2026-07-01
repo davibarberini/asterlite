@@ -1,16 +1,36 @@
 import Phaser from 'phaser';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
-import type { AsteroidState, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
+import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
 
 const MAX_DETAILED_DRONES = 36;
 const MAX_SWARM_DOTS = 42;
 const SIMPLE_BULLET_THRESHOLD = 90;
+const ASTEROID_FLASH_SECONDS = 0.22;
+const ASTEROID_DESTROY_SECONDS = 0.38;
+
+type AsteroidSnapshot = {
+  hp: number;
+  maxHp: number;
+  position: Vec2;
+  radius: number;
+  variant: AsteroidVariant;
+  bossType?: BossType;
+};
+
+type AsteroidFlash = AsteroidSnapshot & {
+  startedAt: number;
+  duration: number;
+  kind: 'hit' | 'destroyed';
+  damageRatio: number;
+};
 
 export class VectorRenderer {
   private readonly graphics: Phaser.GameObjects.Graphics;
+  private readonly asteroidSnapshots = new Map<number, AsteroidSnapshot>();
+  private readonly asteroidFlashes = new Map<number, AsteroidFlash>();
 
-  constructor(scene: Phaser.Scene) {
+  constructor(private readonly scene: Phaser.Scene) {
     this.graphics = scene.add.graphics();
     this.graphics.setDepth(1);
   }
@@ -21,6 +41,8 @@ export class VectorRenderer {
 
   render(state: GameState, thrusting: boolean, slingshot: { start: Vec2; current: Vec2; power: number } | null = null): void {
     this.graphics.clear();
+    const now = this.scene.time.now / 1000;
+    this.updateAsteroidReadabilityState(state, now);
     this.drawGridGlow(state);
 
     state.asteroids.forEach((asteroid) => {
@@ -28,6 +50,7 @@ export class VectorRenderer {
         this.drawAsteroid(state, asteroid);
       }
     });
+    this.drawAsteroidFlashes(state, now);
     state.bullets.forEach((bullet) => {
       if (this.isCircleOnScreen(state, bullet.position.x, bullet.position.y, bullet.radius + 8)) {
         this.drawBullet(state, bullet, state.bullets.length > SIMPLE_BULLET_THRESHOLD);
@@ -127,6 +150,15 @@ export class VectorRenderer {
     this.graphics.lineTo(nose.x, nose.y);
     this.graphics.lineTo(right.x, right.y);
     this.graphics.strokePath();
+
+    this.graphics.lineStyle(1, 0xd8fff5, 0.22);
+    const coneLeft = this.rotatePoint(5 * viewScale, (-16 - level) * viewScale, ship.rotation, shipX, shipY);
+    const coneRight = this.rotatePoint(5 * viewScale, (16 + level) * viewScale, ship.rotation, shipX, shipY);
+    this.graphics.beginPath();
+    this.graphics.moveTo(coneLeft.x, coneLeft.y);
+    this.graphics.lineTo(nose.x, nose.y);
+    this.graphics.lineTo(coneRight.x, coneRight.y);
+    this.graphics.strokePath();
   }
 
   private drawShieldBubble(state: GameState, ship: ShipState): void {
@@ -146,6 +178,10 @@ export class VectorRenderer {
       this.graphics.strokeCircle(shipX, shipY, radius + flash * 8 * viewScale);
       this.graphics.lineStyle(1, 0xd8fff5, 0.2 + flash * 0.36);
       this.graphics.strokeCircle(shipX, shipY, radius * 0.88);
+      if (flash > 0) {
+        this.graphics.lineStyle(2, 0xfff1a8, 0.68 * flash);
+        this.drawArcSegments(shipX, shipY, radius + 12 * viewScale * (1 - flash), -Math.PI * 0.85, Math.PI * 1.7, 8);
+      }
       return;
     }
 
@@ -221,12 +257,118 @@ export class VectorRenderer {
     }
 
     if (asteroid.hp < asteroid.maxHp) {
-      const alpha = 0.22 + (1 - asteroid.hp / asteroid.maxHp) * 0.32;
+      const damageRatio = 1 - asteroid.hp / asteroid.maxHp;
+      const alpha = 0.22 + damageRatio * 0.34;
       this.graphics.lineStyle(1, 0xfff1a8, alpha);
-      this.graphics.strokeCircle(asteroidX, asteroidY, asteroid.radius * 0.58 * viewScale);
+      this.graphics.strokeCircle(asteroidX, asteroidY, asteroid.radius * (0.5 + damageRatio * 0.22) * viewScale);
+      this.drawAsteroidCracks(asteroid, asteroidX, asteroidY, viewScale, damageRatio);
     }
 
     this.drawAsteroidVariantMark(state, asteroid, asteroidX, asteroidY, viewScale);
+  }
+
+  private updateAsteroidReadabilityState(state: GameState, now: number): void {
+    const currentIds = new Set<number>();
+    const missingSnapshots: [number, AsteroidSnapshot][] = [];
+
+    state.asteroids.forEach((asteroid) => {
+      currentIds.add(asteroid.id);
+      const previous = this.asteroidSnapshots.get(asteroid.id);
+      if (previous && asteroid.hp < previous.hp) {
+        this.asteroidFlashes.set(asteroid.id, {
+          ...this.createAsteroidSnapshot(asteroid),
+          startedAt: now,
+          duration: ASTEROID_FLASH_SECONDS,
+          kind: 'hit',
+          damageRatio: Math.max(0.12, Math.min(1, (previous.hp - asteroid.hp) / Math.max(1, previous.maxHp)))
+        });
+      }
+    });
+
+    this.asteroidSnapshots.forEach((snapshot, id) => {
+      if (!currentIds.has(id)) {
+        missingSnapshots.push([id, snapshot]);
+      }
+    });
+
+    if (missingSnapshots.length <= 8) {
+      missingSnapshots.forEach(([id, snapshot]) => {
+        this.asteroidFlashes.set(id, {
+          ...snapshot,
+          startedAt: now,
+          duration: ASTEROID_DESTROY_SECONDS,
+          kind: 'destroyed',
+          damageRatio: 1
+        });
+      });
+    }
+
+    this.asteroidSnapshots.clear();
+    state.asteroids.forEach((asteroid) => {
+      this.asteroidSnapshots.set(asteroid.id, this.createAsteroidSnapshot(asteroid));
+    });
+
+    this.asteroidFlashes.forEach((flash, id) => {
+      if (now - flash.startedAt > flash.duration) {
+        this.asteroidFlashes.delete(id);
+      }
+    });
+  }
+
+  private createAsteroidSnapshot(asteroid: AsteroidState): AsteroidSnapshot {
+    return {
+      hp: asteroid.hp,
+      maxHp: asteroid.maxHp,
+      position: { ...asteroid.position },
+      radius: asteroid.radius,
+      variant: asteroid.variant,
+      bossType: asteroid.bossType
+    };
+  }
+
+  private drawAsteroidFlashes(state: GameState, now: number): void {
+    this.asteroidFlashes.forEach((flash) => {
+      if (!this.isCircleOnScreen(state, flash.position.x, flash.position.y, flash.radius + 38)) {
+        return;
+      }
+
+      const elapsed = now - flash.startedAt;
+      const progress = Math.max(0, Math.min(1, elapsed / flash.duration));
+      const fade = 1 - progress;
+      const viewScale = this.getViewScale(state);
+      const x = this.toScreenX(state, flash.position.x);
+      const y = this.toScreenY(state, flash.position.y);
+      const color = flash.bossType ? this.getBossSecondaryColor(flash.bossType) : this.getAsteroidColor({ variant: flash.variant } as AsteroidState);
+
+      if (flash.kind === 'destroyed') {
+        this.graphics.lineStyle(2, color, 0.6 * fade);
+        this.graphics.strokeCircle(x, y, flash.radius * (0.82 + progress * 0.64) * viewScale);
+        this.graphics.lineStyle(1, 0xfff1a8, 0.42 * fade);
+        this.graphics.strokeCircle(x, y, flash.radius * (0.42 + progress * 0.38) * viewScale);
+        return;
+      }
+
+      this.graphics.lineStyle(2, 0xfff1a8, (0.38 + flash.damageRatio * 0.42) * fade);
+      this.graphics.strokeCircle(x, y, flash.radius * (0.46 + progress * 0.28) * viewScale);
+      this.graphics.lineStyle(1, color, 0.34 * fade);
+      this.graphics.strokeCircle(x, y, flash.radius * (0.78 + progress * 0.18) * viewScale);
+    });
+  }
+
+  private drawAsteroidCracks(asteroid: AsteroidState, asteroidX: number, asteroidY: number, viewScale: number, damageRatio: number): void {
+    const crackCount = Math.min(5, Math.max(2, Math.ceil(damageRatio * 5)));
+    this.graphics.lineStyle(1, 0xfff1a8, 0.18 + damageRatio * 0.32);
+    for (let index = 0; index < crackCount; index += 1) {
+      const angle = asteroid.rotation + index * (Math.PI * 2 / crackCount) + 0.35;
+      const inner = asteroid.radius * (0.16 + index * 0.035) * viewScale;
+      const outer = asteroid.radius * (0.5 + damageRatio * 0.18) * viewScale;
+      this.graphics.lineBetween(
+        asteroidX + Math.cos(angle) * inner,
+        asteroidY + Math.sin(angle) * inner,
+        asteroidX + Math.cos(angle + 0.16) * outer,
+        asteroidY + Math.sin(angle + 0.16) * outer
+      );
+    }
   }
 
   private getAsteroidColor(asteroid: AsteroidState): number {
@@ -343,6 +485,11 @@ export class VectorRenderer {
   }
 
   private drawBullet(state: GameState, bullet: BulletState, simple = false): void {
+    if (bullet.owner === 'boss' || bullet.owner === 'saucer') {
+      this.drawHostileBullet(state, bullet);
+      return;
+    }
+
     const color = this.getBulletColor(bullet);
     const x = this.toScreenX(state, bullet.position.x);
     const y = this.toScreenY(state, bullet.position.y);
@@ -353,6 +500,35 @@ export class VectorRenderer {
     }
     this.graphics.lineStyle(1, color, 0.45);
     this.graphics.strokeCircle(x, y, (bullet.radius + 4) * this.getViewScale(state));
+  }
+
+  private drawHostileBullet(state: GameState, bullet: BulletState): void {
+    const viewScale = this.getViewScale(state);
+    const color = this.getBulletColor(bullet);
+    const x = this.toScreenX(state, bullet.position.x);
+    const y = this.toScreenY(state, bullet.position.y);
+    const speed = Math.max(1, Math.hypot(bullet.velocity.x, bullet.velocity.y));
+    const tail = {
+      x: x - (bullet.velocity.x / speed) * (14 + bullet.radius * 1.8) * viewScale,
+      y: y - (bullet.velocity.y / speed) * (14 + bullet.radius * 1.8) * viewScale
+    };
+
+    if (bullet.kind === 'ricochet') {
+      this.graphics.lineStyle(2, 0xd9c7ff, 0.76);
+      this.graphics.strokeCircle(x, y, (bullet.radius + 5) * viewScale);
+      this.graphics.lineStyle(1, 0xfff1a8, 0.48);
+      this.graphics.lineBetween(tail.x, tail.y, x, y);
+      this.graphics.fillStyle(0xb48cff, 0.72);
+      this.graphics.fillCircle(x, y, bullet.radius * viewScale);
+      return;
+    }
+
+    this.graphics.lineStyle(2, color, bullet.owner === 'boss' ? 0.72 : 0.58);
+    this.graphics.lineBetween(tail.x, tail.y, x, y);
+    this.graphics.fillStyle(color, bullet.owner === 'boss' ? 0.92 : 0.86);
+    this.graphics.fillCircle(x, y, bullet.radius * viewScale);
+    this.graphics.lineStyle(1, bullet.owner === 'boss' ? 0xfff1a8 : 0xfffbcc, bullet.owner === 'boss' ? 0.58 : 0.42);
+    this.graphics.strokeCircle(x, y, (bullet.radius + (bullet.owner === 'boss' ? 7 : 5)) * viewScale);
   }
 
   private getBulletColor(bullet: BulletState): number {
@@ -504,11 +680,16 @@ export class VectorRenderer {
     const angle = Math.atan2(state.height / 2 - y, state.width / 2 - x);
     const pulse = 0.72 + Math.sin(pendingBoss.spawnIn * 10) * 0.18;
     const color = this.getBossPrimaryColor(pendingBoss.bossType);
+    const warningRadius = (24 + Math.max(0, 3 - pendingBoss.spawnIn) * 12) * viewScale;
 
     this.graphics.fillStyle(color, 0.12 + pulse * 0.08);
     this.graphics.lineStyle(2, color, 0.8);
     this.graphics.fillCircle(x, y, 18 * viewScale);
     this.graphics.strokeCircle(x, y, 18 * viewScale);
+    this.graphics.lineStyle(2, 0xfff1a8, 0.18 + pulse * 0.28);
+    this.graphics.strokeCircle(x, y, warningRadius);
+    this.graphics.lineStyle(1, color, 0.2);
+    this.graphics.lineBetween(x, y, state.width / 2, state.height / 2);
 
     const arrow = [
       { x: 18, y: 0 },

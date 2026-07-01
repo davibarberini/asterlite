@@ -339,12 +339,31 @@ describe('warp unlock definitions', () => {
 
   it('paces technology costs around gameplay unlocks', () => {
     const cost = (id: keyof typeof WARP_UNLOCK_BY_ID): number => WARP_UNLOCK_BY_ID[id].cost;
+    const totalCost = WARP_UNLOCK_DEFINITIONS.reduce((total, unlock) => total + unlock.cost, 0);
 
     expect(cost('droneSystems')).toBe(1);
     expect(cost('bossBeacon')).toBe(2);
-    expect(cost('spreadBattery')).toBe(2);
+    expect(cost('spreadBattery')).toBe(3);
     expect(cost('deflectorFrame')).toBeGreaterThan(cost('bossBeacon'));
     expect(cost('shieldBubble')).toBeGreaterThan(cost('deflectorFrame'));
+    expect(cost('missileFoundry')).toBeGreaterThanOrEqual(8);
+    expect(cost('piercingRail')).toBeGreaterThanOrEqual(8);
+    expect(totalCost).toBeGreaterThanOrEqual(38);
+    expect(totalCost).toBeLessThanOrEqual(45);
+  });
+
+  it('paces crystal reset rewards around the first core and later technology stretch', () => {
+    const state = createGameState(800, 600);
+    const firstGateBossReward = getAsteroidReward(state, makeBossAsteroid(1));
+    const crystalLargeReward = getAsteroidReward(
+      state,
+      createAsteroid(state, 'large', { x: 0, y: 0 }, { x: 0, y: 0 }, 'crystal')
+    );
+
+    expect(crystalsPerPrestigeCore).toBe(12);
+    expect(firstGateBossReward.crystals).toBe(4);
+    expect(crystalLargeReward.crystals).toBe(3);
+    expect(firstGateBossReward.crystals + crystalLargeReward.crystals * 3).toBeGreaterThanOrEqual(crystalsPerPrestigeCore);
   });
 
   it('announces newly affordable warp unlocks once through the reward feed', () => {
@@ -756,7 +775,7 @@ describe('boss gates and warp reset', () => {
     state.progression.travelLevel = minimumPrestigeTravelLevel;
 
     expect(minimumPrestigeTravelLevel).toBe(1);
-    expect(crystalsPerPrestigeCore).toBe(10);
+    expect(crystalsPerPrestigeCore).toBe(12);
     expect(getPrestigeCoreGain(state)).toBe(2);
   });
 
@@ -926,7 +945,7 @@ describe('asteroid rewards', () => {
     });
     expect(getAsteroidReward(state, createAsteroid(state, 'large', { x: 0, y: 0 }, { x: 0, y: 0 }, 'crystal'))).toEqual({
       money: 13,
-      crystals: 2
+      crystals: 3
     });
     expect(getAsteroidReward(state, createAsteroid(state, 'large', { x: 0, y: 0 }, { x: 0, y: 0 }, 'dense'))).toEqual({
       money: 35,

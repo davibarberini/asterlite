@@ -4,6 +4,33 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Combat Readability Upgrade
+
+Improved moment-to-moment combat readability while keeping the effects renderer-local.
+
+Notes:
+- Added renderer-local asteroid hit flashes by comparing asteroid HP between frames.
+- Added asteroid destruction shockwaves when asteroids leave the render set through normal combat.
+- Added stronger damaged-asteroid crack/ring styling so partial damage is easier to read.
+- Made boss and saucer projectiles visually distinct with hostile bullet trails, halos, and ricochet styling.
+- Strengthened boss arrival telegraphing with expanding warning rings and a screen-to-center threat line.
+- Added extra shield flash and deflector cone styling without changing serializable simulation state.
+
+### Crystal, Warp, and Reward Economy Balance Pass
+
+Balanced the non-credit reset economy as a data-only tuning slice before adding more progression layers.
+
+Tuning notes:
+- Reset core price: increased from 10 to 12 crystals so cores stretch slightly longer after the first reset.
+- First gate boss reward: increased from 3 to 4 crystals so the boss clearly starts reset progress.
+- Large crystal asteroid reward: increased from 2 to 3 crystals, making a fully cleared crystal asteroid chain worth enough to complete the first-core target after the first boss reward.
+- Technology costs: kept `Drone Systems` at 1 core, kept `Boss Beacon` at 2 cores, raised `Spread Battery` to 3 cores, raised `Deflector Prow` to 4 cores, and raised late route unlocks to 7-8 cores.
+- Total current technology route cost now sits in the 38-45 core range, giving later gameplay unlocks more reset runway without delaying the first drone unlock.
+
+Notes:
+- Added guard tests for first-core crystal pacing, boss/crystal rewards, and total technology route cost.
+- Left skill costs, achievement multipliers, and zone credit multipliers unchanged for later targeted tuning if playtests show pressure there.
+
 ### Core Credit Economy Curve Pass
 
 Split the long-term economy work into a first data-only tuning pass for the starting credit upgrades.
@@ -88,36 +115,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Crystal, Warp, and Reward Economy Balance Pass
-
-Continue balancing prices, rewards, and progression pacing across non-credit modules before adding more progression layers.
-
-Design:
-- Keep skill, warp, and reset prices low enough that the first unlocks feel reachable.
-- Make later crystal, warp, and technology goals stretch into longer run planning.
-- Review crystals, warp cores, skills, technologies, achievements, boss rewards, zone reward multipliers, and reset pacing together.
-- Prefer data-only tuning and targeted tests before adding new systems.
-
-Acceptance:
-- Produce a balance table or tuning notes for each module before changing values.
-- Adjust early, mid, and late crystal/warp/reward curves so progression has clear short, medium, and long goals.
-- Verify warp reset, crystal spending, skill costs, and technology unlock timing still feel coherent after tuning.
-
-### Combat Readability Upgrade
-
-Make impacts, threats, and defensive states easier to read during active combat.
-
-Design:
-- Preserve the vector style while adding stronger moment-to-moment feedback.
-- Prioritize shield/deflector hits, asteroid damage, boss warnings, and hostile projectiles.
-- Use effects sparingly so the playfield remains readable on mobile.
-
-Acceptance:
-- Add clear visual feedback for asteroid hits and asteroid destruction beyond existing particles.
-- Add distinct hostile projectile styling for saucer and boss shots.
-- Add stronger boss arrival/threat telegraphing.
-- Keep effects renderer-only and avoid adding Phaser objects to simulation state.
 
 ### Boss Gate Event Polish
 
