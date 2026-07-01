@@ -42,6 +42,7 @@ import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
 import { balance } from '../../game/balance';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
+import { getShipExchangeRequirement, type ShipExchangeRequirement } from '../../game/progression/shipExchange';
 import { SHIP_FRAME_DEFINITIONS, SHIP_FRAME_BY_ID, getActiveShipFrame, getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
 import { formatCoreUnit, formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
 
@@ -1496,10 +1497,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createWarpResetPanel(): HTMLElement {
-    const coreGain = this.getPrestigeGain();
-    const crystals = this.getCrystalBalance();
+    const exchangeRequirement = getShipExchangeRequirement(this.state);
+    const coreGain = exchangeRequirement.coreGain;
+    const crystals = exchangeRequirement.crystals;
     const availableAfterReset = getAvailableWarpCores(this.state.progression) + coreGain;
-    const resetReady = coreGain > 0;
+    const resetReady = exchangeRequirement.ready;
     const activeFrame = getActiveShipFrame(this.state.progression);
     const nextFrame = SHIP_FRAME_BY_ID[this.getNextExchangeShipFrameId()];
     const panel = document.createElement('section');
@@ -1516,7 +1518,7 @@ export class GameScene extends Phaser.Scene {
       ? (this.language === 'pt-BR'
         ? `${nextFrame.name} pronta · +${coreGain} ${formatCoreUnit(this.language, coreGain)}`
         : `${nextFrame.name} ready · +${coreGain} ${formatCoreUnit(this.language, coreGain)}`)
-      : this.getWarpResetBlockedTitle();
+      : this.getWarpResetBlockedTitle(exchangeRequirement);
     titleWrap.append(kicker, title);
 
     const resetButton = document.createElement('button');
@@ -1534,12 +1536,13 @@ export class GameScene extends Phaser.Scene {
     stats.replaceChildren(
       this.createWarpResetStat(translate(this.language, 'shop.crystals'), `${crystals} / ${crystalsPerPrestigeCore}`),
       this.createWarpResetStat(this.language === 'pt-BR' ? 'Nave atual' : 'Current ship', activeFrame.name),
+      this.createWarpResetStat(this.language === 'pt-BR' ? 'Missões' : 'Missions', `${exchangeRequirement.missionCompletions} / ${exchangeRequirement.requiredMissionCompletions}`),
       this.createWarpResetStat(translate(this.language, 'shop.availableAfter'), `${availableAfterReset} ${formatCoreUnit(this.language, availableAfterReset)}`)
     );
 
     const preview = document.createElement('p');
     preview.className = 'warp-reset-panel__preview';
-    preview.textContent = this.getWarpResetPreviewText(availableAfterReset, coreGain);
+    preview.textContent = this.getWarpResetPreviewText(availableAfterReset, exchangeRequirement);
 
     panel.append(header, stats, this.createShipFrameList(), preview);
     return panel;
@@ -1661,18 +1664,25 @@ export class GameScene extends Phaser.Scene {
     return panel;
   }
 
-  private getWarpResetBlockedTitle(): string {
-    if (this.state.progression.travelLevel < minimumPrestigeTravelLevel) {
+  private getWarpResetBlockedTitle(exchangeRequirement: ShipExchangeRequirement): string {
+    if (exchangeRequirement.needsRoute) {
       return translate(this.language, 'shop.reachZone', { zone: zones[minimumPrestigeTravelLevel]?.name ?? 'a deeper zone' });
     }
 
-    const crystals = this.getCrystalBalance();
-    const remainder = crystals % crystalsPerPrestigeCore;
-    const missing = remainder === 0 ? crystalsPerPrestigeCore : crystalsPerPrestigeCore - remainder;
-    return translate(this.language, 'shop.nextCore', { count: missing, unit: formatCrystalUnit(this.language, missing) });
+    if (exchangeRequirement.needsMissions) {
+      const count = exchangeRequirement.missingMissionCompletions;
+      return this.language === 'pt-BR'
+        ? `Complete mais ${count} ${count === 1 ? 'missão' : 'missões'}`
+        : `Complete ${count} more ${count === 1 ? 'mission' : 'missions'}`;
+    }
+
+    return translate(this.language, 'shop.nextCore', {
+      count: exchangeRequirement.missingCrystalsForCore,
+      unit: formatCrystalUnit(this.language, exchangeRequirement.missingCrystalsForCore)
+    });
   }
 
-  private getWarpResetPreviewText(availableAfterReset: number, coreGain: number): string {
+  private getWarpResetPreviewText(availableAfterReset: number, exchangeRequirement: ShipExchangeRequirement): string {
     const affordableUnlocks = WARP_UNLOCK_DEFINITIONS.filter((unlock) => {
       if (hasWarpUnlock(this.state.progression, unlock.id)) {
         return false;
@@ -1687,11 +1697,17 @@ export class GameScene extends Phaser.Scene {
       return translate(this.language, 'shop.unlockNext', { items: affordableUnlocks.map((unlock) => this.getWarpUnlockTitle(unlock.id)).join(', ') });
     }
 
-    if (coreGain > 0) {
+    if (exchangeRequirement.needsMissions) {
+      return this.language === 'pt-BR'
+        ? 'Conclua missões para preparar a próxima troca de nave.'
+        : 'Complete missions to prepare the next ship exchange.';
+    }
+
+    if (exchangeRequirement.coreGain > 0) {
       return translate(this.language, 'shop.bankCores');
     }
 
-    if (this.state.progression.travelLevel < minimumPrestigeTravelLevel) {
+    if (exchangeRequirement.needsRoute) {
       return translate(this.language, 'shop.defeatBosses');
     }
 
@@ -2560,11 +2576,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private warpReset(coreGain: number): void {
-    if (coreGain <= 0) {
+    const exchangeRequirement = getShipExchangeRequirement(this.state);
+    if (!exchangeRequirement.ready || coreGain <= 0) {
       return;
     }
 
-    this.state = createWarpResetState(this.state, this.scale.width, this.scale.height, coreGain);
+    this.state = createWarpResetState(this.state, this.scale.width, this.scale.height, exchangeRequirement.coreGain);
     this.offlineStatusFor = 0;
     this.activeTalentTooltipId = null;
     this.shopSignature = '';

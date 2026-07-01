@@ -7,6 +7,7 @@ import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, min
 import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
+import { getShipExchangeRequirement } from '../progression/shipExchange';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
@@ -901,6 +902,39 @@ describe('boss gates and warp reset', () => {
     expect(minimumPrestigeTravelLevel).toBe(1);
     expect(crystalsPerPrestigeCore).toBe(12);
     expect(getPrestigeCoreGain(state)).toBe(2);
+  });
+
+  it('keeps the first ship exchange gated only by route and crystals', () => {
+    const state = createGameState(800, 600);
+    state.progression.travelLevel = minimumPrestigeTravelLevel;
+    state.crystals = crystalsPerPrestigeCore;
+
+    const requirement = getShipExchangeRequirement(state);
+
+    expect(requirement.requiredMissionCompletions).toBe(0);
+    expect(requirement.coreGain).toBe(1);
+    expect(requirement.ready).toBe(true);
+  });
+
+  it('requires guided mission progress for repeated ship exchanges', () => {
+    const state = createGameState(800, 600);
+    state.progression.travelLevel = minimumPrestigeTravelLevel;
+    state.progression.shipExchanges = 1;
+    state.crystals = crystalsPerPrestigeCore;
+    state.progression.guidedMissions.completedMissionIds = ['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals'];
+
+    const blockedRequirement = getShipExchangeRequirement(state);
+
+    expect(blockedRequirement.ready).toBe(false);
+    expect(blockedRequirement.needsMissions).toBe(true);
+    expect(blockedRequirement.missingMissionCompletions).toBe(1);
+
+    state.progression.guidedMissions.completedMissionIds = ['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals', 'warpForFirstCore'];
+
+    const readyRequirement = getShipExchangeRequirement(state);
+
+    expect(readyRequirement.requiredMissionCompletions).toBe(4);
+    expect(readyRequirement.ready).toBe(true);
   });
 
   it('defeating a boss unlocks the next zone without moving the current zone', () => {

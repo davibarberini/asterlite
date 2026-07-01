@@ -4,6 +4,17 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Ship Exchange Gating Refinement
+
+Refined when the player earns a ship exchange after the first loop.
+
+Notes:
+- Added a small progression module that evaluates route, crystal/core, and mission requirements for ship exchange.
+- Kept the first exchange gated only by route and crystals so the player can learn the loop without an extra wall.
+- Repeated exchanges now require guided mission progress, scaling gently with completed ship exchanges.
+- Updated the Ship Exchange panel to show mission progress compactly and block the exchange button until all requirements are met.
+- Added tests covering first-exchange pacing and repeated-exchange mission gating.
+
 ### Guided Mission Tuning Follow-Up
 
 Tuned repeatable Guided Missions after the first playability pass.
@@ -200,22 +211,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Ship Exchange Gating Refinement
-
-Refine how the player earns a ship exchange so it is not too easy to reset repeatedly.
-
-Design:
-- Keep the new ship-exchange fantasy.
-- Replace or augment the current crystal/core reset requirement with a more deliberate exchange requirement.
-- Consider requiring route milestones, mission completion, special boss salvage, ship parts, or a hangar charge.
-- Avoid making the first exchange feel blocked after the player has already learned the loop.
-
-Acceptance:
-- Define the new exchange requirement in data or a small progression module.
-- Update the Ship Exchange panel to explain the requirement compactly.
-- Add tests for first exchange pacing and repeated exchange pacing.
-- Do not remove existing save compatibility for current cores or Technologies.
 
 ### Drone Bay Personality Pass
 
