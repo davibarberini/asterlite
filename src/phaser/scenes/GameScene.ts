@@ -720,9 +720,14 @@ export class GameScene extends Phaser.Scene {
       button.hidden = !visible;
       button.setAttribute('aria-hidden', visible ? 'false' : 'true');
       button.classList.toggle('is-active', visible && tab !== 'map' && tab === this.activeTab && !this.shopPanelEl.classList.contains('is-hidden'));
-      button.setAttribute('aria-label', this.getDockTabLabel(tab));
-      button.title = this.getDockTabLabel(tab);
-      button.replaceChildren(this.createShopTabIcon(tab), this.createNavButtonLabel(tab));
+      const label = this.getDockTabLabel(tab);
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      if (button.dataset.renderedTab !== tab || button.dataset.renderedLabel !== label) {
+        button.replaceChildren(this.createShopTabIcon(tab), this.createNavButtonLabel(tab));
+        button.dataset.renderedTab = tab;
+        button.dataset.renderedLabel = label;
+      }
     });
   }
 
