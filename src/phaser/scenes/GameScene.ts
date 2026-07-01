@@ -696,6 +696,9 @@ export class GameScene extends Phaser.Scene {
 
   private shouldShowHangarTab(): boolean {
     return (
+      this.shouldShowTechnologiesTab() ||
+      this.getCrystalBalance() > 0 ||
+      this.getPrestigeGain() > 0 ||
       this.state.progression.shipExchanges > 0 ||
       this.state.progression.unlockedShipFrameIds.length > 1 ||
       Object.keys(this.state.progression.shipRuns).length > 1
@@ -1530,10 +1533,45 @@ export class GameScene extends Phaser.Scene {
     });
     coreTree.classList.add('warp-tree-board--inline');
     const panels: HTMLElement[] = [];
+    if (this.shouldShowHangarTab()) {
+      panels.push(this.createHangarShortcutPanel());
+    }
     if (hasWarpUnlock(this.state.progression, 'bossBeacon')) {
       panels.push(this.createBossBeaconPanel());
     }
     this.shopActionsEl.replaceChildren(...panels, coreTree);
+  }
+
+  private createHangarShortcutPanel(): HTMLElement {
+    const exchangeRequirement = getShipExchangeRequirement(this.state);
+    const panel = document.createElement('section');
+    panel.className = 'warp-reset-panel warp-reset-panel--shortcut';
+
+    const header = document.createElement('div');
+    header.className = 'warp-reset-panel__header';
+    const titleWrap = document.createElement('div');
+    const kicker = document.createElement('span');
+    kicker.className = 'warp-reset-panel__kicker';
+    kicker.textContent = this.language === 'pt-BR' ? 'Hangar' : 'Hangar';
+    const title = document.createElement('strong');
+    title.textContent = exchangeRequirement.ready
+      ? (this.language === 'pt-BR' ? 'Troca de nave disponível' : 'Ship exchange available')
+      : (this.language === 'pt-BR' ? 'Naves e progresso individual' : 'Ships and individual progress');
+    titleWrap.append(kicker, title);
+
+    const button = document.createElement('button');
+    button.className = 'shop-buy warp-reset-panel__button';
+    button.type = 'button';
+    button.textContent = this.language === 'pt-BR' ? 'Abrir' : 'Open';
+    button.addEventListener('click', () => {
+      this.activeTab = 'hangar';
+      this.shopSignature = '';
+      this.updateShop();
+    });
+
+    header.append(titleWrap, button);
+    panel.append(header);
+    return panel;
   }
 
   private renderHangarTab(): void {
