@@ -134,31 +134,27 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'clearAsteroids',
     repeatable: true,
-    target: (state) => 24 + state.progression.currentZoneIndex * 8,
+    target: (state) => 30 + state.progression.currentZoneIndex * 10,
     rewardKind: 'credits',
     getCurrent: (state) => state.progression.achievementStats.asteroidsDestroyed - state.progression.guidedMissions.startedAt.asteroidsDestroyed,
     applyReward: (state) => {
-      state.money += getMissionMoneyReward(state, 450);
-      if ((state.progression.guidedMissions.repeatCompletions + 1) % 3 === 0) {
-        state.progression.passiveIncomeLevel += 1;
-      }
+      state.money += getMissionMoneyReward(state, 420);
     }
   },
   {
     id: 'collectCredits',
     repeatable: true,
-    target: (state) => Math.round(1200 * (1 + state.progression.currentZoneIndex * 0.7)),
-    rewardKind: 'speed',
+    target: (state) => Math.round(1600 * (1 + state.progression.currentZoneIndex * 0.75)),
+    rewardKind: 'credits',
     getCurrent: (state) => state.progression.achievementStats.moneyEarned - state.progression.guidedMissions.startedAt.moneyEarned,
     applyReward: (state) => {
-      state.progression.shipSpeedLevel += 1;
-      state.money += getMissionMoneyReward(state, 300);
+      state.money += getMissionMoneyReward(state, 360);
     }
   },
   {
     id: 'surviveAsteroids',
     repeatable: true,
-    target: (state) => 18 + state.progression.currentZoneIndex * 6,
+    target: (state) => 24 + state.progression.currentZoneIndex * 8,
     rewardKind: 'credits',
     getCurrent: (state) => {
       if (state.progression.achievementStats.deaths > state.progression.guidedMissions.startedAt.deaths) {
@@ -173,7 +169,7 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'collectCrystals',
     repeatable: true,
-    target: (state) => 3 + Math.max(0, state.progression.currentZoneIndex),
+    target: (state) => 4 + Math.max(0, state.progression.currentZoneIndex),
     rewardKind: 'credits',
     isAvailable: (state) => state.progression.unlockedZoneIndex >= 1,
     getCurrent: (state) => state.progression.achievementStats.crystalsCollected - state.progression.guidedMissions.startedAt.crystalsCollected,
@@ -185,11 +181,11 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
     id: 'defeatZoneBoss',
     repeatable: true,
     target: 1,
-    rewardKind: 'damage',
+    rewardKind: 'credits',
     isAvailable: (state) => state.progression.unlockedZoneIndex >= 1,
     getCurrent: (state) => state.progression.bossDefeats - state.progression.guidedMissions.startedAt.bossDefeats,
     applyReward: (state) => {
-      state.progression.shipDamageLevel += 1;
+      state.money += getMissionMoneyReward(state, 800);
     }
   }
 ];
@@ -272,7 +268,7 @@ export const syncGuidedMissions = (state: GameState): void => {
   }
   missions.activeMissionId = selectNextMission(state);
   missions.startedAt = createGuidedMissionSnapshot(state.progression, state.crystals);
-  emitReward(state, `Mission complete: ${completeRewardText(mission.rewardKind)}`, 'unlock');
+  emitReward(state, `Mission complete: ${completeRewardText(mission.rewardKind)}`, mission.repeatable ? 'system' : 'unlock');
 };
 
 export const getActiveGuidedMissionProgress = (state: GameState): GuidedMissionProgress | null => {

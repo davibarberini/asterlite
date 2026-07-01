@@ -4,6 +4,16 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Guided Mission Tuning Follow-Up
+
+Tuned repeatable Guided Missions after the first playability pass.
+
+Notes:
+- Increased repeatable mission targets slightly so they do not complete too quickly.
+- Repeatable missions now pay run resources instead of permanent stats, avoiding infinite attribute farming.
+- First-path mission completions use the priority popup for clearer reward feedback.
+- Repeatable mission completions stay in the reward feed to avoid interrupting normal play.
+
 ### Guided Mission UI and Balance Polish
 
 Polished repeatable Guided Missions after the first implementation.
@@ -190,22 +200,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Guided Mission Tuning Follow-Up
-
-Tune repeatable Guided Missions after playtesting the current implementation.
-
-Design:
-- Missions should be small and readable during an idle/action run.
-- Keep using the existing compact Guided Mission pill unless a later UI pass proves it needs a separate surface.
-- Tune repeatable mission targets and rewards against real early/mid-game pacing.
-- Consider adding mission completion priority popups only for major milestone missions.
-
-Acceptance:
-- Audit whether mission rewards accelerate warp pacing too much.
-- Adjust repeatable mission targets after mobile playtesting.
-- Add clearer completion feedback if the feed is still too easy to miss.
-- Keep the playfield footprint equal to or smaller than the current mission pill.
 
 ### Ship Exchange Gating Refinement
 

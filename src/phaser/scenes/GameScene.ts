@@ -1153,6 +1153,19 @@ export class GameScene extends Phaser.Scene {
       return null;
     }
 
+    if (event.text.startsWith('Mission complete:')) {
+      const reward = event.text.replace('Mission complete:', '').trim();
+      return {
+        key: `mission-${reward}-${this.state.progression.guidedMissions.completedMissionIds.length}`,
+        kicker: this.language === 'pt-BR' ? 'Missão completa' : 'Mission complete',
+        title: this.language === 'pt-BR' ? 'Recompensa permanente' : 'Permanent reward',
+        copy: this.language === 'pt-BR'
+          ? `Você recebeu ${reward}.`
+          : `You received ${reward}.`,
+        okLabel: 'OK'
+      };
+    }
+
     const unlockedZone = zones.find((zone) => event.text === `${zone.name} unlocked on map`);
     if (!unlockedZone) {
       return null;

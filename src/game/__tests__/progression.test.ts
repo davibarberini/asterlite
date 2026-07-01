@@ -501,12 +501,13 @@ describe('guided missions', () => {
     updateGame(state, neutralInput(), 0.016);
 
     expect(state.progression.guidedMissions.activeMissionId).toBe('clearAsteroids');
-    state.progression.achievementStats.asteroidsDestroyed = state.progression.guidedMissions.startedAt.asteroidsDestroyed + 24;
+    state.progression.achievementStats.asteroidsDestroyed = state.progression.guidedMissions.startedAt.asteroidsDestroyed + 30;
 
     updateGame(state, neutralInput(), 0.016);
 
     expect(state.progression.guidedMissions.repeatCompletions).toBe(1);
     expect(state.progression.guidedMissions.activeMissionId).toBe('collectCredits');
+    expect(state.progression.passiveIncomeLevel).toBe(0);
     expect(state.money).toBeGreaterThan(0);
   });
 
@@ -551,8 +552,8 @@ describe('guided missions', () => {
     updateGame(state, neutralInput(), 0.016);
 
     expect(state.progression.guidedMissions.activeMissionId).toBe('collectCrystals');
-    expect(getActiveGuidedMissionProgress(state)?.target).toBe(4);
-    state.progression.achievementStats.crystalsCollected = state.progression.guidedMissions.startedAt.crystalsCollected + 4;
+    expect(getActiveGuidedMissionProgress(state)?.target).toBe(5);
+    state.progression.achievementStats.crystalsCollected = state.progression.guidedMissions.startedAt.crystalsCollected + 5;
     const crystalsBeforeReward = state.crystals;
 
     updateGame(state, neutralInput(), 0.016);
