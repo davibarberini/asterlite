@@ -24,6 +24,7 @@ type TranslationKey =
   | 'hud.map'
   | 'nav.upgrades'
   | 'nav.technologies'
+  | 'nav.hangar'
   | 'nav.drones'
   | 'nav.skills'
   | 'nav.weapons'
@@ -116,6 +117,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'hud.map': 'Map',
     'nav.upgrades': 'Upgrades',
     'nav.technologies': 'Technologies',
+    'nav.hangar': 'Hangar',
     'nav.drones': 'Drones',
     'nav.skills': 'Skills',
     'nav.weapons': 'Weapons',
@@ -207,6 +209,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'hud.map': 'Mapa',
     'nav.upgrades': 'Melhorias',
     'nav.technologies': 'Tecnologias',
+    'nav.hangar': 'Hangar',
     'nav.drones': 'Drones',
     'nav.skills': 'Habilidades',
     'nav.weapons': 'Armas',

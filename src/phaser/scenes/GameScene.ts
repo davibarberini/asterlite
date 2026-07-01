@@ -44,9 +44,10 @@ import { balance } from '../../game/balance';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
 import { getShipExchangeRequirement, type ShipExchangeRequirement } from '../../game/progression/shipExchange';
 import { SHIP_FRAME_DEFINITIONS, SHIP_FRAME_BY_ID, getActiveShipFrame, getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
+import { createShipFrameSwitchState } from '../../game/progression/shipRuns';
 import { formatCoreUnit, formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
 
-type ShopTab = 'upgrades' | 'warp' | 'drones' | 'skills' | 'weapons' | 'achievements';
+type ShopTab = 'upgrades' | 'warp' | 'hangar' | 'drones' | 'skills' | 'weapons' | 'achievements';
 type DockTab = ShopTab | 'map';
 
 type ShopAction = {
@@ -644,6 +645,9 @@ export class GameScene extends Phaser.Scene {
     if (this.shouldShowTechnologiesTab()) {
       tabs.push('warp');
     }
+    if (this.shouldShowHangarTab()) {
+      tabs.push('hangar');
+    }
     if (this.shouldShowDronesTab()) {
       tabs.push('drones');
     }
@@ -688,6 +692,14 @@ export class GameScene extends Phaser.Scene {
 
   private shouldShowDronesTab(): boolean {
     return hasWarpUnlock(this.state.progression, 'droneSystems') || this.state.progression.dronesPurchased > 0;
+  }
+
+  private shouldShowHangarTab(): boolean {
+    return (
+      this.state.progression.shipExchanges > 0 ||
+      this.state.progression.unlockedShipFrameIds.length > 1 ||
+      Object.keys(this.state.progression.shipRuns).length > 1
+    );
   }
 
   private shouldShowSkillsTab(): boolean {
@@ -812,6 +824,15 @@ export class GameScene extends Phaser.Scene {
       append(path('M25 9 C22 6 19 5 16 5'));
       return svg;
     }
+    if (tab === 'hangar') {
+      append(path('M16 4 25 28 16 22 7 28 16 4Z'));
+      append(path('M8 24 H4 V10 L16 5 L28 10 V24 H24'));
+      append(path('M5 29 H27'));
+      append(circle(16, 15, 3));
+      append(path('M11 24 8 29'));
+      append(path('M21 24 24 29'));
+      return svg;
+    }
     if (tab === 'drones') {
       append(path('M12 12 H20 V20 H12 V12Z'));
       append(circle(16, 16, 2));
@@ -868,6 +889,9 @@ export class GameScene extends Phaser.Scene {
     }
     if (tab === 'drones') {
       return translate(this.language, 'nav.drones');
+    }
+    if (tab === 'hangar') {
+      return translate(this.language, 'nav.hangar');
     }
     if (tab === 'skills') {
       return translate(this.language, 'nav.skills');
@@ -1371,6 +1395,7 @@ export class GameScene extends Phaser.Scene {
     const renderers: Record<ShopTab, () => void> = {
       upgrades: () => this.renderUpgradesTab(),
       warp: () => this.renderWarpTab(),
+      hangar: () => this.renderHangarTab(),
       drones: () => this.renderDronesTab(),
       skills: () => this.renderSkillsTab(),
       weapons: () => this.renderWeaponsTab(),
@@ -1407,6 +1432,19 @@ export class GameScene extends Phaser.Scene {
 
     if (this.activeTab === 'warp') {
       return `cores:${getAvailableWarpCores(this.state.progression)},warp:${this.getPrestigeGain() > 0}`;
+    }
+
+    if (this.activeTab === 'hangar') {
+      return [
+        `active:${this.state.progression.activeShipFrameId}`,
+        `ships:${this.state.progression.unlockedShipFrameIds.join(',')}`,
+        `runs:${Object.keys(this.state.progression.shipRuns).join(',')}`,
+        `money:${Math.floor(this.state.money)}`,
+        `crystals:${this.state.crystals}`,
+        `damage:${this.state.progression.shipDamageLevel}`,
+        `fire:${this.state.progression.shipFireRateLevel}`,
+        `exchange:${this.getPrestigeGain() > 0}`
+      ].join(',');
     }
 
     if (this.activeTab === 'drones') {
@@ -1491,11 +1529,16 @@ export class GameScene extends Phaser.Scene {
       onBuyUnlock: (id) => this.buyWarpUnlock(id)
     });
     coreTree.classList.add('warp-tree-board--inline');
-    const panels = [this.createWarpResetPanel()];
+    const panels: HTMLElement[] = [];
     if (hasWarpUnlock(this.state.progression, 'bossBeacon')) {
       panels.push(this.createBossBeaconPanel());
     }
     this.shopActionsEl.replaceChildren(...panels, coreTree);
+  }
+
+  private renderHangarTab(): void {
+    this.setShopContent('', '', '', [], [], true);
+    this.shopActionsEl.replaceChildren(this.createWarpResetPanel());
   }
 
   private createWarpResetPanel(): HTMLElement {
@@ -1514,7 +1557,7 @@ export class GameScene extends Phaser.Scene {
     const titleWrap = document.createElement('div');
     const kicker = document.createElement('span');
     kicker.className = 'warp-reset-panel__kicker';
-    kicker.textContent = translate(this.language, 'shop.warpReset');
+    kicker.textContent = this.language === 'pt-BR' ? 'Hangar de Naves' : 'Ship Hangar';
     const title = document.createElement('strong');
     title.textContent = resetReady
       ? (this.language === 'pt-BR'
@@ -1528,7 +1571,7 @@ export class GameScene extends Phaser.Scene {
     resetButton.type = 'button';
     resetButton.disabled = !resetReady;
     resetButton.textContent = resetReady
-      ? (this.language === 'pt-BR' ? 'Trocar nave' : 'Exchange ship')
+      ? (this.language === 'pt-BR' ? 'Liberar nave' : 'Unlock ship')
       : translate(this.language, 'shop.notReady');
     resetButton.addEventListener('click', () => this.warpReset(coreGain));
     header.append(titleWrap, resetButton);
@@ -1558,25 +1601,104 @@ export class GameScene extends Phaser.Scene {
       .forEach((frame) => {
         const unlocked = this.state.progression.unlockedShipFrameIds.includes(frame.id);
         const active = this.state.progression.activeShipFrameId === frame.id;
-        const item = document.createElement('div');
+        const run = this.getShipFrameRunSummary(frame.id);
+        const item = unlocked ? document.createElement('button') : document.createElement('div');
         item.className = 'ship-frame-item';
+        if (item instanceof HTMLButtonElement) {
+          item.type = 'button';
+          item.disabled = active;
+          item.addEventListener('click', () => this.switchShipFrame(frame.id));
+        }
         item.classList.toggle('is-locked', !unlocked);
         item.classList.toggle('is-active', active);
+        item.classList.toggle('has-run', Boolean(run));
+
+        const preview = this.createShipFramePreview(frame.id);
+        const body = document.createElement('span');
+        body.className = 'ship-frame-item__body';
+
+        const header = document.createElement('span');
+        header.className = 'ship-frame-item__header';
         const name = document.createElement('strong');
         name.textContent = frame.name;
+        const rarity = document.createElement('span');
+        rarity.className = `ship-frame-item__rarity ship-frame-item__rarity--${frame.rarity}`;
+        rarity.textContent = this.getShipFrameRarityLabel(frame.rarity);
+        header.append(name, rarity);
+
         const meta = document.createElement('span');
+        meta.className = 'ship-frame-item__meta';
         meta.textContent = unlocked
-          ? (active ? (this.language === 'pt-BR' ? 'Atual' : 'Current') : this.getShipFrameBonusText(frame.id))
+          ? (active
+            ? (this.language === 'pt-BR' ? 'Atual' : 'Current')
+            : (this.language === 'pt-BR' ? `${this.getShipFrameBonusText(frame.id)} · Selecionar` : `${this.getShipFrameBonusText(frame.id)} · Select`))
           : (this.language === 'pt-BR' ? `Libera na troca ${frame.unlockExchange}` : `Unlocks on exchange ${frame.unlockExchange}`);
-        item.append(name, meta);
+
+        const stats = document.createElement('span');
+        stats.className = 'ship-frame-item__stats';
+        stats.textContent = run
+          ? (this.language === 'pt-BR'
+            ? `${this.formatMoney(run.money)} · ${run.crystals} ${formatCrystalUnit(this.language, run.crystals)} · D${run.damageLevel}/A${run.fireRateLevel}`
+            : `${this.formatMoney(run.money)} · ${run.crystals} ${formatCrystalUnit(this.language, run.crystals)} · D${run.damageLevel}/A${run.fireRateLevel}`)
+          : (unlocked ? (this.language === 'pt-BR' ? 'Slot novo' : 'Fresh slot') : this.getShipFrameBonusText(frame.id));
+
+        body.append(header, meta, stats);
+        item.append(preview, body);
         list.append(item);
       });
     return list;
   }
 
+  private getShipFrameRunSummary(id: ShipFrameId): { money: number; crystals: number; damageLevel: number; fireRateLevel: number } | null {
+    if (id === this.state.progression.activeShipFrameId) {
+      return {
+        money: this.state.money,
+        crystals: this.state.crystals,
+        damageLevel: this.state.progression.shipDamageLevel,
+        fireRateLevel: this.state.progression.shipFireRateLevel
+      };
+    }
+
+    const run = this.state.progression.shipRuns[id];
+    if (!run) {
+      return null;
+    }
+
+    return {
+      money: run.money,
+      crystals: run.crystals,
+      damageLevel: run.shipDamageLevel,
+      fireRateLevel: run.shipFireRateLevel
+    };
+  }
+
+  private createShipFramePreview(id: ShipFrameId): Element {
+    const frame = SHIP_FRAME_BY_ID[id];
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('ship-frame-preview');
+    svg.setAttribute('viewBox', '-26 -24 52 48');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    polygon.setAttribute('points', frame.shape.map((point) => `${point.x},${point.y}`).join(' '));
+    polygon.setAttribute('class', 'ship-frame-preview__hull');
+
+    const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    core.setAttribute('cx', '0');
+    core.setAttribute('cy', '0');
+    core.setAttribute('r', '4');
+    core.setAttribute('class', 'ship-frame-preview__core');
+
+    svg.append(polygon, core);
+    return svg;
+  }
+
   private getShipFrameBonusText(id: ShipFrameId): string {
     const bonuses = SHIP_FRAME_BY_ID[id].bonuses;
     const parts: string[] = [];
+    if (id === 'nivitron') {
+      parts.push(this.language === 'pt-BR' ? 'Torreta' : 'Turret');
+    }
     if (bonuses.damageMultiplier) {
       parts.push(this.language === 'pt-BR' ? 'Dano' : 'Damage');
     }
@@ -1593,6 +1715,28 @@ export class GameScene extends Phaser.Scene {
       parts.push(this.language === 'pt-BR' ? 'Renda' : 'Income');
     }
     return parts.length > 0 ? parts.join(' + ') : (this.language === 'pt-BR' ? 'Base' : 'Base');
+  }
+
+  private getShipFrameRarityLabel(rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'): string {
+    if (this.language === 'pt-BR') {
+      const labels = {
+        common: 'Comum',
+        uncommon: 'Incomum',
+        rare: 'Rara',
+        epic: 'Épica',
+        legendary: 'Lendária'
+      } satisfies Record<typeof rarity, string>;
+      return labels[rarity];
+    }
+
+    const labels = {
+      common: 'Common',
+      uncommon: 'Uncommon',
+      rare: 'Rare',
+      epic: 'Epic',
+      legendary: 'Legendary'
+    } satisfies Record<typeof rarity, string>;
+    return labels[rarity];
   }
 
   private getNextExchangeShipFrameId(): ShipFrameId {
@@ -2606,6 +2750,21 @@ export class GameScene extends Phaser.Scene {
     this.state = createWarpResetState(this.state, this.scale.width, this.scale.height, exchangeRequirement.coreGain);
     this.offlineStatusFor = 0;
     this.activeTalentTooltipId = null;
+    this.shopSignature = '';
+    this.retroSound.play({ type: 'warpReset' });
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
+  private switchShipFrame(id: ShipFrameId): void {
+    if (id === this.state.progression.activeShipFrameId || !this.state.progression.unlockedShipFrameIds.includes(id)) {
+      return;
+    }
+
+    this.state = createShipFrameSwitchState(this.state, this.scale.width, this.scale.height, id);
+    this.offlineStatusFor = 0;
+    this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
     this.shopSignature = '';
     this.retroSound.play({ type: 'warpReset' });
     saveGameState(this.state);

@@ -122,6 +122,10 @@ export class VectorRenderer {
     this.graphics.closePath();
     this.graphics.strokePath();
 
+    if (state.progression.activeShipFrameId === 'nivitron') {
+      this.drawNivitronTurret(state, ship);
+    }
+
     if (state.progression.deflectorLevel > 0) {
       this.drawDeflector(state, ship);
     }
@@ -139,6 +143,22 @@ export class VectorRenderer {
       this.graphics.lineTo(flameC.x, flameC.y);
       this.graphics.strokePath();
     }
+  }
+
+  private drawNivitronTurret(state: GameState, ship: ShipState): void {
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, ship.position.x);
+    const y = this.toScreenY(state, ship.position.y);
+    const barrel = {
+      x: x + Math.cos(ship.turretAngle) * 13 * viewScale,
+      y: y + Math.sin(ship.turretAngle) * 13 * viewScale
+    };
+
+    this.graphics.lineStyle(2, 0x83ffdc, 0.86);
+    this.graphics.strokeCircle(x, y, 7 * viewScale);
+    this.graphics.lineBetween(x, y, barrel.x, barrel.y);
+    this.graphics.fillStyle(0xf2fbff, 0.9);
+    this.graphics.fillCircle(x, y, 2.4 * viewScale);
   }
 
   private drawDeflector(state: GameState, ship: ShipState): void {

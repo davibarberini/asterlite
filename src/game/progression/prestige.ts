@@ -3,6 +3,7 @@ import { createGameState, createProgression } from '../simulation/state';
 import { balance } from '../balance';
 import { applyOwnedWarpUnlockEffects } from './warpUnlocks';
 import { getNextShipFrameId, getUnlockedShipFrameIdsForExchangeCount } from './shipFrames';
+import { createDefaultShipRun, withCapturedActiveShipRun } from './shipRuns';
 
 export const crystalsPerPrestigeCore = balance.economy.prestige.crystalsPerCore;
 export const prestigeBonusPerCore = balance.economy.prestige.bonusPerCore;
@@ -35,6 +36,10 @@ export const createWarpResetState = (previousState: GameState, width: number, he
   permanentProgression.shipExchanges = nextExchangeCount;
   permanentProgression.unlockedShipFrameIds = getUnlockedShipFrameIdsForExchangeCount(nextExchangeCount);
   permanentProgression.activeShipFrameId = nextShipFrameId;
+  permanentProgression.shipRuns = {
+    ...withCapturedActiveShipRun(previousState),
+    [nextShipFrameId]: createDefaultShipRun()
+  };
   permanentProgression.spreadUnlocked = previousState.progression.spreadUnlocked;
   permanentProgression.piercingUnlocked = previousState.progression.piercingUnlocked;
   applyOwnedWarpUnlockEffects(permanentProgression);

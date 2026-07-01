@@ -1,6 +1,6 @@
 import type { ProgressionState, ShipFrameId, Vec2 } from '../simulation/types';
 
-export type ShipFrameRarity = 'common' | 'uncommon' | 'rare' | 'epic';
+export type ShipFrameRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 export type ShipFrameDefinition = {
   id: ShipFrameId;
@@ -198,6 +198,36 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
       speedMultiplier: 1.08,
       incomeMultiplier: 1.08
     }
+  },
+  {
+    id: 'nivitron',
+    name: 'Nivitron',
+    rarity: 'legendary',
+    unlockExchange: 0,
+    shape: [
+      { x: 24, y: 0 },
+      { x: 15, y: 7 },
+      { x: 10, y: 18 },
+      { x: 4, y: 12 },
+      { x: -1, y: 20 },
+      { x: -7, y: 12 },
+      { x: -12, y: 17 },
+      { x: -16, y: 8 },
+      { x: -22, y: 6 },
+      { x: -15, y: 0 },
+      { x: -22, y: -6 },
+      { x: -16, y: -8 },
+      { x: -12, y: -17 },
+      { x: -7, y: -12 },
+      { x: -1, y: -20 },
+      { x: 4, y: -12 },
+      { x: 10, y: -18 },
+      { x: 15, y: -7 }
+    ],
+    bonuses: {
+      fireRateMultiplier: 1.08,
+      damageMultiplier: 1.06
+    }
   }
 ];
 
@@ -210,7 +240,7 @@ export const normalizeShipFrameIds = (ids: unknown): ShipFrameId[] => {
   const validIds = Array.isArray(ids)
     ? ids.filter((id): id is ShipFrameId => typeof id === 'string' && id in SHIP_FRAME_BY_ID)
     : [];
-  return Array.from(new Set(['vector', ...validIds]));
+  return Array.from(new Set(['vector', 'nivitron', ...validIds]));
 };
 
 export const getActiveShipFrame = (progression: ProgressionState): ShipFrameDefinition =>

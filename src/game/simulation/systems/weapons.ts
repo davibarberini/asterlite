@@ -72,6 +72,23 @@ export const firePlayerWeapon = (state: GameState): void => {
       getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
   );
 
+  if (state.progression.activeShipFrameId === 'nivitron') {
+    fireBullet(
+      state,
+      'player',
+      ship.position,
+      ship.turretAngle,
+      balance.weapons.bulletSpeed,
+      Math.max(0.05, baseDamage * balance.weapons.nivitronTurretDamageMultiplier),
+      ship.velocity
+    );
+    ship.fireCooldown = getPlayerFireInterval(
+      state.progression,
+      balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier
+    );
+    return;
+  }
+
   if (state.progression.weaponMode === 'spread' && state.progression.spreadUnlocked) {
     const spreadDamage = Math.max(0.05, baseDamage * balance.weapons.spreadDamageMultiplier);
     balance.weapons.spreadAngleOffsets.forEach((offset) => {

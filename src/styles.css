@@ -636,14 +636,16 @@ canvas {
 }
 
 #reward-feed {
-  display: grid;
-  grid-column: 1;
-  grid-row: 2;
-  justify-items: start;
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 58px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
   gap: 4px;
   width: min(250px, calc(100vw - 112px));
   min-height: 0;
-  margin-top: -2px;
   pointer-events: none;
 }
 
@@ -703,7 +705,7 @@ canvas {
 @keyframes reward-feed-rise {
   0% {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   16% {
     opacity: 1;
@@ -711,7 +713,7 @@ canvas {
   }
   100% {
     opacity: 0;
-    transform: translateY(-7px);
+    transform: translateY(-18px);
   }
 }
 
@@ -1122,41 +1124,129 @@ canvas {
 
 .ship-frame-item {
   display: grid;
-  gap: 3px;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
   min-width: 0;
-  padding: 7px 8px;
+  min-height: 78px;
+  padding: 7px;
   border: 1px solid rgba(216, 255, 245, 0.12);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.035);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  touch-action: manipulation;
 }
 
 .ship-frame-item.is-active {
   border-color: rgba(131, 255, 220, 0.42);
-  background: rgba(131, 255, 220, 0.1);
+  background:
+    linear-gradient(135deg, rgba(131, 255, 220, 0.13), rgba(164, 214, 255, 0.06)),
+    rgba(131, 255, 220, 0.06);
+}
+
+.ship-frame-item:not(.is-active):not(.is-locked):hover,
+.ship-frame-item:not(.is-active):not(.is-locked):focus-visible {
+  border-color: rgba(216, 255, 245, 0.32);
+  background: rgba(216, 255, 245, 0.075);
+}
+
+.ship-frame-item:disabled {
+  cursor: default;
 }
 
 .ship-frame-item.is-locked {
   opacity: 0.48;
 }
 
+.ship-frame-preview {
+  width: 34px;
+  height: 34px;
+  color: rgba(216, 255, 245, 0.9);
+}
+
+.ship-frame-preview__hull {
+  fill: rgba(131, 255, 220, 0.08);
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.ship-frame-preview__core {
+  fill: rgba(245, 253, 255, 0.26);
+  stroke: rgba(245, 253, 255, 0.72);
+  stroke-width: 1.2;
+}
+
+.ship-frame-item__body {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.ship-frame-item__header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
 .ship-frame-item strong,
-.ship-frame-item span {
+.ship-frame-item__meta,
+.ship-frame-item__stats,
+.ship-frame-item__rarity {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ship-frame-item strong {
+  min-width: 0;
   color: rgba(245, 253, 255, 0.95);
   font-size: 11px;
   line-height: 1.1;
 }
 
-.ship-frame-item span {
+.ship-frame-item__rarity {
+  flex: 0 1 auto;
+  padding: 1px 4px;
+  border: 1px solid rgba(216, 255, 245, 0.12);
+  border-radius: 999px;
+  color: rgba(198, 222, 238, 0.78);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.ship-frame-item__rarity--rare {
+  border-color: rgba(126, 238, 255, 0.3);
+  color: rgba(126, 238, 255, 0.88);
+}
+
+.ship-frame-item__rarity--epic {
+  border-color: rgba(169, 142, 255, 0.36);
+  color: rgba(189, 169, 255, 0.9);
+}
+
+.ship-frame-item__rarity--legendary {
+  border-color: rgba(255, 220, 138, 0.48);
+  color: rgba(255, 220, 138, 0.94);
+}
+
+.ship-frame-item__meta,
+.ship-frame-item__stats {
   color: rgba(198, 222, 238, 0.7);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.1;
+}
+
+.ship-frame-item__stats {
+  color: rgba(216, 255, 245, 0.75);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 9px;
 }
 
 .ui-modal {

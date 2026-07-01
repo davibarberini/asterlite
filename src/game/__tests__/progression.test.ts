@@ -8,6 +8,8 @@ import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
 import { getShipExchangeRequirement } from '../progression/shipExchange';
+import { createShipFrameSwitchState } from '../progression/shipRuns';
+import { getUnlockedShipFrameIdsForExchangeCount } from '../progression/shipFrames';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
@@ -651,6 +653,34 @@ describe('core ship upgrades', () => {
     );
   });
 
+  it('fires the legendary nivitron from its rotating turret angle', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'nivitron';
+    state.progression.unlockedShipFrameIds = ['vector', 'nivitron'];
+    state.ship.rotation = 0;
+    state.ship.turretAngle = Math.PI / 2;
+
+    firePlayerWeapon(state);
+
+    expect(state.bullets).toHaveLength(1);
+    expect(state.bullets[0]?.velocity.x).toBeCloseTo(state.ship.velocity.x);
+    expect(state.bullets[0]?.velocity.y).toBeGreaterThan(0);
+    expect(state.ship.fireCooldown).toBeCloseTo(
+      getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier)
+    );
+  });
+
+  it('scales nivitron turret rotation from attack speed upgrades', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'nivitron';
+    state.ship.turretAngle = 0;
+    state.progression.shipFireRateLevel = 10;
+
+    updateGame(state, neutralInput(), 1);
+
+    expect(state.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretRotationSpeed * getFireRateMultiplier(state.progression));
+  });
+
   it('scales drone damage from the current ship damage', () => {
     const state = createGameState(800, 600);
     state.progression.droneCounts.sentry = 1;
@@ -1112,7 +1142,7 @@ describe('boss gates and warp reset', () => {
     expect(nextState.progression.shipFireRateLevel).toBe(0);
     expect(nextState.progression.passiveIncomeLevel).toBe(0);
     expect(nextState.progression.shipExchanges).toBe(1);
-    expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector', 'kestrel']);
+    expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector', 'nivitron', 'kestrel']);
     expect(nextState.progression.activeShipFrameId).toBe('kestrel');
     expect(nextState.progression.guidedMissions.activeMissionId).toBe('warpForFirstCore');
     expect(nextState.progression.guidedMissions.completedMissionIds).toEqual(['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals']);
@@ -1123,6 +1153,79 @@ describe('boss gates and warp reset', () => {
     expect(nextState.progression.achievementStats.asteroidsDestroyed).toBe(120);
     expect(nextState.progression.achievementStats.prestigeWarps).toBe(5);
     expect(nextState.progression.unlockedAchievements.firstBlood).toBe(true);
+  });
+
+  it('keeps separate money, crystals, and upgrades for each unlocked ship frame', () => {
+    const state = createGameState(800, 600);
+    state.money = 1400;
+    state.crystals = 9;
+    state.progression.shipDamageLevel = 12;
+    state.progression.passiveIncomeLevel = 7;
+    state.progression.prestigeCores = 5;
+    state.progression.ownedWarpUnlockIds = ['droneSystems'];
+    state.progression.unlockedShipFrameIds = ['vector', 'kestrel'];
+    state.progression.shipExchanges = 1;
+
+    const kestrelState = createShipFrameSwitchState(state, 800, 600, 'kestrel');
+
+    expect(kestrelState.progression.activeShipFrameId).toBe('kestrel');
+    expect(kestrelState.money).toBe(0);
+    expect(kestrelState.crystals).toBe(0);
+    expect(kestrelState.progression.shipDamageLevel).toBe(1);
+    expect(kestrelState.progression.passiveIncomeLevel).toBe(0);
+    expect(kestrelState.progression.prestigeCores).toBe(5);
+    expect(kestrelState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
+
+    kestrelState.money = 320;
+    kestrelState.crystals = 2;
+    kestrelState.progression.shipDamageLevel = 3;
+
+    const vectorState = createShipFrameSwitchState(kestrelState, 800, 600, 'vector');
+
+    expect(vectorState.progression.activeShipFrameId).toBe('vector');
+    expect(vectorState.money).toBe(1400);
+    expect(vectorState.crystals).toBe(9);
+    expect(vectorState.progression.shipDamageLevel).toBe(12);
+    expect(vectorState.progression.passiveIncomeLevel).toBe(7);
+
+    const restoredKestrel = createShipFrameSwitchState(vectorState, 800, 600, 'kestrel');
+
+    expect(restoredKestrel.money).toBe(320);
+    expect(restoredKestrel.crystals).toBe(2);
+    expect(restoredKestrel.progression.shipDamageLevel).toBe(3);
+  });
+
+  it('ship exchange saves the current ship run and starts the newly unlocked ship fresh', () => {
+    const state = createGameState(800, 600);
+    state.money = 2200;
+    state.crystals = crystalsPerPrestigeCore;
+    state.progression.travelLevel = minimumPrestigeTravelLevel;
+    state.progression.unlockedZoneIndex = minimumPrestigeTravelLevel;
+    state.progression.currentZoneIndex = minimumPrestigeTravelLevel;
+    state.progression.shipDamageLevel = 10;
+    state.progression.shipFireRateLevel = 8;
+
+    const nextState = createWarpResetState(state, 800, 600, 1);
+
+    expect(nextState.progression.activeShipFrameId).toBe('kestrel');
+    expect(nextState.money).toBe(0);
+    expect(nextState.crystals).toBe(0);
+    expect(nextState.progression.shipDamageLevel).toBe(1);
+    expect(nextState.progression.shipRuns.vector?.money).toBe(2200);
+    expect(nextState.progression.shipRuns.vector?.crystals).toBe(crystalsPerPrestigeCore);
+    expect(nextState.progression.shipRuns.vector?.shipDamageLevel).toBe(10);
+
+    const vectorState = createShipFrameSwitchState(nextState, 800, 600, 'vector');
+
+    expect(vectorState.money).toBe(2200);
+    expect(vectorState.crystals).toBe(crystalsPerPrestigeCore);
+    expect(vectorState.progression.shipDamageLevel).toBe(10);
+    expect(vectorState.progression.shipFireRateLevel).toBe(8);
+  });
+
+  it('keeps the legendary nivitron unlocked from the start for testing', () => {
+    expect(createProgression().unlockedShipFrameIds).toContain('nivitron');
+    expect(getUnlockedShipFrameIdsForExchangeCount(0)).toContain('nivitron');
   });
 });
 

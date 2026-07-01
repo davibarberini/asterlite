@@ -10,12 +10,13 @@ import {
 } from './achievements';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
 import { createGuidedMissionState } from './guidedMissions';
-import { SHIP_FRAME_BY_ID, normalizeShipFrameIds } from './shipFrames';
-import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, getUnlockedShipFrameIdsForExchangeCount, normalizeShipFrameIds } from './shipFrames';
+import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, ShipRunState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
+import { captureActiveShipRun } from './shipRuns';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
@@ -152,6 +153,84 @@ const readBossDiscovery = (value: unknown): BossDiscoveryState => {
   };
 };
 
+const createShipRunFromProgression = (progression: ProgressionState, money: number, crystals: number): ShipRunState => ({
+  money: Math.max(0, money),
+  crystals: Math.max(0, Math.floor(crystals)),
+  passiveIncomeLevel: progression.passiveIncomeLevel,
+  shipDamageLevel: progression.shipDamageLevel,
+  shipFireRateLevel: progression.shipFireRateLevel,
+  shipSpeedLevel: progression.shipSpeedLevel,
+  deflectorLevel: progression.deflectorLevel,
+  droneDamageLevel: progression.droneDamageLevel,
+  droneFireRateLevel: progression.droneFireRateLevel,
+  droneCounts: { ...progression.droneCounts },
+  talentRanks: { ...progression.talentRanks },
+  weaponMode: progression.weaponMode,
+  mapUnlocked: progression.mapUnlocked,
+  travelLevel: progression.travelLevel,
+  currentZoneIndex: progression.currentZoneIndex,
+  unlockedZoneIndex: progression.unlockedZoneIndex,
+  firstGateAsteroidsDestroyed: progression.firstGateAsteroidsDestroyed,
+  bossDefeats: progression.bossDefeats,
+  bossDiscovery: { ...progression.bossDiscovery },
+  maxHp: progression.maxHp,
+  armor: progression.armor,
+  dronesPurchased: progression.dronesPurchased
+});
+
+const readShipRun = (value: unknown): ShipRunState | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const legacyDroneCount = Math.max(0, Math.floor(readNumber(value.dronesPurchased, 0)));
+  const droneCounts = readDroneCounts(value.droneCounts, legacyDroneCount);
+  const spreadUnlocked = value.spreadUnlocked === true;
+  const piercingUnlocked = value.piercingUnlocked === true;
+  const legacySkills = readLegacyDroneSkillLevels(value.droneSkillLevels);
+  const legacyTravelLevel = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.travelLevel, 0))));
+  const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
+
+  return {
+    money: readNonNegativeNumber(value.money, 0),
+    crystals: Math.floor(readNonNegativeNumber(value.crystals, 0)),
+    passiveIncomeLevel: Math.max(0, Math.floor(readNumber(value.passiveIncomeLevel, 0))),
+    shipDamageLevel: Math.max(1, Math.floor(readNumber(value.shipDamageLevel, 1))),
+    shipFireRateLevel: Math.max(0, Math.floor(readNumber(value.shipFireRateLevel, 0))),
+    shipSpeedLevel: Math.max(0, Math.floor(readNumber(value.shipSpeedLevel, 0))),
+    deflectorLevel: Math.max(0, Math.floor(readNumber(value.deflectorLevel, 0))),
+    droneDamageLevel: Math.max(1, Math.floor(readNumber(value.droneDamageLevel, 1))),
+    droneFireRateLevel: Math.max(0, Math.floor(readNumber(value.droneFireRateLevel, 0))),
+    droneCounts,
+    talentRanks: readTalentRanks(value.talentRanks, legacySkills),
+    weaponMode: readWeaponMode(value.weaponMode, spreadUnlocked, piercingUnlocked),
+    mapUnlocked: value.mapUnlocked === true || unlockedZoneIndex > 0,
+    travelLevel: unlockedZoneIndex,
+    currentZoneIndex: Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex)))),
+    unlockedZoneIndex,
+    firstGateAsteroidsDestroyed: Math.max(0, Math.floor(readNumber(value.firstGateAsteroidsDestroyed, 0))),
+    bossDefeats: Math.max(0, Math.floor(readNumber(value.bossDefeats, unlockedZoneIndex))),
+    bossDiscovery: readBossDiscovery(value.bossDiscovery),
+    maxHp: Math.max(100, Math.floor(readNumber(value.maxHp, 100))),
+    armor: Math.max(0, Math.floor(readNumber(value.armor, 0))),
+    dronesPurchased: droneCounts.sentry + droneCounts.ranger + droneCounts.breaker
+  };
+};
+
+const readShipRuns = (value: unknown, unlockedShipFrameIds: ShipFrameId[]): Partial<Record<ShipFrameId, ShipRunState>> => {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return unlockedShipFrameIds.reduce<Partial<Record<ShipFrameId, ShipRunState>>>((runs, id) => {
+    const run = readShipRun(value[id]);
+    if (run) {
+      runs[id] = run;
+    }
+    return runs;
+  }, {});
+};
+
 const guidedMissionIds: GuidedMissionId[] = [
   'drawGateBoss',
   'defeatGateBoss',
@@ -253,7 +332,11 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
   const currentZoneIndex = Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex))));
   const ownedWarpUnlockIds = readWarpUnlockIds(value.ownedWarpUnlockIds);
-  const unlockedShipFrameIds = normalizeShipFrameIds(value.unlockedShipFrameIds);
+  const savedShipExchanges = Math.max(0, Math.floor(readNumber(value.shipExchanges, 0)));
+  const unlockedShipFrameIds = Array.from(new Set([
+    ...normalizeShipFrameIds(value.unlockedShipFrameIds),
+    ...getUnlockedShipFrameIdsForExchangeCount(savedShipExchanges)
+  ]));
   const activeShipFrameId = isShipFrameId(value.activeShipFrameId) && unlockedShipFrameIds.includes(value.activeShipFrameId)
     ? value.activeShipFrameId
     : 'vector';
@@ -315,7 +398,11 @@ const readProgression = (value: unknown): ProgressionState | null => {
     guidedMissions: readGuidedMissions(value.guidedMissions),
     activeShipFrameId,
     unlockedShipFrameIds,
-    shipExchanges: Math.max(0, Math.floor(readNumber(value.shipExchanges, Math.max(0, unlockedShipFrameIds.length - 1)))),
+    shipRuns: readShipRuns(value.shipRuns, unlockedShipFrameIds),
+    shipExchanges: Math.max(
+      savedShipExchanges,
+      ...unlockedShipFrameIds.map((id) => SHIP_FRAME_BY_ID[id].unlockExchange)
+    ),
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
     ownedWarpUnlockIds,
     announcedAffordableWarpUnlockIds: readWarpUnlockIds(value.announcedAffordableWarpUnlockIds),
@@ -363,11 +450,19 @@ const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => 
     return null;
   }
   migrateShieldBubbleUnlock(progression, value.shieldBubble);
+  const money = readNonNegativeNumber(value.money, 0);
+  const crystals = Math.floor(readNonNegativeNumber(value.crystals, 0));
+  if (!progression.shipRuns[progression.activeShipFrameId]) {
+    progression.shipRuns = {
+      ...progression.shipRuns,
+      [progression.activeShipFrameId]: createShipRunFromProgression(progression, money, crystals)
+    };
+  }
 
   return {
     version: 1,
-    money: readNonNegativeNumber(value.money, 0),
-    crystals: Math.floor(readNonNegativeNumber(value.crystals, 0)),
+    money,
+    crystals,
     lastSeenAt: readNonNegativeNumber(value.lastSeenAt, Date.now()),
     progression,
     ship: {
@@ -436,7 +531,7 @@ export const loadGameState = (width: number, height: number): GameState => {
   state.deathPenaltyFor = 0;
   state.droneRebootFor = 0;
   state.ship.position = { ...saved.ship.position };
-  state.ship.maxHp = getEffectiveMaxHp(state.progression);
+  state.ship.maxHp = Math.round(getEffectiveMaxHp(state.progression) * getShipFrameBonusMultiplier(state.progression, 'maxHpMultiplier'));
   state.ship.hp = Math.min(saved.ship.hp, state.ship.maxHp);
   state.ship.alive = saved.ship.alive && saved.ship.hp > 0;
   state.ship.respawnFor = saved.ship.respawnFor;
@@ -453,6 +548,10 @@ export const loadGameState = (width: number, height: number): GameState => {
 };
 
 export const saveGameState = (state: GameState): void => {
+  const shipRuns = {
+    ...state.progression.shipRuns,
+    [state.progression.activeShipFrameId]: captureActiveShipRun(state)
+  };
   const save: SavedGame = {
     version: SAVE_VERSION,
     money: Math.max(0, state.money),
@@ -460,6 +559,7 @@ export const saveGameState = (state: GameState): void => {
     lastSeenAt: Date.now(),
     progression: {
       ...state.progression,
+      shipRuns,
       ownedWarpUnlockIds: [...state.progression.ownedWarpUnlockIds],
       announcedAffordableWarpUnlockIds: [...state.progression.announcedAffordableWarpUnlockIds]
     },

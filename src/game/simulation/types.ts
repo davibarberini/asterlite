@@ -17,7 +17,8 @@ export type ShipFrameId =
   | 'atlas'
   | 'ember'
   | 'wraith'
-  | 'aurora';
+  | 'aurora'
+  | 'nivitron';
 export type TalentId =
   | 'refineryYield'
   | 'combatBounty'
@@ -67,6 +68,7 @@ export type ShipState = {
   respawnFor: number;
   fireCooldown: number;
   hyperspaceCooldown: number;
+  turretAngle: number;
 };
 
 export type ShieldBubbleState = {
@@ -247,6 +249,31 @@ export type GuidedMissionState = {
   startedAt: GuidedMissionSnapshot;
 };
 
+export type ShipRunState = {
+  money: number;
+  crystals: number;
+  passiveIncomeLevel: number;
+  shipDamageLevel: number;
+  shipFireRateLevel: number;
+  shipSpeedLevel: number;
+  deflectorLevel: number;
+  droneDamageLevel: number;
+  droneFireRateLevel: number;
+  droneCounts: Record<DroneType, number>;
+  talentRanks: TalentRanks;
+  weaponMode: WeaponMode;
+  mapUnlocked: boolean;
+  travelLevel: number;
+  currentZoneIndex: number;
+  unlockedZoneIndex: number;
+  firstGateAsteroidsDestroyed: number;
+  bossDefeats: number;
+  bossDiscovery: BossDiscoveryState;
+  maxHp: number;
+  armor: number;
+  dronesPurchased: number;
+};
+
 export type ProgressionState = {
   passiveIncomeLevel: number;
   shipDamageLevel: number;
@@ -270,6 +297,7 @@ export type ProgressionState = {
   guidedMissions: GuidedMissionState;
   activeShipFrameId: ShipFrameId;
   unlockedShipFrameIds: ShipFrameId[];
+  shipRuns: Partial<Record<ShipFrameId, ShipRunState>>;
   shipExchanges: number;
   prestigeCores: number;
   ownedWarpUnlockIds: WarpUnlockId[];

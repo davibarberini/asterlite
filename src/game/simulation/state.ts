@@ -22,7 +22,8 @@ const createShip = (width: number, height: number, progression: ProgressionState
     invulnerableFor: balance.ship.startingInvulnerableFor,
     respawnFor: 0,
     fireCooldown: 0,
-    hyperspaceCooldown: 0
+    hyperspaceCooldown: 0,
+    turretAngle: -Math.PI / 2
   };
 };
 
@@ -80,7 +81,8 @@ export const createProgression = (): ProgressionState => ({
   },
   guidedMissions: createGuidedMissionState(),
   activeShipFrameId: 'vector',
-  unlockedShipFrameIds: ['vector'],
+  unlockedShipFrameIds: ['vector', 'nivitron'],
+  shipRuns: {},
   shipExchanges: 0,
   prestigeCores: 0,
   ownedWarpUnlockIds: [],

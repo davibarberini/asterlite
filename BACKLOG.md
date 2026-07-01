@@ -4,6 +4,28 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Legendary Nivitron Ship
+
+Added a legendary ship with a hand-like silhouette and rotating turret weapon.
+
+Notes:
+- Added `Nivitron` as a legendary ship frame unlocked from the start for easier testing.
+- Its silhouette is an original faceted arm/hand form with palm and finger-like points.
+- Nivitron fires from a rotating mini turret instead of the ship nose, letting it cover changing angles while moving.
+- Attack-speed upgrades now speed up both turret fire cadence and turret rotation.
+- Added renderer support for the rotating turret and tests for unlock pacing and turret-angle firing.
+
+### Ship Hangar UI Pass
+
+Made unlocked ship frames read as a small hangar instead of a plain unlock list.
+
+Notes:
+- Ship cards now show a vector preview of the ship silhouette.
+- Cards show rarity, bonus identity, current/selection state, and a compact snapshot of that ship's individual credits, crystals, damage, and attack-speed levels.
+- Unlocked ships can be equipped directly from the hangar cards.
+- Locked ships still preview their unlock exchange and bonus identity.
+- Hangar now has its own tab, keeping Technologies focused on gameplay unlock nodes and boss beacon actions.
+
 ### Technology Tree Clarity Pass
 
 Made the Technologies tree clearer as a gameplay expansion route.
@@ -232,6 +254,38 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
+
+### Ship Unlock Pacing and Identity
+
+Refine how ships unlock so each new ship feels earned instead of just being the next reset reward.
+
+Design:
+- Keep ship collection as a long-term customization layer.
+- Consider boss salvage, route milestones, mission chains, ship parts, or zone-specific unlock requirements.
+- Keep the first extra ship understandable and reachable.
+- Avoid turning ship unlocks into a second confusing technology tree.
+
+Acceptance:
+- Define unlock requirements in ship data or a small progression module.
+- Update the hangar card locked state to explain the requirement compactly.
+- Preserve existing saves that already unlocked ships through exchanges.
+- Add tests for at least first, mid, and late ship unlock pacing.
+
+### Ship-Specific Weapon Identity
+
+Move weapon-mode identity toward ships instead of Technologies.
+
+Design:
+- Explore making ships define their primary weapon pattern.
+- Spread Shot and Piercing should become ship identity candidates instead of Technology nodes.
+- Technologies should keep broad gameplay unlocks, not individual weapon modes.
+- Ship choice should meaningfully change combat style without invalidating upgrades.
+
+Acceptance:
+- Add a data model for ship weapon identity.
+- Remove or migrate Spread/Piercing Technology dependency safely for existing saves.
+- Update Weapons/Technologies UI so the player understands weapon access through ships.
+- Add tests for save migration, ship weapon selection, and technology compatibility.
 
 ### Contextual Onboarding Beats
 
