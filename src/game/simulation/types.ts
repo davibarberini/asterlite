@@ -182,6 +182,13 @@ export type BossRewardState = {
   activeIds: BossRewardId[];
 };
 
+export type SurvivalState = {
+  active: boolean;
+  currentSeconds: number;
+  threatLevel: number;
+  lastAnnouncedThreatLevel: number;
+};
+
 export type AchievementStats = {
   asteroidsDestroyed: number;
   moneyEarned: number;
@@ -307,6 +314,8 @@ export type ProgressionState = {
   bossDefeats: number;
   bossDiscovery: BossDiscoveryState;
   guidedMissions: GuidedMissionState;
+  survivalBestSeconds: number;
+  survivalBestThreatLevel: number;
   activeShipFrameId: ShipFrameId;
   unlockedShipFrameIds: ShipFrameId[];
   shipRuns: Partial<Record<ShipFrameId, ShipRunState>>;
@@ -335,6 +344,7 @@ export type GameState = {
   phase: GamePhase;
   ship: ShipState;
   shieldBubble: ShieldBubbleState;
+  survival: SurvivalState;
   drones: DroneState[];
   progression: ProgressionState;
   asteroids: AsteroidState[];

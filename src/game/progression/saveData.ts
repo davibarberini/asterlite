@@ -12,12 +12,13 @@ import { createBossRewardState, normalizeBossRewardState } from './bossRewards';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, getUnlockedShipFrameIdsForExchangeCount, normalizeShipFrameIds } from './shipFrames';
-import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, ShipRunState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, ShipRunState, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
 import { captureActiveShipRun } from './shipRuns';
+import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/systems/survival';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
@@ -43,6 +44,7 @@ type SavedGameV1 = {
   };
   shieldBubble: ShieldBubbleState;
   bossRewards?: BossRewardState;
+  survival?: SurvivalState;
 };
 
 type SavedGame = SavedGameV1;
@@ -183,6 +185,21 @@ const readBossRewards = (value: unknown): BossRewardState => {
     pendingChoiceIds: readBossRewardIds(value.pendingChoiceIds),
     activeIds: readBossRewardIds(value.activeIds)
   });
+};
+
+const readSurvival = (value: unknown): SurvivalState => {
+  if (!isRecord(value)) {
+    return createSurvivalState();
+  }
+
+  const currentSeconds = readNonNegativeNumber(value.currentSeconds, 0);
+  const threatLevel = Math.max(0, Math.floor(readNumber(value.threatLevel, currentSeconds > 0 ? getSurvivalThreatLevel(currentSeconds) : 0)));
+  return {
+    active: value.active === true && currentSeconds > 0,
+    currentSeconds,
+    threatLevel,
+    lastAnnouncedThreatLevel: Math.max(0, Math.floor(readNumber(value.lastAnnouncedThreatLevel, threatLevel)))
+  };
 };
 
 const createShipRunFromProgression = (progression: ProgressionState, money: number, crystals: number): ShipRunState => ({
@@ -424,6 +441,8 @@ const readProgression = (value: unknown): ProgressionState | null => {
     bossDefeats: Math.max(0, Math.floor(readNumber(value.bossDefeats, unlockedZoneIndex))),
     bossDiscovery: readBossDiscovery(value.bossDiscovery),
     guidedMissions: readGuidedMissions(value.guidedMissions),
+    survivalBestSeconds: readNonNegativeNumber(value.survivalBestSeconds, 0),
+    survivalBestThreatLevel: Math.max(0, Math.floor(readNumber(value.survivalBestThreatLevel, 0))),
     activeShipFrameId,
     unlockedShipFrameIds,
     shipRuns: readShipRuns(value.shipRuns, unlockedShipFrameIds),
@@ -500,7 +519,8 @@ const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => 
       respawnFor: readNonNegativeNumber(ship.respawnFor, 0)
     },
     shieldBubble: readShieldBubble(value.shieldBubble, progression),
-    bossRewards: readBossRewards(value.bossRewards)
+    bossRewards: readBossRewards(value.bossRewards),
+    survival: readSurvival(value.survival)
   };
 };
 
@@ -567,6 +587,10 @@ export const loadGameState = (width: number, height: number): GameState => {
   state.phase = state.ship.alive ? 'playing' : 'respawning';
   state.shieldBubble = { ...saved.shieldBubble };
   state.bossRewards = normalizeBossRewardState(saved.bossRewards ?? createBossRewardState());
+  state.survival = { ...readSurvival(saved.survival) };
+  if (state.progression.currentZoneIndex < maxTravelLevel || !state.ship.alive) {
+    state.survival = createSurvivalState();
+  }
   syncShieldBubbleState(state);
   state.camera = { ...state.ship.position };
   state.drones.forEach((drone) => {
@@ -603,7 +627,8 @@ export const saveGameState = (state: GameState): void => {
     bossRewards: {
       pendingChoiceIds: [...state.bossRewards.pendingChoiceIds],
       activeIds: [...state.bossRewards.activeIds]
-    }
+    },
+    survival: { ...state.survival }
   };
 
   try {

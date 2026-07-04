@@ -39,6 +39,7 @@ type TranslationKey =
   | 'status.shieldActive'
   | 'status.shieldRecharge'
   | 'status.shieldReady'
+  | 'status.survival'
   | 'status.firstBossCountdown'
   | 'status.firstBossDetected'
   | 'status.default'
@@ -132,6 +133,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'status.shieldActive': 'Temporary shield active.',
     'status.shieldRecharge': 'Shield bubble recharging: {seconds} sec.',
     'status.shieldReady': 'Shield bubble armed: next hit absorbed.',
+    'status.survival': 'Survival {time} · Threat {threat} · Best {best}',
     'status.firstBossCountdown': 'Destroy {remaining} more asteroids to draw the first gate boss.',
     'status.firstBossDetected': 'First gate boss detected.',
     'status.default': 'Drag away from the ship path to slingshot. WASD / arrows also fly. H for hyperspace.',
@@ -224,6 +226,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'status.shieldActive': 'Escudo temporário ativo.',
     'status.shieldRecharge': 'Bolha de escudo recarregando: {seconds} s.',
     'status.shieldReady': 'Bolha de escudo pronta: o próximo hit será absorvido.',
+    'status.survival': 'Sobrevivência {time} · Ameaça {threat} · Recorde {best}',
     'status.firstBossCountdown': 'Destrua mais {remaining} asteroides para atrair o primeiro boss.',
     'status.firstBossDetected': 'Primeiro boss detectado.',
     'status.default': 'Arraste para longe da rota da nave e solte. WASD / setas também voam. H ativa hyperspace.',

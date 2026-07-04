@@ -4,6 +4,20 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Nova Crown Survival Foundation
+
+Turned the final zone into the first endgame survival benchmark for build testing.
+
+Notes:
+- Nova Crown now starts a serializable survival attempt while the ship is alive in the final zone.
+- Survival tracks current time, threat level, best time, and best threat level.
+- Nova Crown smoothly fades out the normal money/crystal/hull/objective HUD and shows a minimal top timer with a vertical threat meter on the left.
+- Settings and the submenu remain available during survival attempts.
+- Dying in Nova Crown ends the survival attempt and returns the current run to Cygnus Reef.
+- Threat level now increases asteroid pressure through simulation data by raising asteroid density and speed.
+- Current survival attempts and best records persist through save/load when appropriate.
+- Added tests for timer/best tracking, death reset behavior, threat-based asteroid pressure, and save/load persistence.
+
 ### Mini Boss Reward Choice
 
 Added boss-defeat reward choices that create run-scoped build decisions.
@@ -281,6 +295,67 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
+
+### Survival Enemy and Hazard Escalation
+
+Add readable dangers that enter the survival zone as threat rises.
+
+Priority order:
+- Proximity mines or drifting hazards with clear warning visuals.
+- A simple hunter enemy that pressures movement without filling the screen.
+- Elite saucer variants with distinct fire patterns.
+- Timed hazard events such as meteor lanes, gravity pulses, or damage fields.
+
+Acceptance:
+- At least one new threat type is serializable.
+- The threat appears only after an appropriate survival threat level.
+- Rendering makes the danger readable on mobile.
+- Tests cover spawn eligibility and damage/collision behavior.
+
+### Ship Build Identity Expansion
+
+Make each ship feel like a build archetype for survival attempts.
+
+Priority order:
+- Give at least one more existing ship a unique weapon identity.
+- Add an aura/field-style ship weapon that deals continuous nearby damage.
+- Add stronger hangar/weapon copy that explains each archetype.
+- Keep upgrades, drones, and boss rewards relevant across all ship identities.
+
+Acceptance:
+- At least one new ship weapon identity changes combat style without adding non-serializable state.
+- The Weapons/Hangar UI previews the identity clearly.
+- Tests cover the new weapon behavior.
+
+### Survival Run Modifiers
+
+Expand boss rewards into run-defining survival choices with tradeoffs.
+
+Priority order:
+- Add more positive run modifiers for ship weapons, drones, economy, and defense.
+- Add optional tradeoff modifiers such as more damage with less hull.
+- Show active run modifiers compactly in the HUD or relevant tab.
+- Tie some modifier choices to survival milestones or mini-bosses.
+
+Acceptance:
+- New modifiers are serializable and reset with the run.
+- At least one modifier has a meaningful tradeoff.
+- UI communicates active modifiers without adding a large permanent panel.
+- Tests cover modifier application and reset behavior.
+
+### Space Masters Naming Pass
+
+Evaluate whether the project should move from Asteridle toward a broader survival-build identity such as `Space Masters`.
+
+Design:
+- Treat this as a branding/content pass after the survival loop proves itself.
+- Consider names that support incremental progression, ship mastery, and survival runs.
+- Update player-facing title, manifest, and copy only once the direction is stable.
+
+Acceptance:
+- Decide on the project name or keep Asteridle intentionally.
+- Update app title, manifest, main menu, and relevant docs if renamed.
+- Avoid changing package/release identifiers until publishing implications are reviewed.
 
 ### Run Modifiers and Zone Hazards
 

@@ -17,6 +17,7 @@ import {
   getTalentRank,
 } from '../../game/progression/talentTree';
 import { updateGame } from '../../game/simulation/systems/gameLoop';
+import { isSurvivalZone } from '../../game/simulation/systems/survival';
 import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, zones } from '../../game/simulation/zones';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../../game/progression/prestige';
 import { getActiveGuidedMissionProgress, type GuidedMissionProgress } from '../../game/progression/guidedMissions';
@@ -119,6 +120,11 @@ export class GameScene extends Phaser.Scene {
   private hpMeterEl!: HTMLElement;
   private hpEl!: HTMLElement;
   private statusEl!: HTMLElement;
+  private survivalHudEl!: HTMLElement;
+  private survivalTimerEl!: HTMLElement;
+  private survivalThreatEl!: HTMLElement;
+  private survivalThreatFillEl!: HTMLElement;
+  private survivalBestEl!: HTMLElement;
   private firstWarpGoalEl!: HTMLElement;
   private firstWarpGoalTitleEl!: HTMLElement;
   private firstWarpGoalProgressEl!: HTMLElement;
@@ -244,6 +250,11 @@ export class GameScene extends Phaser.Scene {
     this.hpMeterEl = document.getElementById('hp-meter')!;
     this.hpEl = document.getElementById('hp')!;
     this.statusEl = document.getElementById('status')!;
+    this.survivalHudEl = document.getElementById('survival-hud')!;
+    this.survivalTimerEl = document.getElementById('survival-timer')!;
+    this.survivalThreatEl = document.getElementById('survival-threat')!;
+    this.survivalThreatFillEl = document.getElementById('survival-threat-fill')!;
+    this.survivalBestEl = document.getElementById('survival-best')!;
     this.firstWarpGoalEl = document.getElementById('first-warp-goal')!;
     this.firstWarpGoalTitleEl = document.getElementById('first-warp-goal-title')!;
     this.firstWarpGoalProgressEl = document.getElementById('first-warp-goal-progress')!;
@@ -927,6 +938,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateHud(): void {
+    const survivalHudActive = isSurvivalZone(this.state) && this.state.ship.alive;
+    this.appEl.classList.toggle('is-survival-hud', survivalHudActive);
+    this.survivalHudEl.classList.toggle('is-hidden', !survivalHudActive);
+    if (survivalHudActive) {
+      this.setText(this.survivalTimerEl, this.formatDuration(this.state.survival.currentSeconds));
+      const threatLevel = Math.max(1, this.state.survival.threatLevel);
+      this.setText(this.survivalThreatEl, threatLevel.toString());
+      this.survivalThreatFillEl.style.setProperty('--threat-fill', `${Math.min(100, Math.round((threatLevel / 12) * 100))}%`);
+      this.setText(this.survivalBestEl, this.formatDuration(this.state.progression.survivalBestSeconds));
+    }
+
     const crystals = this.getCrystalBalance();
     this.setText(this.moneyEl, this.formatMoney(this.state.money));
     this.setText(this.crystalsEl, `${crystals} ${formatCrystalUnit(this.language, crystals)}`);
@@ -952,6 +974,12 @@ export class GameScene extends Phaser.Scene {
       this.setText(this.statusEl, translate(this.language, 'status.shieldRecharge', { seconds: Math.ceil(this.state.shieldBubble.rechargeFor) }));
     } else if (hasWarpUnlock(this.state.progression, 'shieldBubble') && this.state.shieldBubble.active) {
       this.setText(this.statusEl, translate(this.language, 'status.shieldReady'));
+    } else if (isSurvivalZone(this.state) && this.state.survival.active) {
+      this.setText(this.statusEl, translate(this.language, 'status.survival', {
+        time: this.formatDuration(this.state.survival.currentSeconds),
+        threat: this.state.survival.threatLevel,
+        best: this.formatDuration(this.state.progression.survivalBestSeconds)
+      }));
     } else if (this.state.progression.unlockedZoneIndex === 0 && !hasActiveZoneBoss(this.state)) {
       const remaining = Math.max(0, balance.bosses.firstGateAsteroids - this.state.progression.firstGateAsteroidsDestroyed);
       this.setText(this.statusEl, remaining > 0 ? translate(this.language, 'status.firstBossCountdown', { remaining }) : translate(this.language, 'status.firstBossDetected'));
@@ -966,6 +994,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateFirstWarpGoal(): void {
+    if (isSurvivalZone(this.state)) {
+      this.firstWarpGoalEl.classList.add('is-hidden');
+      return;
+    }
+
     const goal = getActiveGuidedMissionProgress(this.state);
     const activeBoss = this.getActiveBoss();
     this.firstWarpGoalEl.classList.toggle('is-hidden', goal === null || activeBoss !== null);
@@ -3273,6 +3306,13 @@ export class GameScene extends Phaser.Scene {
 
   private formatMoney(value: number): string {
     return `$${Math.floor(value).toLocaleString('en-US')}`;
+  }
+
+  private formatDuration(seconds: number): string {
+    const totalSeconds = Math.max(0, Math.floor(seconds));
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = totalSeconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   }
 
   private formatStatNumber(value: number): string {

@@ -6,6 +6,7 @@ import { getAchievementMultiplier } from '../../progression/achievements';
 import { getBossRewardMoneyMultiplier } from '../../progression/bossRewards';
 import { getCombatBountyMultiplier, getCrystalDropMultiplier } from '../../progression/talentTree';
 import { balance } from '../../balance';
+import { getSurvivalAsteroidDensityBonus, getSurvivalAsteroidSpeedMultiplier } from './survival';
 
 const nextSize: Partial<Record<AsteroidSize, AsteroidSize>> = {
   large: 'medium',
@@ -80,7 +81,7 @@ export const createAsteroid = (
 ): AsteroidState => {
   const [minSpeed, maxSpeed] = balance.asteroids.speed[size];
   const angle = randomRange(0, Math.PI * 2);
-  const speed = randomRange(minSpeed, maxSpeed);
+  const speed = randomRange(minSpeed, maxSpeed) * getSurvivalAsteroidSpeedMultiplier(state);
   const hp = getAsteroidHp(state, size, variant);
 
   return {
@@ -159,7 +160,9 @@ export const getAsteroidTargetCount = (state: GameState): number =>
     balance.asteroids.targetCount.min,
     Math.min(
       balance.asteroids.targetCount.max,
-      Math.floor((state.width * state.height) / balance.asteroids.targetCount.pixelsPerAsteroid) + getExplorationZone(state).asteroidDensityBonus
+      Math.floor((state.width * state.height) / balance.asteroids.targetCount.pixelsPerAsteroid) +
+        getExplorationZone(state).asteroidDensityBonus +
+        getSurvivalAsteroidDensityBonus(state)
     )
   );
 

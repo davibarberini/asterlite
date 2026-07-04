@@ -6,6 +6,7 @@ import { getShipFrameBonusMultiplier } from '../progression/shipFrames';
 import { createTalentRanks } from '../progression/talentTree';
 import { emitAudio } from './events';
 import { createAsteroidField } from './systems/asteroids';
+import { createSurvivalState } from './systems/survival';
 import { maxTravelLevel } from './zones';
 import { balance } from '../balance';
 
@@ -88,6 +89,8 @@ export const createProgression = (): ProgressionState => ({
     rareBossesFound: 0
   },
   guidedMissions: createGuidedMissionState(),
+  survivalBestSeconds: 0,
+  survivalBestThreatLevel: 0,
   activeShipFrameId: 'vector',
   unlockedShipFrameIds: ['vector', 'nivitron'],
   shipRuns: {},
@@ -161,6 +164,7 @@ export const createGameState = (width: number, height: number, progression = cre
     phase: 'playing',
     ship: createShip(width, height, progression),
     shieldBubble: createShieldBubble(normalizedProgression),
+    survival: createSurvivalState(),
     drones: [],
     progression: normalizedProgression,
     asteroids: [],

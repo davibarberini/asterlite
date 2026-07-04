@@ -16,12 +16,13 @@ import { createShipFrameSwitchState } from '../progression/shipRuns';
 import { getShipFrameWeaponIdentity, getUnlockedShipFrameIdsForExchangeCount } from '../progression/shipFrames';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
-import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
+import { createAsteroid, createZoneBossFromPending, getAsteroidReward, getAsteroidTargetCount } from '../simulation/systems/asteroids';
 import { applyBossRewardChoice } from '../progression/bossRewards';
 import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateDrones } from '../simulation/systems/drones';
 import { updateBosses } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
+import { getSurvivalThreatLevel } from '../simulation/systems/survival';
 import { firePlayerWeapon } from '../simulation/systems/weapons';
 import { zones } from '../simulation/zones';
 import type { AsteroidState, PendingBossState } from '../simulation/types';
@@ -1487,5 +1488,72 @@ describe('asteroid rewards', () => {
     updateGame(finalZone, neutralInput(), 0);
 
     expect(100 - finalZone.ship.hp).toBeGreaterThan(100 - firstZone.ship.hp);
+  });
+});
+
+describe('nova crown survival', () => {
+  const putInFinalZone = (state: ReturnType<typeof createGameState>): void => {
+    const finalZoneIndex = zones.length - 1;
+    state.progression.unlockedZoneIndex = finalZoneIndex;
+    state.progression.currentZoneIndex = finalZoneIndex;
+    state.progression.travelLevel = finalZoneIndex;
+    state.asteroids = [];
+    state.saucerTimer = 999;
+  };
+
+  it('tracks the current survival timer, threat level, and best run while alive in the final zone', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+
+    updateGame(state, neutralInput(), balance.survival.threatLevelSeconds + 0.5);
+
+    expect(state.survival.active).toBe(true);
+    expect(state.survival.currentSeconds).toBeCloseTo(balance.survival.threatLevelSeconds + 0.5);
+    expect(state.survival.threatLevel).toBe(2);
+    expect(state.progression.survivalBestSeconds).toBeCloseTo(state.survival.currentSeconds);
+    expect(state.progression.survivalBestThreatLevel).toBe(2);
+
+    state.ship.alive = false;
+    state.ship.respawnFor = 1;
+    updateGame(state, neutralInput(), 0.1);
+
+    expect(state.survival.active).toBe(false);
+    expect(state.survival.currentSeconds).toBe(0);
+    expect(state.progression.survivalBestThreatLevel).toBe(2);
+    expect(state.progression.currentZoneIndex).toBe(zones.length - 2);
+  });
+
+  it('adds asteroid pressure as survival threat rises', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = getSurvivalThreatLevel(0);
+    const startingTarget = getAsteroidTargetCount(state);
+
+    state.survival.threatLevel = getSurvivalThreatLevel(balance.survival.threatLevelSeconds * 4);
+
+    expect(getAsteroidTargetCount(state)).toBeGreaterThan(startingTarget);
+  });
+
+  it('persists survival bests and an active final-zone survival timer', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival = {
+      active: true,
+      currentSeconds: 76,
+      threatLevel: 3,
+      lastAnnouncedThreatLevel: 3
+    };
+    state.progression.survivalBestSeconds = 76;
+    state.progression.survivalBestThreatLevel = 3;
+
+    saveGameState(state);
+    const loaded = loadGameState(800, 600);
+
+    expect(loaded.progression.currentZoneIndex).toBe(zones.length - 1);
+    expect(loaded.survival.currentSeconds).toBe(76);
+    expect(loaded.survival.threatLevel).toBe(3);
+    expect(loaded.progression.survivalBestSeconds).toBe(76);
+    expect(loaded.progression.survivalBestThreatLevel).toBe(3);
   });
 });

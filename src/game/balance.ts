@@ -49,6 +49,13 @@ export const balance = {
     shieldBubbleGraceSeconds: 0.22,
     shieldBubbleRadius: 34
   },
+  survival: {
+    threatLevelSeconds: 30,
+    asteroidDensityPerThreat: 1,
+    maxAsteroidDensityBonus: 12,
+    asteroidSpeedPerThreat: 0.055,
+    maxAsteroidSpeedMultiplier: 1.75
+  },
   drones: {
     orbitSpeed: 1.85,
     baseTargetRange: 560,
