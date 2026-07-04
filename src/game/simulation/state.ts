@@ -1,5 +1,6 @@
 import type { DroneState, DroneType, GameState, ProgressionState, ShieldBubbleState, ShipState } from './types';
 import { createAchievementStats, createUnlockedAchievements, getEffectiveMaxHp } from '../progression/achievements';
+import { createBossRewardState } from '../progression/bossRewards';
 import { createGuidedMissionState } from '../progression/guidedMissions';
 import { getShipFrameBonusMultiplier } from '../progression/shipFrames';
 import { createTalentRanks } from '../progression/talentTree';
@@ -7,6 +8,8 @@ import { emitAudio } from './events';
 import { createAsteroidField } from './systems/asteroids';
 import { maxTravelLevel } from './zones';
 import { balance } from '../balance';
+
+export const droneTypes: DroneType[] = ['sentry', 'ranger', 'breaker'];
 
 const createShip = (width: number, height: number, progression: ProgressionState, position = { x: width / 2, y: height / 2 }): ShipState => {
   const maxHp = Math.round(getEffectiveMaxHp(progression) * getShipFrameBonusMultiplier(progression, 'maxHpMultiplier'));
@@ -65,6 +68,11 @@ export const createProgression = (): ProgressionState => ({
     ranger: 0,
     breaker: 0
   },
+  activeDroneCounts: {
+    sentry: 0,
+    ranger: 0,
+    breaker: 0
+  },
   talentRanks: createTalentRanks(),
   weaponMode: 'cannon',
   spreadUnlocked: false,
@@ -98,14 +106,37 @@ export const getDroneOrbitRadius = (_progression: ProgressionState, index: numbe
   return balance.drones.orbitRadius[type] + (index % 3) * balance.drones.orbitRadiusStep;
 };
 
+export const getOwnedDroneCount = (progression: ProgressionState): number =>
+  droneTypes.reduce((total, type) => total + progression.droneCounts[type], 0);
+
+export const getActiveDroneCounts = (progression: ProgressionState): Record<DroneType, number> => ({
+  sentry: Math.max(0, Math.min(progression.droneCounts.sentry, Math.floor(progression.activeDroneCounts.sentry))),
+  ranger: Math.max(0, Math.min(progression.droneCounts.ranger, Math.floor(progression.activeDroneCounts.ranger))),
+  breaker: Math.max(0, Math.min(progression.droneCounts.breaker, Math.floor(progression.activeDroneCounts.breaker)))
+});
+
+export const getActiveDroneCount = (progression: ProgressionState): number =>
+  droneTypes.reduce((total, type) => total + getActiveDroneCounts(progression)[type], 0);
+
 export const createDrone = (state: GameState, type: DroneType = 'sentry', index = state.drones.length): DroneState => ({
   id: state.nextId++,
   type,
   position: { ...state.ship.position },
-  angle: (index / Math.max(1, state.progression.dronesPurchased)) * Math.PI * 2,
+  angle: (index / Math.max(1, getActiveDroneCount(state.progression))) * Math.PI * 2,
   orbitRadius: getDroneOrbitRadius(state.progression, index, type),
   fireCooldown: balance.drones.initialFireCooldown.base + (index % balance.drones.initialFireCooldown.cycle) * balance.drones.initialFireCooldown.step
 });
+
+export const syncActiveDrones = (state: GameState): void => {
+  const activeDroneCounts = getActiveDroneCounts(state.progression);
+  state.progression.activeDroneCounts = activeDroneCounts;
+  state.drones = [];
+  droneTypes.forEach((type) => {
+    for (let i = 0; i < activeDroneCounts[type]; i += 1) {
+      state.drones.push(createDrone(state, type));
+    }
+  });
+};
 
 export const createGameState = (width: number, height: number, progression = createProgression(), money = 0): GameState => {
   const normalizedProgression = {
@@ -126,6 +157,7 @@ export const createGameState = (width: number, height: number, progression = cre
     lastOfflineEarnings: 0,
     deathPenaltyFor: 0,
     droneRebootFor: 0,
+    bossRewards: createBossRewardState(),
     phase: 'playing',
     ship: createShip(width, height, progression),
     shieldBubble: createShieldBubble(normalizedProgression),
@@ -142,11 +174,7 @@ export const createGameState = (width: number, height: number, progression = cre
     nextId: 1
   };
 
-  (Object.entries(state.progression.droneCounts) as [DroneType, number][]).forEach(([type, count]) => {
-    for (let i = 0; i < count; i += 1) {
-      state.drones.push(createDrone(state, type));
-    }
-  });
+  syncActiveDrones(state);
 
   state.asteroids = createAsteroidField(state);
   return state;

@@ -1,6 +1,7 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
+import { getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getPlayerFireInterval } from '../../progression/idleBonuses';
-import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
+import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
 import { getMissileTurnRateMultiplier } from '../../progression/talentTree';
 import { balance } from '../../balance';
 import { emitAudio } from '../events';
@@ -63,6 +64,7 @@ export const fireBullet = (
 
 export const firePlayerWeapon = (state: GameState): void => {
   const ship = state.ship;
+  const shipWeaponIdentity = getShipFrameWeaponIdentity(state.progression);
   const damageMultiplier = getAchievementMultiplier(state.progression, 'damage');
   const baseDamage = Math.max(
     0.05,
@@ -72,7 +74,8 @@ export const firePlayerWeapon = (state: GameState): void => {
       getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
   );
 
-  if (state.progression.activeShipFrameId === 'nivitron') {
+  if (shipWeaponIdentity === 'turret') {
+    ship.turretAngle = (ship.turretAngle + balance.weapons.nivitronTurretStepAngle) % (Math.PI * 2);
     fireBullet(
       state,
       'player',
@@ -85,11 +88,11 @@ export const firePlayerWeapon = (state: GameState): void => {
     ship.fireCooldown = getPlayerFireInterval(
       state.progression,
       balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier
-    );
+    ) * getBossRewardPlayerFireIntervalMultiplier(state);
     return;
   }
 
-  if (state.progression.weaponMode === 'spread' && state.progression.spreadUnlocked) {
+  if (shipWeaponIdentity === 'spread') {
     const spreadDamage = Math.max(0.05, baseDamage * balance.weapons.spreadDamageMultiplier);
     balance.weapons.spreadAngleOffsets.forEach((offset) => {
       fireBullet(
@@ -102,11 +105,12 @@ export const firePlayerWeapon = (state: GameState): void => {
         ship.velocity
       );
     });
-    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier);
+    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier) *
+      getBossRewardPlayerFireIntervalMultiplier(state);
     return;
   }
 
-  if (state.progression.weaponMode === 'piercing' && state.progression.piercingUnlocked) {
+  if (shipWeaponIdentity === 'piercing') {
     fireBullet(
       state,
       'player',
@@ -117,7 +121,8 @@ export const firePlayerWeapon = (state: GameState): void => {
       ship.velocity,
       balance.weapons.piercingCount
     );
-    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier);
+    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier) *
+      getBossRewardPlayerFireIntervalMultiplier(state);
     return;
   }
 
@@ -130,7 +135,7 @@ export const firePlayerWeapon = (state: GameState): void => {
     baseDamage,
     ship.velocity
   );
-  ship.fireCooldown = getPlayerFireInterval(state.progression);
+  ship.fireCooldown = getPlayerFireInterval(state.progression) * getBossRewardPlayerFireIntervalMultiplier(state);
 };
 
 export const updateBullets = (state: GameState, dt: number): void => {

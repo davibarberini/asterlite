@@ -4,6 +4,13 @@ import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
 import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
+import {
+  NIVITRON_HAND_DIAMOND_RADIUS,
+  NIVITRON_HAND_GAME_SIZE,
+  NIVITRON_HAND_ORIGIN,
+  NIVITRON_HAND_TEXTURE_KEY,
+  createNivitronHandDataUri
+} from './nivitronHandShape';
 
 const MAX_DETAILED_DRONES = 36;
 const MAX_SWARM_DOTS = 42;
@@ -29,10 +36,25 @@ type AsteroidFlash = AsteroidSnapshot & {
 
 export class VectorRenderer {
   private readonly graphics: Phaser.GameObjects.Graphics;
+  private readonly nivitronHandImage: Phaser.GameObjects.Image;
   private readonly asteroidSnapshots = new Map<number, AsteroidSnapshot>();
   private readonly asteroidFlashes = new Map<number, AsteroidFlash>();
 
   constructor(private readonly scene: Phaser.Scene) {
+    this.nivitronHandImage = scene.add.image(0, 0, '__MISSING');
+    this.nivitronHandImage.setOrigin(NIVITRON_HAND_ORIGIN.x, NIVITRON_HAND_ORIGIN.y);
+    this.nivitronHandImage.setDepth(0.95);
+    this.nivitronHandImage.setVisible(false);
+
+    if (scene.textures.exists(NIVITRON_HAND_TEXTURE_KEY)) {
+      this.nivitronHandImage.setTexture(NIVITRON_HAND_TEXTURE_KEY);
+    } else {
+      scene.textures.once(`addtexture-${NIVITRON_HAND_TEXTURE_KEY}`, () => {
+        this.nivitronHandImage.setTexture(NIVITRON_HAND_TEXTURE_KEY);
+      });
+      scene.textures.addBase64(NIVITRON_HAND_TEXTURE_KEY, createNivitronHandDataUri());
+    }
+
     this.graphics = scene.add.graphics();
     this.graphics.setDepth(1);
   }
@@ -43,6 +65,7 @@ export class VectorRenderer {
 
   render(state: GameState, thrusting: boolean, slingshot: { start: Vec2; current: Vec2; power: number } | null = null): void {
     this.graphics.clear();
+    this.nivitronHandImage.setVisible(false);
     const now = this.scene.time.now / 1000;
     this.updateAsteroidReadabilityState(state, now);
     this.drawZoneFieldTint(state);
@@ -112,18 +135,19 @@ export class VectorRenderer {
     }
 
     const viewScale = this.getViewScale(state);
-    const points = getActiveShipFrame(state.progression).shape
-      .map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y)));
-
-    this.graphics.lineStyle(2, 0xf2fbff, 0.96);
-    this.graphics.beginPath();
-    this.graphics.moveTo(points[0].x, points[0].y);
-    points.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
-    this.graphics.closePath();
-    this.graphics.strokePath();
-
     if (state.progression.activeShipFrameId === 'nivitron') {
+      this.drawNivitronHand(state, ship, viewScale);
       this.drawNivitronTurret(state, ship);
+    } else {
+      const points = getActiveShipFrame(state.progression).shape
+        .map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y)));
+
+      this.graphics.lineStyle(2, 0xf2fbff, 0.96);
+      this.graphics.beginPath();
+      this.graphics.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
+      this.graphics.closePath();
+      this.graphics.strokePath();
     }
 
     if (state.progression.deflectorLevel > 0) {
@@ -145,20 +169,48 @@ export class VectorRenderer {
     }
   }
 
+  private drawNivitronHand(state: GameState, ship: ShipState, viewScale: number): void {
+    const targetSize = NIVITRON_HAND_GAME_SIZE * viewScale;
+    const sourceWidth = this.nivitronHandImage.width || 96;
+    this.nivitronHandImage
+      .setPosition(this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y))
+      .setRotation(ship.rotation + Math.PI / 2)
+      .setScale(targetSize / sourceWidth)
+      .setVisible(true);
+  }
+
   private drawNivitronTurret(state: GameState, ship: ShipState): void {
     const viewScale = this.getViewScale(state);
     const x = this.toScreenX(state, ship.position.x);
     const y = this.toScreenY(state, ship.position.y);
-    const barrel = {
-      x: x + Math.cos(ship.turretAngle) * 13 * viewScale,
-      y: y + Math.sin(ship.turretAngle) * 13 * viewScale
-    };
+    const radius = NIVITRON_HAND_DIAMOND_RADIUS * viewScale;
+    const corners = [0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((offset) => ({
+      x: x + Math.cos(ship.turretAngle + offset) * radius,
+      y: y + Math.sin(ship.turretAngle + offset) * radius
+    }));
 
-    this.graphics.lineStyle(2, 0x83ffdc, 0.86);
-    this.graphics.strokeCircle(x, y, 7 * viewScale);
-    this.graphics.lineBetween(x, y, barrel.x, barrel.y);
-    this.graphics.fillStyle(0xf2fbff, 0.9);
-    this.graphics.fillCircle(x, y, 2.4 * viewScale);
+    this.graphics.fillStyle(0x92dfff, 0.46);
+    this.graphics.beginPath();
+    this.graphics.moveTo(corners[0].x, corners[0].y);
+    this.graphics.lineTo(corners[1].x, corners[1].y);
+    this.graphics.lineTo(x, y);
+    this.graphics.closePath();
+    this.graphics.fillPath();
+
+    this.graphics.fillStyle(0xf2fbff, 0.86);
+    this.graphics.beginPath();
+    this.graphics.moveTo(corners[2].x, corners[2].y);
+    this.graphics.lineTo(corners[3].x, corners[3].y);
+    this.graphics.lineTo(x, y);
+    this.graphics.closePath();
+    this.graphics.fillPath();
+
+    this.graphics.lineStyle(2, 0x83ffdc, 0.9);
+    this.graphics.beginPath();
+    this.graphics.moveTo(corners[0].x, corners[0].y);
+    corners.slice(1).forEach((corner) => this.graphics.lineTo(corner.x, corner.y));
+    this.graphics.closePath();
+    this.graphics.strokePath();
   }
 
   private drawDeflector(state: GameState, ship: ShipState): void {

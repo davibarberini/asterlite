@@ -1,4 +1,5 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
+import { getBossRewardDroneFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 import {
   getMissileDamage,
@@ -59,7 +60,8 @@ export const updateDrones = (state: GameState, dt: number): void => {
       y: target.position.y - drone.position.y
     });
     const bulletsFired = fireDroneWeapon(state, drone, Math.atan2(direction.y, direction.x), target);
-    drone.fireCooldown = getDroneFireInterval(state, drone) + (drone.id % balance.drones.fireCooldownJitter.cycle) * balance.drones.fireCooldownJitter.step;
+    drone.fireCooldown = getDroneFireInterval(state, drone) * getBossRewardDroneFireIntervalMultiplier(state) +
+      (drone.id % balance.drones.fireCooldownJitter.cycle) * balance.drones.fireCooldownJitter.step;
     droneShotsThisFrame += 1;
     activeDroneBullets += bulletsFired;
   });

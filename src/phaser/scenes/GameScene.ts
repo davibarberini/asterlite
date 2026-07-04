@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { neutralInput, type InputActions } from '../../game/input/actions';
 import { getCrystalBalance as getStateCrystalBalance, purchaseTalentRank } from '../../game/progression/currency';
+import { BOSS_REWARD_BY_ID, applyBossRewardChoice } from '../../game/progression/bossRewards';
 import { clearAllAsteridleData, loadGameState, saveGameState } from '../../game/progression/saveData';
 import { emitReward } from '../../game/simulation/events';
-import { createDrone, createGameState, syncShieldBubbleState } from '../../game/simulation/state';
+import { createGameState, syncActiveDrones, syncShieldBubbleState } from '../../game/simulation/state';
 import { createAsteroidField, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
-import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, ShipFrameId, TalentId, Vec2, WarpUnlockId, WeaponMode } from '../../game/simulation/types';
+import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, ShipFrameId, TalentId, Vec2, WarpUnlockId } from '../../game/simulation/types';
 import { getCoreUpgradeCap, getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../../game/progression/idleBonuses';
 import {
   TALENT_DEFINITIONS,
@@ -40,10 +41,18 @@ import { WarpCoreTreeController } from '../ui/WarpCoreTreeController';
 import { ZoneMapController } from '../ui/ZoneMapController';
 import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
+import { NIVITRON_HAND_DIAMOND_CENTER, NIVITRON_HAND_PATHS, NIVITRON_HAND_VIEWBOX } from '../view/nivitronHandShape';
 import { balance } from '../../game/balance';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
 import { getShipExchangeRequirement, type ShipExchangeRequirement } from '../../game/progression/shipExchange';
-import { SHIP_FRAME_DEFINITIONS, SHIP_FRAME_BY_ID, getActiveShipFrame, getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
+import {
+  SHIP_FRAME_DEFINITIONS,
+  SHIP_FRAME_BY_ID,
+  getActiveShipFrame,
+  getShipFrameBonusMultiplier,
+  getShipFrameWeaponIdentity,
+  type ShipWeaponIdentity
+} from '../../game/progression/shipFrames';
 import { createShipFrameSwitchState } from '../../game/progression/shipRuns';
 import { formatCoreUnit, formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
 
@@ -61,6 +70,7 @@ type ShopAction = {
   repeatable?: boolean;
   info?: () => ModalContent;
   className?: string;
+  controlNode?: () => Element;
 };
 
 type PriorityPopupContent = {
@@ -147,7 +157,7 @@ export class GameScene extends Phaser.Scene {
   private activeTab: ShopTab = 'upgrades';
   private priorityPopupQueue: PriorityPopupContent[] = [];
   private activePriorityPopup: PriorityPopupContent | null = null;
-  private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | null = null;
+  private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | 'bossReward' | null = null;
   private activeModalInfo: ModalContent | null = null;
   private activeTalentTooltipId: TalentId | null = null;
   private activeWarpUnlockId: WarpUnlockId | null = null;
@@ -330,6 +340,7 @@ export class GameScene extends Phaser.Scene {
     this.playAudioEvents();
     this.queuePriorityPopups(this.state.rewardEvents);
     this.rewardFeed.showEvents(this.state.rewardEvents);
+    this.syncBossRewardChoiceModal();
     this.offlineStatusFor = Math.max(0, this.offlineStatusFor - dt);
     this.saveElapsed += dt;
     if (this.saveElapsed >= 1) {
@@ -714,7 +725,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private shouldShowWeaponsTab(): boolean {
-    return this.state.progression.spreadUnlocked || this.state.progression.piercingUnlocked || this.state.progression.weaponMode !== 'cannon';
+    return this.shouldShowHangarTab();
   }
 
   private shouldShowAchievementsTab(): boolean {
@@ -1363,6 +1374,7 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.shipSpeedLevel,
       this.state.progression.deflectorLevel,
       this.state.progression.activeShipFrameId,
+      getShipFrameWeaponIdentity(this.state.progression),
       this.state.progression.unlockedShipFrameIds.join(','),
       this.state.progression.shipExchanges,
       this.state.progression.mapUnlocked,
@@ -1379,6 +1391,9 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.droneCounts.sentry,
       this.state.progression.droneCounts.ranger,
       this.state.progression.droneCounts.breaker,
+      this.state.progression.activeDroneCounts.sentry,
+      this.state.progression.activeDroneCounts.ranger,
+      this.state.progression.activeDroneCounts.breaker,
       ...TALENT_DEFINITIONS.map((talent) => getTalentRank(this.state.progression, talent.id)),
       this.state.progression.weaponMode,
       this.state.progression.spreadUnlocked,
@@ -1417,6 +1432,8 @@ export class GameScene extends Phaser.Scene {
       this.renderZoneMapModal();
     } else if (this.activeModal === 'settings') {
       this.renderSettingsModal();
+    } else if (this.activeModal === 'bossReward') {
+      this.renderBossRewardChoiceModal();
     }
   }
 
@@ -1452,7 +1469,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.activeTab === 'drones') {
       return this.getDroneTypes()
-        .map((type) => `${type}:${this.canBuyDroneType(type)}:${this.state.money >= this.getDroneTypeCost(type)}`)
+        .map((type) => `${type}:${this.canBuyDroneType(type)}:${this.state.money >= this.getDroneTypeCost(type)}:${this.state.progression.activeDroneCounts[type]}`)
         .join(',');
     }
 
@@ -1714,8 +1731,29 @@ export class GameScene extends Phaser.Scene {
     const frame = SHIP_FRAME_BY_ID[id];
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.classList.add('ship-frame-preview');
-    svg.setAttribute('viewBox', '-26 -24 52 48');
+    svg.setAttribute('viewBox', id === 'nivitron' ? NIVITRON_HAND_VIEWBOX : '-26 -24 52 48');
     svg.setAttribute('aria-hidden', 'true');
+
+    if (id === 'nivitron') {
+      const handPaths = NIVITRON_HAND_PATHS.map((pathData) => {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathData);
+        path.setAttribute('class', 'ship-frame-preview__hull ship-frame-preview__hull--nivitron');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        return path;
+      });
+
+      const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      diamond.setAttribute(
+        'points',
+        `${NIVITRON_HAND_DIAMOND_CENTER.x},${NIVITRON_HAND_DIAMOND_CENTER.y - 2.8} ${NIVITRON_HAND_DIAMOND_CENTER.x + 2.8},${NIVITRON_HAND_DIAMOND_CENTER.y} ${NIVITRON_HAND_DIAMOND_CENTER.x},${NIVITRON_HAND_DIAMOND_CENTER.y + 2.8} ${NIVITRON_HAND_DIAMOND_CENTER.x - 2.8},${NIVITRON_HAND_DIAMOND_CENTER.y}`
+      );
+      diamond.setAttribute('class', 'ship-frame-preview__core');
+      svg.append(...handPaths, diamond);
+      return svg;
+    }
 
     const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     polygon.setAttribute('points', frame.shape.map((point) => `${point.x},${point.y}`).join(' '));
@@ -1929,6 +1967,7 @@ export class GameScene extends Phaser.Scene {
 
   private renderDronesTab(): void {
     const droneSystemsOnline = hasWarpUnlock(this.state.progression, 'droneSystems');
+    const activeTotal = this.getDroneTypes().reduce((total, type) => total + this.state.progression.activeDroneCounts[type], 0);
     this.setShopContent(
       translate(this.language, 'nav.drones'),
       droneSystemsOnline ? (this.language === 'pt-BR' ? 'Baía de Drones' : 'Drone Bay') : (this.language === 'pt-BR' ? 'Baía de Drones Bloqueada' : 'Drone Bay Locked'),
@@ -1936,9 +1975,10 @@ export class GameScene extends Phaser.Scene {
         ? (this.language === 'pt-BR' ? 'Tecnologias autorizam cada família de drones. Créditos ainda constroem os drones.' : 'Technologies authorize each drone family. Credits still build the actual drones.')
         : (this.language === 'pt-BR' ? 'Instale Sistemas de Drones em Tecnologias antes de comprar drones.' : 'Install Drone Systems in Technologies before buying drones.'),
       [
-        ['Semi-Auto', this.state.progression.droneCounts.sentry.toString()],
-        ['Shotgun', this.state.progression.droneCounts.ranger.toString()],
-        ['Missile', this.state.progression.droneCounts.breaker.toString()],
+        [this.language === 'pt-BR' ? 'Em campo' : 'Deployed', `${activeTotal} / ${this.state.progression.dronesPurchased}`],
+        ['Semi-Auto', `${this.state.progression.activeDroneCounts.sentry} / ${this.state.progression.droneCounts.sentry}`],
+        ['Shotgun', `${this.state.progression.activeDroneCounts.ranger} / ${this.state.progression.droneCounts.ranger}`],
+        ['Missile', `${this.state.progression.activeDroneCounts.breaker} / ${this.state.progression.droneCounts.breaker}`],
         [this.language === 'pt-BR' ? 'Sistemas' : 'Systems', droneSystemsOnline ? 'Online' : (this.language === 'pt-BR' ? 'Bloqueado' : 'Locked')]
       ],
       this.getDroneTypes().map((type) => {
@@ -1948,11 +1988,12 @@ export class GameScene extends Phaser.Scene {
         const requiredUnlock = this.getDroneTypeWarpUnlock(type);
         const requiredTitle = this.getWarpUnlockTitle(requiredUnlock);
         const count = this.state.progression.droneCounts[type];
+        const activeCount = this.state.progression.activeDroneCounts[type];
         const profile = this.getDroneTypeProfile(type);
         const status = unlocked
           ? (this.language === 'pt-BR'
-            ? `${profile.role} · ${count} ativos · ${profile.rhythm}`
-            : `${profile.role} · ${count} active · ${profile.rhythm}`)
+            ? `${profile.role} · ${activeCount}/${count} em campo · ${profile.rhythm}`
+            : `${profile.role} · ${activeCount}/${count} deployed · ${profile.rhythm}`)
           : (this.language === 'pt-BR' ? `Requer ${requiredTitle}` : `Requires ${requiredTitle}`);
         const actionClass = unlocked
           ? (count > 0 ? 'shop-buy--drone shop-buy--drone-owned' : 'shop-buy--drone shop-buy--drone-ready')
@@ -1965,11 +2006,64 @@ export class GameScene extends Phaser.Scene {
           disabled: !unlocked || this.state.money < cost,
           onClick: () => this.buyDrone(type, cost),
           info: () => this.getDroneTypeInfo(type),
-          className: actionClass
+          className: actionClass,
+          controlNode: count > 0 ? () => this.createDroneDeploymentControl(type) : undefined
         };
       }),
       true
     );
+  }
+
+  private createDroneDeploymentControl(type: DroneType): HTMLElement {
+    const owned = this.state.progression.droneCounts[type];
+    const active = this.state.progression.activeDroneCounts[type];
+    const control = document.createElement('div');
+    control.className = 'drone-deploy-control';
+
+    const label = document.createElement('span');
+    label.className = 'drone-deploy-control__label';
+    label.textContent = this.language === 'pt-BR' ? 'Em campo' : 'Deployed';
+
+    const stepper = document.createElement('div');
+    stepper.className = 'drone-deploy-control__stepper';
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'drone-deploy-control__button';
+    removeButton.textContent = '-';
+    removeButton.disabled = active <= 0;
+    removeButton.setAttribute('aria-label', this.language === 'pt-BR' ? 'Remover drone do campo' : 'Remove drone from field');
+    removeButton.addEventListener('click', () => this.setActiveDroneCount(type, active - 1));
+
+    const value = document.createElement('strong');
+    value.className = 'drone-deploy-control__value';
+    value.textContent = `${active}/${owned}`;
+
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'drone-deploy-control__button';
+    addButton.textContent = '+';
+    addButton.disabled = active >= owned;
+    addButton.setAttribute('aria-label', this.language === 'pt-BR' ? 'Adicionar drone ao campo' : 'Deploy drone to field');
+    addButton.addEventListener('click', () => this.setActiveDroneCount(type, active + 1));
+
+    stepper.append(removeButton, value, addButton);
+    control.append(label, stepper);
+    return control;
+  }
+
+  private setActiveDroneCount(type: DroneType, count: number): void {
+    const owned = this.state.progression.droneCounts[type];
+    const active = Math.max(0, Math.min(owned, Math.floor(count)));
+    if (active === this.state.progression.activeDroneCounts[type]) {
+      return;
+    }
+
+    this.state.progression.activeDroneCounts[type] = active;
+    syncActiveDrones(this.state);
+    this.shopSignature = '';
+    saveGameState(this.state);
+    this.updateHud();
   }
 
   private renderAchievementsTab(): void {
@@ -2043,26 +2137,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderWeaponsTab(): void {
+    const activeShip = getActiveShipFrame(this.state.progression);
+    const shipWeaponIdentity = getShipFrameWeaponIdentity(this.state.progression);
     this.setShopContent(
       translate(this.language, 'nav.weapons'),
-      this.language === 'pt-BR' ? 'Modos de Arma' : 'Weapon Modes',
-      '',
+      this.language === 'pt-BR' ? 'Arma da Nave' : 'Ship Weapon',
+      this.language === 'pt-BR'
+        ? 'O padrão de tiro vem da nave equipada. Naves básicas usam o canhão padrão e se diferenciam pelos atributos.'
+        : 'The firing pattern comes from the equipped ship. Basic ships use the standard cannon and differ through stats.',
       [
-        [this.language === 'pt-BR' ? 'Arma' : 'Weapon', this.formatWeaponMode(this.state.progression.weaponMode)]
+        [this.language === 'pt-BR' ? 'Nave' : 'Ship', activeShip.name],
+        [this.language === 'pt-BR' ? 'Arma' : 'Weapon', this.formatShipWeaponIdentity(shipWeaponIdentity)],
+        [this.language === 'pt-BR' ? 'Identidade' : 'Identity', this.getShipWeaponIdentitySummary(shipWeaponIdentity)]
       ],
       [
-        { label: this.language === 'pt-BR' ? 'Canhão' : 'Cannon', disabled: this.state.progression.weaponMode === 'cannon', onClick: () => this.setWeaponMode('cannon'), info: () => this.getWeaponModeInfo('cannon') },
         {
-          label: this.state.progression.spreadUnlocked ? 'Spread Shot' : (this.language === 'pt-BR' ? 'Spread Shot Bloqueado' : 'Spread Shot Locked'),
-          disabled: !this.state.progression.spreadUnlocked || this.state.progression.weaponMode === 'spread',
-          onClick: () => this.setWeaponMode('spread'),
-          info: () => this.getWeaponModeInfo('spread')
-        },
-        {
-          label: this.state.progression.piercingUnlocked ? (this.language === 'pt-BR' ? 'Tiros Perfurantes' : 'Piercing Rounds') : (this.language === 'pt-BR' ? 'Tiros Perfurantes Bloqueados' : 'Piercing Rounds Locked'),
-          disabled: !this.state.progression.piercingUnlocked || this.state.progression.weaponMode === 'piercing',
-          onClick: () => this.setWeaponMode('piercing'),
-          info: () => this.getWeaponModeInfo('piercing')
+          label: this.language === 'pt-BR' ? 'Detalhes da arma' : 'Weapon details',
+          disabled: false,
+          onClick: () => this.openInfoModal(this.getShipWeaponIdentityInfo(shipWeaponIdentity)),
+          info: () => this.getShipWeaponIdentityInfo(shipWeaponIdentity)
         }
       ]
     );
@@ -2138,6 +2231,11 @@ export class GameScene extends Phaser.Scene {
       button.addEventListener('click', action.onClick);
     }
     row.append(button);
+
+    if (action.controlNode) {
+      row.classList.add('shop-action-row--with-control');
+      row.append(action.controlNode());
+    }
 
     if (action.info) {
       const infoButton = document.createElement('button');
@@ -2287,6 +2385,23 @@ export class GameScene extends Phaser.Scene {
     this.renderSettingsModal();
   }
 
+  private syncBossRewardChoiceModal(): void {
+    if (
+      this.state.bossRewards.pendingChoiceIds.length <= 0 ||
+      this.activeModal ||
+      this.activePriorityPopup ||
+      this.priorityPopupQueue.length > 0
+    ) {
+      return;
+    }
+
+    this.activeModal = 'bossReward';
+    this.activeModalInfo = null;
+    this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
+    this.renderBossRewardChoiceModal();
+  }
+
   private closeModal(): void {
     const wasSkillTree = this.activeModal === 'skills';
     this.activeModal = null;
@@ -2301,6 +2416,66 @@ export class GameScene extends Phaser.Scene {
     if (wasSkillTree && this.activeTab === 'skills') {
       this.navButtons.forEach((button) => button.classList.remove('is-active'));
     }
+  }
+
+  private renderBossRewardChoiceModal(): void {
+    const choices = this.state.bossRewards.pendingChoiceIds;
+    if (choices.length <= 0) {
+      this.closeModal();
+      return;
+    }
+
+    this.modalEl.classList.remove('is-hidden');
+    this.modalEl.setAttribute('aria-hidden', 'false');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalKickerEl.textContent = this.language === 'pt-BR' ? 'Recompensa de Boss' : 'Boss Reward';
+    this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha um bônus da run' : 'Choose a run bonus';
+    this.modalCopyEl.textContent = this.language === 'pt-BR'
+      ? 'Este bônus dura até a próxima troca de nave ou warp reset.'
+      : 'This bonus lasts until the next ship exchange or warp reset.';
+    this.modalCopyEl.classList.remove('is-hidden');
+
+    const actions = document.createElement('div');
+    actions.className = 'boss-reward-actions';
+    choices.forEach((id) => {
+      const definition = BOSS_REWARD_BY_ID[id];
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'shop-buy shop-buy--row boss-reward-choice';
+
+      const icon = document.createElement('span');
+      icon.className = 'shop-action-icon';
+      icon.textContent = id === 'rapidFire' ? 'RF' : id === 'droneOverdrive' ? 'DR' : '$';
+
+      const body = document.createElement('span');
+      body.className = 'shop-action-body';
+      const title = document.createElement('strong');
+      title.textContent = definition.title;
+      const meta = document.createElement('span');
+      meta.className = 'shop-action-meta';
+      meta.textContent = definition.summary;
+      body.append(title, meta);
+
+      const effect = document.createElement('span');
+      effect.className = 'shop-action-cost';
+      effect.textContent = definition.effectLabel;
+
+      button.append(icon, body, effect);
+      button.addEventListener('click', () => this.chooseBossReward(id));
+      actions.append(button);
+    });
+
+    this.modalBodyEl.replaceChildren(actions);
+  }
+
+  private chooseBossReward(id: GameState['bossRewards']['pendingChoiceIds'][number]): void {
+    if (!applyBossRewardChoice(this.state, id)) {
+      return;
+    }
+    this.retroSound.play({ type: 'purchase' });
+    saveGameState(this.state);
+    this.closeModal();
+    this.updateHud();
   }
 
   private renderSettingsModal(): void {
@@ -2569,39 +2744,52 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private getWeaponModeInfo(mode: WeaponMode): ModalContent {
-    if (mode === 'spread') {
+  private getShipWeaponIdentityInfo(identity: ShipWeaponIdentity): ModalContent {
+    if (identity === 'spread') {
       return {
-        kicker: 'Weapon mode',
-        title: 'Spread Shot',
-        copy: 'Three-shot fan for crowd control when the asteroid density starts to outrun single-shot cleanup.',
+        kicker: 'Ship weapon',
+        title: 'Prism Refraction',
+        copy: 'The active ship refracts every shot into a three-shot fan as part of its built-in weapon identity.',
         facts: [
-          ['Status', this.state.progression.spreadUnlocked ? 'Installed' : 'Requires Spread Battery'],
+          ['Source', getActiveShipFrame(this.state.progression).name],
           ['Pattern', 'Three shots'],
           ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier).toFixed(2)} sec`]
         ]
       };
     }
 
-    if (mode === 'piercing') {
+    if (identity === 'piercing') {
       return {
-        kicker: 'Weapon mode',
-        title: 'Piercing Rounds',
-        copy: 'Faster single shots that punch through one target and make long lanes easier to clear.',
+        kicker: 'Ship weapon',
+        title: 'Needle Rail',
+        copy: 'The active ship fires focused rounds that punch through one target as part of its built-in weapon identity.',
         facts: [
-          ['Status', this.state.progression.piercingUnlocked ? 'Installed' : 'Requires Piercing Rail'],
+          ['Source', getActiveShipFrame(this.state.progression).name],
           ['Pierce', `${balance.weapons.piercingCount} asteroid`],
           ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier).toFixed(2)} sec`]
         ]
       };
     }
 
+    if (identity === 'turret') {
+      return {
+        kicker: 'Ship weapon',
+        title: 'Nivitron Turret',
+        copy: 'The active ship rotates its center turret by 10 degrees each time it fires.',
+        facts: [
+          ['Source', getActiveShipFrame(this.state.progression).name],
+          ['Pattern', '10 degree step turret'],
+          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier).toFixed(2)} sec`]
+        ]
+      };
+    }
+
     return {
-      kicker: 'Weapon mode',
-      title: 'Cannon',
-      copy: 'The baseline shot. Reliable, cheap, and still the best default when the run is early.',
+      kicker: 'Ship weapon',
+      title: 'Standard Cannon',
+      copy: 'This ship uses the baseline cannon. Its identity comes from hull stats, economy, speed, or durability rather than a unique firing pattern.',
       facts: [
-        ['Status', 'Default'],
+        ['Source', getActiveShipFrame(this.state.progression).name],
         ['Pattern', 'Single shot'],
         ['Cooldown', `${getPlayerFireInterval(this.state.progression).toFixed(2)} sec`]
       ]
@@ -2628,6 +2816,7 @@ export class GameScene extends Phaser.Scene {
         [this.language === 'pt-BR' ? 'Alcance' : 'Range', profile.range],
         [this.language === 'pt-BR' ? 'Ritmo' : 'Rhythm', profile.rhythm],
         [this.language === 'pt-BR' ? 'Comprados' : 'Owned', this.state.progression.droneCounts[type].toString()],
+        [this.language === 'pt-BR' ? 'Em campo' : 'Deployed', `${this.state.progression.activeDroneCounts[type]} / ${this.state.progression.droneCounts[type]}`],
         [this.language === 'pt-BR' ? 'Próximo preço' : 'Next cost', this.formatMoney(this.getDroneTypeCost(type))]
       ]
     };
@@ -2815,7 +3004,8 @@ export class GameScene extends Phaser.Scene {
     }
     this.state.progression.dronesPurchased += 1;
     this.state.progression.droneCounts[type] += 1;
-    this.state.drones.push(createDrone(this.state, type));
+    this.state.progression.activeDroneCounts[type] += 1;
+    syncActiveDrones(this.state);
     this.retroSound.play({ type: 'purchase' });
     saveGameState(this.state);
     this.updateHud();
@@ -2896,32 +3086,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.state.progression.deflectorLevel += 1;
     this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-  }
-
-  private buyOrSetWeaponMode(mode: Exclude<WeaponMode, 'cannon'>, cost: number): void {
-    const unlockKey = mode === 'spread' ? 'spreadUnlocked' : 'piercingUnlocked';
-    if (!this.state.progression[unlockKey]) {
-      if (!this.spend(cost)) {
-        return;
-      }
-      this.state.progression[unlockKey] = true;
-      this.retroSound.play({ type: 'purchase' });
-    }
-
-    this.setWeaponMode(mode);
-  }
-
-  private setWeaponMode(mode: WeaponMode): void {
-    if (mode === 'spread' && !this.state.progression.spreadUnlocked) {
-      return;
-    }
-    if (mode === 'piercing' && !this.state.progression.piercingUnlocked) {
-      return;
-    }
-
-    this.state.progression.weaponMode = mode;
     saveGameState(this.state);
     this.updateHud();
   }
@@ -3067,14 +3231,30 @@ export class GameScene extends Phaser.Scene {
     return this.scaledCost(config.baseCost, this.state.progression.droneCounts[type], config.scale);
   }
 
-  private formatWeaponMode(mode: WeaponMode): string {
-    if (mode === 'spread') {
+  private formatShipWeaponIdentity(identity: ShipWeaponIdentity): string {
+    if (identity === 'spread') {
       return 'Spread';
     }
-    if (mode === 'piercing') {
+    if (identity === 'piercing') {
       return 'Piercing';
     }
+    if (identity === 'turret') {
+      return 'Turret';
+    }
     return 'Cannon';
+  }
+
+  private getShipWeaponIdentitySummary(identity: ShipWeaponIdentity): string {
+    if (identity === 'spread') {
+      return this.language === 'pt-BR' ? 'Tiro único' : 'Unique shot';
+    }
+    if (identity === 'piercing') {
+      return this.language === 'pt-BR' ? 'Tiro único' : 'Unique shot';
+    }
+    if (identity === 'turret') {
+      return this.language === 'pt-BR' ? 'Torreta única' : 'Unique turret';
+    }
+    return this.language === 'pt-BR' ? 'Atributos da nave' : 'Ship stats';
   }
 
   private formatBossName(type: BossType): string {

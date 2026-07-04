@@ -1,12 +1,14 @@
 import type { ProgressionState, ShipFrameId, Vec2 } from '../simulation/types';
 
 export type ShipFrameRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export type ShipWeaponIdentity = 'standard' | 'spread' | 'piercing' | 'turret';
 
 export type ShipFrameDefinition = {
   id: ShipFrameId;
   name: string;
   rarity: ShipFrameRarity;
   unlockExchange: number;
+  weaponIdentity: ShipWeaponIdentity;
   shape: Vec2[];
   bonuses: {
     damageMultiplier?: number;
@@ -23,6 +25,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Vector',
     rarity: 'common',
     unlockExchange: 0,
+    weaponIdentity: 'standard',
     shape: [
       { x: 18, y: 0 },
       { x: -13, y: 12 },
@@ -36,6 +39,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Kestrel',
     rarity: 'uncommon',
     unlockExchange: 1,
+    weaponIdentity: 'standard',
     shape: [
       { x: 20, y: 0 },
       { x: -5, y: 8 },
@@ -53,6 +57,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Bulwark',
     rarity: 'uncommon',
     unlockExchange: 2,
+    weaponIdentity: 'standard',
     shape: [
       { x: 16, y: 0 },
       { x: 2, y: 14 },
@@ -69,6 +74,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Prism',
     rarity: 'rare',
     unlockExchange: 4,
+    weaponIdentity: 'spread',
     shape: [
       { x: 19, y: 0 },
       { x: 5, y: 12 },
@@ -86,6 +92,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Void Runner',
     rarity: 'epic',
     unlockExchange: 7,
+    weaponIdentity: 'standard',
     shape: [
       { x: 21, y: 0 },
       { x: 3, y: 10 },
@@ -106,6 +113,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Needle',
     rarity: 'common',
     unlockExchange: 3,
+    weaponIdentity: 'piercing',
     shape: [
       { x: 23, y: 0 },
       { x: -2, y: 7 },
@@ -123,6 +131,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Atlas',
     rarity: 'rare',
     unlockExchange: 5,
+    weaponIdentity: 'standard',
     shape: [
       { x: 17, y: 0 },
       { x: 8, y: 13 },
@@ -141,6 +150,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Ember',
     rarity: 'rare',
     unlockExchange: 6,
+    weaponIdentity: 'standard',
     shape: [
       { x: 20, y: 0 },
       { x: 2, y: 11 },
@@ -161,6 +171,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Wraith',
     rarity: 'epic',
     unlockExchange: 8,
+    weaponIdentity: 'standard',
     shape: [
       { x: 22, y: 0 },
       { x: 4, y: 8 },
@@ -183,6 +194,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Aurora',
     rarity: 'epic',
     unlockExchange: 9,
+    weaponIdentity: 'standard',
     shape: [
       { x: 21, y: 0 },
       { x: 8, y: 9 },
@@ -204,6 +216,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Nivitron',
     rarity: 'legendary',
     unlockExchange: 0,
+    weaponIdentity: 'turret',
     shape: [
       { x: 24, y: 0 },
       { x: 15, y: 7 },
@@ -245,6 +258,9 @@ export const normalizeShipFrameIds = (ids: unknown): ShipFrameId[] => {
 
 export const getActiveShipFrame = (progression: ProgressionState): ShipFrameDefinition =>
   SHIP_FRAME_BY_ID[progression.activeShipFrameId] ?? SHIP_FRAME_BY_ID.vector;
+
+export const getShipFrameWeaponIdentity = (progression: ProgressionState): ShipWeaponIdentity =>
+  getActiveShipFrame(progression).weaponIdentity;
 
 export const getUnlockedShipFrameIdsForExchangeCount = (exchangeCount: number): ShipFrameId[] =>
   SHIP_FRAME_DEFINITIONS

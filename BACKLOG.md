@@ -4,15 +4,42 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Mini Boss Reward Choice
+
+Added boss-defeat reward choices that create run-scoped build decisions.
+
+Notes:
+- Defeating a route boss now queues a serializable pending reward choice.
+- The player can choose between faster ship fire, faster deployed drone reloads, or stronger credit salvage.
+- Chosen rewards persist through save/load during the current run.
+- Warp reset or ship exchange clears active and pending boss rewards with the rest of run state.
+- Added a modal choice UI that waits for priority popups before opening.
+- Added tests for boss defeat choice generation, choice application, credit reward scaling, save/load persistence, and reset clearing.
+
+### Ship Weapon Identity and Info-Only Weapons Tab
+
+Moved combat identity onto ship frames instead of selectable Technology weapon modes.
+
+Notes:
+- Added a ship weapon identity field to ship frame data.
+- Vector and other standard ships use the baseline cannon and differentiate through ship stats.
+- Prism now fires as a spread/refraction ship even when Spread Battery is not installed.
+- Needle now fires as a piercing/rail ship even when Piercing Rail is not installed.
+- Nivitron now uses the same data model for its rotating turret identity.
+- Manual weapon selection was removed; the Weapons tab is now information-only for the active ship weapon.
+- Spread Battery and Piercing Rail were removed from the active Technology route because ship identity now owns those patterns.
+- Legacy save fields for old weapon modes remain tolerated but no longer drive standard ship firing.
+- Added tests covering legacy mode compatibility, Prism spread identity, Needle piercing identity, and Nivitron turret compatibility.
+
 ### Legendary Nivitron Ship
 
-Added a legendary ship with a hand-like silhouette and rotating turret weapon.
+Added a legendary ship with a hand-like silhouette and stepped turret weapon.
 
 Notes:
 - Added `Nivitron` as a legendary ship frame unlocked from the start for easier testing.
 - Its silhouette is an original faceted arm/hand form with palm and finger-like points.
-- Nivitron fires from a rotating mini turret instead of the ship nose, letting it cover changing angles while moving.
-- Attack-speed upgrades now speed up both turret fire cadence and turret rotation.
+- Nivitron rotates its mini turret 10 degrees each time it fires instead of continuously rotating over time.
+- Attack-speed upgrades now shorten the delay between Nivitron turret steps, so higher attack speed builds toward circular coverage through faster repeated shots.
 - Added renderer support for the rotating turret and tests for unlock pacing and turret-angle firing.
 
 ### Ship Hangar UI Pass
@@ -255,37 +282,50 @@ Notes:
 
 ## Ready
 
-### Ship Unlock Pacing and Identity
+### Run Modifiers and Zone Hazards
 
-Refine how ships unlock so each new ship feels earned instead of just being the next reset reward.
-
-Design:
-- Keep ship collection as a long-term customization layer.
-- Consider boss salvage, route milestones, mission chains, ship parts, or zone-specific unlock requirements.
-- Keep the first extra ship understandable and reachable.
-- Avoid turning ship unlocks into a second confusing technology tree.
-
-Acceptance:
-- Define unlock requirements in ship data or a small progression module.
-- Update the hangar card locked state to explain the requirement compactly.
-- Preserve existing saves that already unlocked ships through exchanges.
-- Add tests for at least first, mid, and late ship unlock pacing.
-
-### Ship-Specific Weapon Identity
-
-Move weapon-mode identity toward ships instead of Technologies.
+Make zones change how a run feels instead of only scaling numbers.
 
 Design:
-- Explore making ships define their primary weapon pattern.
-- Spread Shot and Piercing should become ship identity candidates instead of Technology nodes.
-- Technologies should keep broad gameplay unlocks, not individual weapon modes.
-- Ship choice should meaningfully change combat style without invalidating upgrades.
+- Give each zone one readable modifier or hazard.
+- Examples: faster asteroid drift, denser crystal pockets with higher threat, dense asteroid belts that favor piercing/missiles, or limited visibility storms.
+- Keep modifiers data-driven and visible in the map/zone UI.
+- Avoid adding hazards that obscure mobile readability.
 
 Acceptance:
-- Add a data model for ship weapon identity.
-- Remove or migrate Spread/Piercing Technology dependency safely for existing saves.
-- Update Weapons/Technologies UI so the player understands weapon access through ships.
-- Add tests for save migration, ship weapon selection, and technology compatibility.
+- Zone data defines at least one gameplay modifier.
+- The simulation applies the modifier through serializable zone state/data.
+- Map or HUD copy previews the modifier compactly.
+- Add tests for at least two zone modifier effects.
+
+### Drone Loadout Presets
+
+Let players save active drone count presets for quick build testing.
+
+Design:
+- Build on the current active drone count controls.
+- Support compact presets such as all off, balanced, missile only, and player-saved current loadout.
+- Keep purchased drone counts separate from active/deployed counts.
+
+Acceptance:
+- Players can apply at least three preset loadouts from the Drones tab.
+- Presets clamp to owned drone counts.
+- Custom active counts remain saved.
+- Add tests for preset clamping and active drone synchronization.
+
+### More Enemy and Threat Variety
+
+Add one or two new lightweight combat threats that change movement decisions.
+
+Design:
+- Prefer simple serializable threats over a large enemy framework.
+- Candidates: proximity mine/drifter, shard that lightly homes, or an elite saucer pattern.
+- Keep visuals distinct and readable on mobile.
+
+Acceptance:
+- Add at least one new threat type with serializable state.
+- Spawn it in an appropriate zone or event.
+- Render it distinctly and cover collision/combat behavior with tests.
 
 ### Contextual Onboarding Beats
 
@@ -301,6 +341,25 @@ Acceptance:
 - Trigger concise messages for the first few major milestones.
 - Avoid repeating messages on existing saves that already passed the milestone.
 - Keep combat input uninterrupted.
+
+## Later
+
+### Ship Unlock Pacing and Identity
+
+Refine how ships unlock so each new ship feels earned instead of just being the next reset reward.
+
+Design:
+- Keep ship collection as a long-term customization layer.
+- Revisit this after ships have stronger weapon identities.
+- Consider boss salvage, route milestones, mission chains, ship parts, or zone-specific unlock requirements only if they add meaningful decisions.
+- Keep the first extra ship understandable and reachable.
+- Avoid turning ship unlocks into a second confusing technology tree.
+
+Acceptance:
+- Define unlock requirements in ship data or a small progression module.
+- Update the hangar card locked state to explain the requirement compactly.
+- Preserve existing saves that already unlocked ships through exchanges.
+- Add tests for at least first, mid, and late ship unlock pacing.
 
 ## Conditional
 

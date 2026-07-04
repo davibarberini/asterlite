@@ -7,7 +7,6 @@ import { clampMagnitude, randomRange } from '../vector';
 import { burstParticles } from './particles';
 import { firePlayerWeapon } from './weapons';
 import { balance } from '../../balance';
-import { getFireRateMultiplier } from '../../progression/idleBonuses';
 import { getPropulsionSkillMultiplier } from '../../progression/talentTree';
 import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 
@@ -83,11 +82,10 @@ export const updateShipMovement = (state: GameState, input: InputActions, dt: nu
 
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
   ship.hyperspaceCooldown = Math.max(0, ship.hyperspaceCooldown - dt);
-  const turretRotationMultiplier = state.progression.activeShipFrameId === 'nivitron' ? getFireRateMultiplier(state.progression) : 1;
-  ship.turretAngle = (ship.turretAngle + balance.weapons.nivitronTurretRotationSpeed * turretRotationMultiplier * dt) % (Math.PI * 2);
   ship.invulnerableFor = Math.max(0, ship.invulnerableFor - dt);
 
-  if (input.fire && ship.fireCooldown === 0) {
+  const shouldAutoFire = state.progression.activeShipFrameId === 'nivitron';
+  if ((input.fire || shouldAutoFire) && ship.fireCooldown === 0) {
     firePlayerWeapon(state);
   }
 

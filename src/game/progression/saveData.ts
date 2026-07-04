@@ -8,10 +8,11 @@ import {
   recordMoneyEarned,
   syncAchievements
 } from './achievements';
+import { createBossRewardState, normalizeBossRewardState } from './bossRewards';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, getUnlockedShipFrameIdsForExchangeCount, normalizeShipFrameIds } from './shipFrames';
-import type { AchievementId, AchievementStats, BossDiscoveryState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, ShipRunState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, ShipRunState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
@@ -41,6 +42,7 @@ type SavedGameV1 = {
     respawnFor: number;
   };
   shieldBubble: ShieldBubbleState;
+  bossRewards?: BossRewardState;
 };
 
 type SavedGame = SavedGameV1;
@@ -70,6 +72,18 @@ const readDroneCounts = (value: unknown, legacyDroneCount: number): Record<Drone
     sentry: Math.max(0, Math.floor(readNumber(value.sentry, legacyDroneCount))),
     ranger: Math.max(0, Math.floor(readNumber(value.ranger, 0))),
     breaker: Math.max(0, Math.floor(readNumber(value.breaker, 0)))
+  };
+};
+
+const readActiveDroneCounts = (value: unknown, owned: Record<DroneType, number>): Record<DroneType, number> => {
+  if (!isRecord(value)) {
+    return { ...owned };
+  }
+
+  return {
+    sentry: Math.max(0, Math.min(owned.sentry, Math.floor(readNumber(value.sentry, owned.sentry)))),
+    ranger: Math.max(0, Math.min(owned.ranger, Math.floor(readNumber(value.ranger, owned.ranger)))),
+    breaker: Math.max(0, Math.min(owned.breaker, Math.floor(readNumber(value.breaker, owned.breaker))))
   };
 };
 
@@ -153,6 +167,24 @@ const readBossDiscovery = (value: unknown): BossDiscoveryState => {
   };
 };
 
+const readBossRewardIds = (value: unknown): BossRewardId[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((id): id is BossRewardId => id === 'rapidFire' || id === 'droneOverdrive' || id === 'salvageSurge');
+};
+
+const readBossRewards = (value: unknown): BossRewardState => {
+  if (!isRecord(value)) {
+    return createBossRewardState();
+  }
+
+  return normalizeBossRewardState({
+    pendingChoiceIds: readBossRewardIds(value.pendingChoiceIds),
+    activeIds: readBossRewardIds(value.activeIds)
+  });
+};
+
 const createShipRunFromProgression = (progression: ProgressionState, money: number, crystals: number): ShipRunState => ({
   money: Math.max(0, money),
   crystals: Math.max(0, Math.floor(crystals)),
@@ -164,6 +196,7 @@ const createShipRunFromProgression = (progression: ProgressionState, money: numb
   droneDamageLevel: progression.droneDamageLevel,
   droneFireRateLevel: progression.droneFireRateLevel,
   droneCounts: { ...progression.droneCounts },
+  activeDroneCounts: { ...progression.activeDroneCounts },
   talentRanks: { ...progression.talentRanks },
   weaponMode: progression.weaponMode,
   mapUnlocked: progression.mapUnlocked,
@@ -185,6 +218,7 @@ const readShipRun = (value: unknown): ShipRunState | null => {
 
   const legacyDroneCount = Math.max(0, Math.floor(readNumber(value.dronesPurchased, 0)));
   const droneCounts = readDroneCounts(value.droneCounts, legacyDroneCount);
+  const activeDroneCounts = readActiveDroneCounts(value.activeDroneCounts, droneCounts);
   const spreadUnlocked = value.spreadUnlocked === true;
   const piercingUnlocked = value.piercingUnlocked === true;
   const legacySkills = readLegacyDroneSkillLevels(value.droneSkillLevels);
@@ -202,6 +236,7 @@ const readShipRun = (value: unknown): ShipRunState | null => {
     droneDamageLevel: Math.max(1, Math.floor(readNumber(value.droneDamageLevel, 1))),
     droneFireRateLevel: Math.max(0, Math.floor(readNumber(value.droneFireRateLevel, 0))),
     droneCounts,
+    activeDroneCounts,
     talentRanks: readTalentRanks(value.talentRanks, legacySkills),
     weaponMode: readWeaponMode(value.weaponMode, spreadUnlocked, piercingUnlocked),
     mapUnlocked: value.mapUnlocked === true || unlockedZoneIndex > 0,
@@ -320,6 +355,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const maxHp = Math.max(100, Math.floor(readNumber(value.maxHp, 100)));
   const legacyDroneCount = Math.max(0, Math.floor(readNumber(value.dronesPurchased, 0)));
   const droneCounts = readDroneCounts(value.droneCounts, legacyDroneCount);
+  const activeDroneCounts = readActiveDroneCounts(value.activeDroneCounts, droneCounts);
   const spreadUnlocked = value.spreadUnlocked === true;
   const piercingUnlocked = value.piercingUnlocked === true;
   const shipDamageLevel = Math.max(1, Math.floor(readNumber(value.shipDamageLevel, 1)));
@@ -347,20 +383,11 @@ const readProgression = (value: unknown): ProgressionState | null => {
   if (deflectorLevel > 0) {
     addWarpUnlockId(ownedWarpUnlockIds, 'deflectorFrame');
   }
-  if (spreadUnlocked) {
-    addWarpUnlockId(ownedWarpUnlockIds, 'spreadBattery');
-  }
-  if (piercingUnlocked) {
-    addWarpUnlockId(ownedWarpUnlockIds, 'piercingRail');
-  }
   if (hasLegacyWarpUnlockId(legacyUnlockIds, 'coreStabilizer')) {
     addWarpUnlockId(ownedWarpUnlockIds, 'droneSystems');
   }
   if (hasLegacyWarpUnlockId(legacyUnlockIds, 'hullReinforcement')) {
     addWarpUnlockId(ownedWarpUnlockIds, 'deflectorFrame');
-  }
-  if (hasLegacyWarpUnlockId(legacyUnlockIds, 'cannonAmplifier')) {
-    addWarpUnlockId(ownedWarpUnlockIds, 'spreadBattery');
   }
   if (hasLegacyWarpUnlockId(legacyUnlockIds, 'armorPlating')) {
     addWarpUnlockId(ownedWarpUnlockIds, 'shieldBubble');
@@ -384,6 +411,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
     droneDamageLevel: Math.max(1, Math.floor(readNumber(value.droneDamageLevel, 1))),
     droneFireRateLevel: Math.max(0, Math.floor(readNumber(value.droneFireRateLevel, 0))),
     droneCounts,
+    activeDroneCounts,
     talentRanks: readTalentRanks(value.talentRanks, legacySkills),
     weaponMode: readWeaponMode(value.weaponMode, spreadUnlocked, piercingUnlocked),
     spreadUnlocked,
@@ -471,7 +499,8 @@ const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => 
       alive: ship.alive === true,
       respawnFor: readNonNegativeNumber(ship.respawnFor, 0)
     },
-    shieldBubble: readShieldBubble(value.shieldBubble, progression)
+    shieldBubble: readShieldBubble(value.shieldBubble, progression),
+    bossRewards: readBossRewards(value.bossRewards)
   };
 };
 
@@ -537,6 +566,7 @@ export const loadGameState = (width: number, height: number): GameState => {
   state.ship.respawnFor = saved.ship.respawnFor;
   state.phase = state.ship.alive ? 'playing' : 'respawning';
   state.shieldBubble = { ...saved.shieldBubble };
+  state.bossRewards = normalizeBossRewardState(saved.bossRewards ?? createBossRewardState());
   syncShieldBubbleState(state);
   state.camera = { ...state.ship.position };
   state.drones.forEach((drone) => {
@@ -569,7 +599,11 @@ export const saveGameState = (state: GameState): void => {
       alive: state.ship.alive,
       respawnFor: Math.max(0, state.ship.respawnFor)
     },
-    shieldBubble: { ...state.shieldBubble }
+    shieldBubble: { ...state.shieldBubble },
+    bossRewards: {
+      pendingChoiceIds: [...state.bossRewards.pendingChoiceIds],
+      activeIds: [...state.bossRewards.activeIds]
+    }
   };
 
   try {

@@ -3,6 +3,7 @@ import { randomRange } from '../vector';
 import { getExplorationZone, getNextZone, getZoneAsteroidHpMultiplier, getZoneRewardMultiplier } from '../zones';
 import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
 import { getAchievementMultiplier } from '../../progression/achievements';
+import { getBossRewardMoneyMultiplier } from '../../progression/bossRewards';
 import { getCombatBountyMultiplier, getCrystalDropMultiplier } from '../../progression/talentTree';
 import { balance } from '../../balance';
 
@@ -46,7 +47,8 @@ export const getAsteroidReward = (state: GameState, asteroid: AsteroidState): { 
     getZoneRewardMultiplier(state) *
     getPrestigeMoneyMultiplier(state.progression) *
     getCombatBountyMultiplier(state.progression) *
-    getAchievementMultiplier(state.progression, 'money');
+    getAchievementMultiplier(state.progression, 'money') *
+    getBossRewardMoneyMultiplier(state);
   const scaleMoney = (money: number): number => Math.max(1, Math.round(money * zoneMultiplier));
   const scaleCrystals = (crystals: number): number =>
     Math.max(0, Math.round(crystals * getAchievementMultiplier(state.progression, 'crystals')));

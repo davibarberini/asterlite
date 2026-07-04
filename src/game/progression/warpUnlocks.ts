@@ -44,18 +44,6 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     requires: ['droneSystems']
   },
   {
-    id: 'spreadBattery',
-    title: 'Spread Battery',
-    summary: 'Installs spread shot and opens the weapon-mode layer.',
-    effectSummary: 'Unlocks Spread Shot immediately.',
-    impactTarget: 'weapons',
-    impactDetail: 'Weapons tab: adds Spread Shot mode.',
-    iconId: 'warp-spread',
-    cost: 3,
-    route: { col: 3, row: 2 },
-    requires: ['droneSystems']
-  },
-  {
     id: 'deflectorFrame',
     title: 'Deflector Prow',
     summary: 'Installs a directional prow deflector for collision-based asteroid control.',
@@ -103,18 +91,6 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     route: { col: 2, row: 4 },
     requires: ['rangerHangar']
   },
-  {
-    id: 'piercingRail',
-    title: 'Piercing Rail',
-    summary: 'Stabilizes rail capacitors and installs piercing rounds immediately.',
-    effectSummary: 'Unlocks Piercing Rounds immediately.',
-    impactTarget: 'weapons',
-    impactDetail: 'Weapons tab: adds Piercing Rounds mode.',
-    iconId: 'warp-piercing',
-    cost: 8,
-    route: { col: 3, row: 3 },
-    requires: ['spreadBattery']
-  }
 ];
 
 export const WARP_UNLOCK_BY_ID = Object.fromEntries(WARP_UNLOCK_DEFINITIONS.map((unlock) => [unlock.id, unlock])) as Record<
@@ -154,13 +130,6 @@ export const applyOwnedWarpUnlockEffects = (progression: ProgressionState): void
     progression.deflectorLevel = Math.max(progression.deflectorLevel, 1);
   }
 
-  if (hasWarpUnlock(progression, 'spreadBattery')) {
-    progression.spreadUnlocked = true;
-  }
-
-  if (hasWarpUnlock(progression, 'piercingRail')) {
-    progression.piercingUnlocked = true;
-  }
 };
 
 export const purchaseWarpUnlock = (progression: ProgressionState, id: WarpUnlockId): boolean => {

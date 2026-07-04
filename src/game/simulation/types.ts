@@ -172,6 +172,16 @@ export type GameRewardEvent = {
   kind?: GameRewardKind;
 };
 
+export type BossRewardId =
+  | 'rapidFire'
+  | 'droneOverdrive'
+  | 'salvageSurge';
+
+export type BossRewardState = {
+  pendingChoiceIds: BossRewardId[];
+  activeIds: BossRewardId[];
+};
+
 export type AchievementStats = {
   asteroidsDestroyed: number;
   moneyEarned: number;
@@ -260,6 +270,7 @@ export type ShipRunState = {
   droneDamageLevel: number;
   droneFireRateLevel: number;
   droneCounts: Record<DroneType, number>;
+  activeDroneCounts: Record<DroneType, number>;
   talentRanks: TalentRanks;
   weaponMode: WeaponMode;
   mapUnlocked: boolean;
@@ -283,6 +294,7 @@ export type ProgressionState = {
   droneDamageLevel: number;
   droneFireRateLevel: number;
   droneCounts: Record<DroneType, number>;
+  activeDroneCounts: Record<DroneType, number>;
   talentRanks: TalentRanks;
   weaponMode: WeaponMode;
   spreadUnlocked: boolean;
@@ -319,6 +331,7 @@ export type GameState = {
   lastOfflineEarnings: number;
   deathPenaltyFor: number;
   droneRebootFor: number;
+  bossRewards: BossRewardState;
   phase: GamePhase;
   ship: ShipState;
   shieldBubble: ShieldBubbleState;

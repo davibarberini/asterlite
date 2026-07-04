@@ -2,17 +2,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { neutralInput } from '../input/actions';
 import { getCrystalBalance, purchaseTalentRank, spendCrystals } from '../progression/currency';
 import { createProgression } from '../simulation/state';
-import { getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../progression/idleBonuses';
+import {
+  getFireRateMultiplier,
+  getPlayerFireInterval,
+  getRefineryMilestoneMultiplier
+} from '../progression/idleBonuses';
 import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../progression/prestige';
 import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
 import { getShipExchangeRequirement } from '../progression/shipExchange';
 import { createShipFrameSwitchState } from '../progression/shipRuns';
-import { getUnlockedShipFrameIdsForExchangeCount } from '../progression/shipFrames';
+import { getShipFrameWeaponIdentity, getUnlockedShipFrameIdsForExchangeCount } from '../progression/shipFrames';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
+import { applyBossRewardChoice } from '../progression/bossRewards';
+import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateDrones } from '../simulation/systems/drones';
 import { updateBosses } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
@@ -83,6 +89,10 @@ describe('save loading', () => {
     };
     savedState.progression.ownedWarpUnlockIds = ['droneSystems'];
     savedState.progression.announcedAffordableWarpUnlockIds = ['droneSystems'];
+    savedState.bossRewards = {
+      pendingChoiceIds: ['rapidFire', 'salvageSurge'],
+      activeIds: ['droneOverdrive']
+    };
     savedState.progression.guidedMissions = {
       activeMissionId: 'defeatGateBoss',
       completedMissionIds: ['drawGateBoss'],
@@ -118,6 +128,10 @@ describe('save loading', () => {
     });
     expect(loadedState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
     expect(loadedState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems']);
+    expect(loadedState.bossRewards).toEqual({
+      pendingChoiceIds: ['rapidFire', 'salvageSurge'],
+      activeIds: ['droneOverdrive']
+    });
     expect(loadedState.progression.guidedMissions.activeMissionId).toBe('defeatGateBoss');
     expect(loadedState.progression.guidedMissions.completedMissionIds).toEqual(['drawGateBoss']);
     expect(loadedState.ship.position).toEqual({ x: 180, y: 220 });
@@ -222,7 +236,7 @@ describe('save loading', () => {
 
     const state = loadGameState(800, 600);
 
-    expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems', 'spreadBattery']);
+    expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
   });
 
   it('defaults shield bubble state for saves without shield data', () => {
@@ -312,6 +326,85 @@ describe('save loading', () => {
       hitFlashFor: 0.1
     });
   });
+
+  it('defaults missing active drone counts to all owned drones when loading saves', () => {
+    const progression = createProgression();
+    progression.droneCounts = {
+      sentry: 2,
+      ranger: 1,
+      breaker: 0
+    };
+    progression.dronesPurchased = 3;
+    const legacyProgression = { ...progression } as Partial<typeof progression>;
+    delete legacyProgression.activeDroneCounts;
+
+    window.localStorage.setItem(
+      saveKey,
+      JSON.stringify({
+        version: 1,
+        money: 0,
+        crystals: 0,
+        lastSeenAt: Date.now(),
+        progression: legacyProgression,
+        ship: {
+          position: { x: 25, y: 40 },
+          hp: 100,
+          alive: true,
+          respawnFor: 0
+        }
+      })
+    );
+
+    const state = loadGameState(800, 600);
+
+    expect(state.progression.activeDroneCounts).toEqual({
+      sentry: 2,
+      ranger: 1,
+      breaker: 0
+    });
+    expect(state.drones).toHaveLength(3);
+  });
+
+  it('clamps persisted active drone counts to owned drones', () => {
+    const progression = createProgression();
+    progression.droneCounts = {
+      sentry: 2,
+      ranger: 1,
+      breaker: 0
+    };
+    progression.activeDroneCounts = {
+      sentry: 99,
+      ranger: 0,
+      breaker: 5
+    };
+    progression.dronesPurchased = 3;
+
+    window.localStorage.setItem(
+      saveKey,
+      JSON.stringify({
+        version: 1,
+        money: 0,
+        crystals: 0,
+        lastSeenAt: Date.now(),
+        progression,
+        ship: {
+          position: { x: 25, y: 40 },
+          hp: 100,
+          alive: true,
+          respawnFor: 0
+        }
+      })
+    );
+
+    const state = loadGameState(800, 600);
+
+    expect(state.progression.activeDroneCounts).toEqual({
+      sentry: 2,
+      ranger: 0,
+      breaker: 0
+    });
+    expect(state.drones.map((drone) => drone.type)).toEqual(['sentry', 'sentry']);
+  });
 });
 
 describe('warp unlock definitions', () => {
@@ -319,12 +412,10 @@ describe('warp unlock definitions', () => {
     expect(WARP_UNLOCK_DEFINITIONS.map((unlock) => unlock.id)).toEqual([
       'droneSystems',
       'bossBeacon',
-      'spreadBattery',
       'deflectorFrame',
       'shieldBubble',
       'rangerHangar',
-      'missileFoundry',
-      'piercingRail'
+      'missileFoundry'
     ]);
 
     WARP_UNLOCK_DEFINITIONS.forEach((unlock) => {
@@ -364,13 +455,11 @@ describe('warp unlock definitions', () => {
 
     expect(cost('droneSystems')).toBe(1);
     expect(cost('bossBeacon')).toBe(2);
-    expect(cost('spreadBattery')).toBe(3);
     expect(cost('deflectorFrame')).toBeGreaterThan(cost('bossBeacon'));
     expect(cost('shieldBubble')).toBeGreaterThan(cost('deflectorFrame'));
     expect(cost('missileFoundry')).toBeGreaterThanOrEqual(8);
-    expect(cost('piercingRail')).toBeGreaterThanOrEqual(8);
-    expect(totalCost).toBeGreaterThanOrEqual(38);
-    expect(totalCost).toBeLessThanOrEqual(45);
+    expect(totalCost).toBeGreaterThanOrEqual(25);
+    expect(totalCost).toBeLessThanOrEqual(30);
   });
 
   it('paces crystal reset rewards around the first core and later technology stretch', () => {
@@ -422,14 +511,13 @@ describe('warp unlock definitions', () => {
 
     expect(purchaseWarpUnlock(progression, 'droneSystems')).toBe(true);
     expect(purchaseWarpUnlock(progression, 'bossBeacon')).toBe(true);
-    expect(purchaseWarpUnlock(progression, 'spreadBattery')).toBe(true);
     expect(purchaseWarpUnlock(progression, 'deflectorFrame')).toBe(true);
 
     expect(progression.shipDamageLevel).toBe(1);
     expect(progression.maxHp).toBe(100);
     expect(progression.armor).toBe(0);
     expect(progression.shipSpeedLevel).toBe(0);
-    expect(progression.spreadUnlocked).toBe(true);
+    expect(progression.spreadUnlocked).toBe(false);
     expect(progression.deflectorLevel).toBe(1);
     expect(progression.ownedWarpUnlockIds).toContain('bossBeacon');
     expect(progression.ownedWarpUnlockIds).toContain('droneSystems');
@@ -618,7 +706,7 @@ describe('core ship upgrades', () => {
     const progression = createProgression();
     progression.shipFireRateLevel = balance.shop.upgradeBaseCap;
 
-    expect(getFireRateMultiplier(progression)).toBe(16);
+    expect(getFireRateMultiplier(progression)).toBe(36);
     expect(getPlayerFireInterval(progression)).toBeGreaterThan(balance.shop.ship.fireRate.minimumInterval);
   });
 
@@ -636,20 +724,66 @@ describe('core ship upgrades', () => {
     expect(state.ship.fireCooldown).toBeGreaterThanOrEqual(balance.shop.ship.fireRate.minimumInterval);
   });
 
-  it('paces spread shot from the normal cannon instead of a faster standalone cooldown', () => {
+  it('keeps standard ships on the baseline cannon even with legacy weapon mode state', () => {
     const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'vector';
     state.progression.spreadUnlocked = true;
     state.progression.weaponMode = 'spread';
     state.progression.shipDamageLevel = 10;
 
     firePlayerWeapon(state);
 
-    expect(state.bullets).toHaveLength(balance.weapons.spreadAngleOffsets.length);
-    expect(state.ship.fireCooldown).toBeCloseTo(balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier);
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('standard');
+    expect(state.bullets).toHaveLength(1);
+    expect(state.ship.fireCooldown).toBeCloseTo(balance.weapons.playerFireInterval);
     expect(state.bullets[0]?.damage).toBeCloseTo(
       state.progression.shipDamageLevel *
-        balance.weapons.playerDamageMultiplier *
-        balance.weapons.spreadDamageMultiplier
+        balance.weapons.playerDamageMultiplier
+    );
+  });
+
+  it('keeps standard ship piercing legacy state from changing its shot pattern', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'vector';
+    state.progression.piercingUnlocked = true;
+    state.progression.weaponMode = 'piercing';
+
+    firePlayerWeapon(state);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('standard');
+    expect(state.bullets).toHaveLength(1);
+    expect(state.bullets[0]?.pierceLeft).toBe(0);
+  });
+
+  it('fires prism as a spread ship without the spread technology mode', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'prism';
+    state.progression.spreadUnlocked = false;
+    state.progression.weaponMode = 'cannon';
+    state.progression.shipDamageLevel = 10;
+
+    firePlayerWeapon(state);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('spread');
+    expect(state.bullets).toHaveLength(balance.weapons.spreadAngleOffsets.length);
+    expect(state.ship.fireCooldown).toBeCloseTo(
+      getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier)
+    );
+  });
+
+  it('fires needle as a piercing ship without the piercing technology mode', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'needle';
+    state.progression.piercingUnlocked = false;
+    state.progression.weaponMode = 'cannon';
+
+    firePlayerWeapon(state);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('piercing');
+    expect(state.bullets).toHaveLength(1);
+    expect(state.bullets[0]?.pierceLeft).toBe(balance.weapons.piercingCount);
+    expect(state.ship.fireCooldown).toBeCloseTo(
+      getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier)
     );
   });
 
@@ -658,27 +792,47 @@ describe('core ship upgrades', () => {
     state.progression.activeShipFrameId = 'nivitron';
     state.progression.unlockedShipFrameIds = ['vector', 'nivitron'];
     state.ship.rotation = 0;
-    state.ship.turretAngle = Math.PI / 2;
+    state.ship.turretAngle = 0;
 
     firePlayerWeapon(state);
 
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('turret');
     expect(state.bullets).toHaveLength(1);
-    expect(state.bullets[0]?.velocity.x).toBeCloseTo(state.ship.velocity.x);
-    expect(state.bullets[0]?.velocity.y).toBeGreaterThan(0);
+    expect(state.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretStepAngle);
+    expect(state.bullets[0]?.velocity.x).toBeCloseTo(Math.cos(balance.weapons.nivitronTurretStepAngle) * balance.weapons.bulletSpeed);
+    expect(state.bullets[0]?.velocity.y).toBeCloseTo(Math.sin(balance.weapons.nivitronTurretStepAngle) * balance.weapons.bulletSpeed);
     expect(state.ship.fireCooldown).toBeCloseTo(
       getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier)
     );
   });
 
-  it('scales nivitron turret rotation from attack speed upgrades', () => {
+  it('keeps nivitron turret rotation tied to shots while attack speed lowers the next shot delay', () => {
+    const baseState = createGameState(800, 600);
+    baseState.progression.activeShipFrameId = 'nivitron';
+    baseState.ship.turretAngle = 0;
+
+    const fastState = createGameState(800, 600);
+    fastState.progression.activeShipFrameId = 'nivitron';
+    fastState.ship.turretAngle = 0;
+    fastState.progression.shipFireRateLevel = 10;
+
+    updateGame(baseState, neutralInput(), 0.016);
+    updateGame(fastState, neutralInput(), 0.016);
+
+    expect(baseState.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretStepAngle);
+    expect(fastState.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretStepAngle);
+    expect(fastState.ship.fireCooldown).toBeLessThan(baseState.ship.fireCooldown);
+  });
+
+  it('auto fires nivitron without movement or fire input', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'nivitron';
-    state.ship.turretAngle = 0;
-    state.progression.shipFireRateLevel = 10;
+    state.ship.fireCooldown = 0;
 
-    updateGame(state, neutralInput(), 1);
+    updateGame(state, neutralInput(), 0.016);
 
-    expect(state.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretRotationSpeed * getFireRateMultiplier(state.progression));
+    expect(state.bullets).toHaveLength(1);
+    expect(state.ship.fireCooldown).toBeGreaterThan(0);
   });
 
   it('scales drone damage from the current ship damage', () => {
@@ -742,6 +896,54 @@ describe('boss gates and warp reset', () => {
       expect(zone.identity.fieldTintAlpha).toBeGreaterThan(0);
       expect(balance.asteroids.variantWeights[zone.id].some((entry) => entry.variant === zone.identity.variantFocus)).toBe(true);
     });
+  });
+
+  it('creates a pending run reward choice when a route boss is defeated', () => {
+    const state = createGameState(800, 600);
+    const boss = makeBossAsteroid(1);
+    state.asteroids = [boss];
+    state.bullets = [
+      {
+        id: 900,
+        owner: 'player',
+        position: { ...boss.position },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 4,
+        damage: boss.hp,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.progression.bossDefeats).toBe(1);
+    expect(state.bossRewards.pendingChoiceIds).toEqual(['rapidFire', 'droneOverdrive', 'salvageSurge']);
+    expect(state.bossRewards.activeIds).toEqual([]);
+  });
+
+  it('applies boss reward choices as temporary run modifiers', () => {
+    const state = createGameState(800, 600);
+    state.bossRewards.pendingChoiceIds = ['rapidFire', 'droneOverdrive', 'salvageSurge'];
+
+    expect(applyBossRewardChoice(state, 'rapidFire')).toBe(true);
+    firePlayerWeapon(state);
+
+    expect(state.bossRewards.activeIds).toEqual(['rapidFire']);
+    expect(state.bossRewards.pendingChoiceIds).toEqual([]);
+    expect(state.ship.fireCooldown).toBeCloseTo(getPlayerFireInterval(state.progression) * 0.82);
+  });
+
+  it('applies salvage boss reward to later credit payouts', () => {
+    const baseState = createGameState(800, 600);
+    const boostedState = createGameState(800, 600);
+    boostedState.bossRewards.activeIds = ['salvageSurge'];
+    const asteroid = createAsteroid(baseState, 'large', { x: 0, y: 0 }, { x: 0, y: 0 }, 'common');
+
+    expect(getAsteroidReward(boostedState, asteroid).money).toBeGreaterThan(getAsteroidReward(baseState, asteroid).money);
   });
 
   it('fires prism boss shots as limited ricochet projectiles', () => {
@@ -1104,7 +1306,7 @@ describe('boss gates and warp reset', () => {
     state.money = 5000;
     state.crystals = 48;
     state.progression.prestigeCores = 2;
-    state.progression.ownedWarpUnlockIds = ['droneSystems', 'bossBeacon', 'spreadBattery'];
+    state.progression.ownedWarpUnlockIds = ['droneSystems', 'bossBeacon'];
     state.progression.announcedAffordableWarpUnlockIds = ['droneSystems', 'bossBeacon'];
     state.progression.maxHp = 150;
     state.progression.shipDamageLevel = 2;
@@ -1126,6 +1328,8 @@ describe('boss gates and warp reset', () => {
     state.progression.unlockedZoneIndex = 3;
     state.progression.currentZoneIndex = 3;
     state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids;
+    state.bossRewards.activeIds = ['rapidFire'];
+    state.bossRewards.pendingChoiceIds = ['droneOverdrive'];
     state.progression.achievementStats.asteroidsDestroyed = 120;
     state.progression.achievementStats.prestigeWarps = 4;
     state.progression.unlockedAchievements.firstBlood = true;
@@ -1135,12 +1339,14 @@ describe('boss gates and warp reset', () => {
     expect(nextState.money).toBe(0);
     expect(nextState.crystals).toBe(0);
     expect(nextState.progression.prestigeCores).toBe(5);
-    expect(nextState.progression.ownedWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon', 'spreadBattery']);
+    expect(nextState.progression.ownedWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon']);
     expect(nextState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems', 'bossBeacon']);
     expect(nextState.progression.maxHp).toBe(100);
     expect(nextState.progression.shipDamageLevel).toBe(1);
     expect(nextState.progression.shipFireRateLevel).toBe(0);
     expect(nextState.progression.passiveIncomeLevel).toBe(0);
+    expect(nextState.bossRewards.activeIds).toEqual([]);
+    expect(nextState.bossRewards.pendingChoiceIds).toEqual([]);
     expect(nextState.progression.shipExchanges).toBe(1);
     expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector', 'nivitron', 'kestrel']);
     expect(nextState.progression.activeShipFrameId).toBe('kestrel');

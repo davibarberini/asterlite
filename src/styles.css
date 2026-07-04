@@ -873,6 +873,25 @@ canvas {
   align-items: stretch;
 }
 
+.shop-action-row--with-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.shop-action-row--with-info.shop-action-row--with-control {
+  grid-template-columns: minmax(0, 1fr) 32px;
+}
+
+.shop-action-row--with-info.shop-action-row--with-control .drone-deploy-control {
+  grid-column: 1;
+}
+
+.shop-action-row--with-info.shop-action-row--with-control .shop-info-button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
 .shop-buy {
   width: 100%;
   min-height: 38px;
@@ -932,6 +951,59 @@ canvas {
   width: 42px;
   height: 42px;
   overflow: hidden;
+}
+
+.drone-deploy-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 1px solid rgba(164, 214, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(5, 14, 20, 0.42);
+}
+
+.drone-deploy-control__label {
+  min-width: 0;
+  color: rgba(198, 222, 238, 0.76);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.drone-deploy-control__stepper {
+  display: grid;
+  grid-template-columns: 28px minmax(46px, auto) 28px;
+  align-items: center;
+  gap: 5px;
+}
+
+.drone-deploy-control__button {
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(131, 255, 220, 0.28);
+  border-radius: 6px;
+  background: rgba(131, 255, 220, 0.1);
+  color: rgba(245, 253, 255, 0.94);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.drone-deploy-control__button:disabled {
+  opacity: 0.32;
+}
+
+.drone-deploy-control__value {
+  color: rgba(245, 253, 255, 0.94);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  text-align: center;
 }
 
 .drone-type-icon {
@@ -1124,7 +1196,7 @@ canvas {
 
 .ship-frame-item {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 7px;
   min-width: 0;
@@ -1161,8 +1233,8 @@ canvas {
 }
 
 .ship-frame-preview {
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   color: rgba(216, 255, 245, 0.9);
 }
 
@@ -1171,6 +1243,10 @@ canvas {
   stroke: currentColor;
   stroke-linejoin: round;
   stroke-width: 2.2;
+}
+
+.ship-frame-preview__hull--nivitron {
+  stroke-width: 1.25;
 }
 
 .ship-frame-preview__core {
@@ -1529,6 +1605,15 @@ canvas {
   color: rgba(198, 222, 238, 0.84);
   font-size: 13px;
   line-height: 1.35;
+}
+
+.boss-reward-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.boss-reward-choice {
+  min-height: 74px;
 }
 
 .skill-tree-root {

@@ -1,4 +1,5 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
+import { queueBossRewardChoices } from '../../progression/bossRewards';
 import { getMissileSplashDamage, getMissileSplashRadius, getShotgunPelletDamage, hasMissileExplosion } from '../../progression/talentTree';
 import type { GameState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
@@ -400,6 +401,7 @@ const destroyAsteroid = (
     state.progression.mapUnlocked = true;
     state.progression.bossDefeats += 1;
     state.progression.bossDiscovery.rareBossProgress = 0;
+    queueBossRewardChoices(state);
     emitAudio(state, { type: 'bossDefeated' });
     emitAudio(state, { type: 'zoneUnlocked' });
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');

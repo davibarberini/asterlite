@@ -9,9 +9,16 @@ const cloneDroneCounts = (run: ShipRunState): ShipRunState['droneCounts'] => ({
   breaker: run.droneCounts.breaker
 });
 
+const cloneActiveDroneCounts = (run: ShipRunState): ShipRunState['activeDroneCounts'] => ({
+  sentry: run.activeDroneCounts.sentry,
+  ranger: run.activeDroneCounts.ranger,
+  breaker: run.activeDroneCounts.breaker
+});
+
 const cloneRun = (run: ShipRunState): ShipRunState => ({
   ...run,
   droneCounts: cloneDroneCounts(run),
+  activeDroneCounts: cloneActiveDroneCounts(run),
   talentRanks: { ...run.talentRanks },
   bossDiscovery: { ...run.bossDiscovery }
 });
@@ -29,6 +36,7 @@ export const createDefaultShipRun = (): ShipRunState => {
     droneDamageLevel: progression.droneDamageLevel,
     droneFireRateLevel: progression.droneFireRateLevel,
     droneCounts: { ...progression.droneCounts },
+    activeDroneCounts: { ...progression.activeDroneCounts },
     talentRanks: { ...progression.talentRanks },
     weaponMode: progression.weaponMode,
     mapUnlocked: progression.mapUnlocked,
@@ -55,6 +63,7 @@ export const captureActiveShipRun = (state: GameState): ShipRunState => ({
   droneDamageLevel: state.progression.droneDamageLevel,
   droneFireRateLevel: state.progression.droneFireRateLevel,
   droneCounts: { ...state.progression.droneCounts },
+  activeDroneCounts: { ...state.progression.activeDroneCounts },
   talentRanks: { ...state.progression.talentRanks },
   weaponMode: state.progression.weaponMode,
   mapUnlocked: state.progression.mapUnlocked,
@@ -89,6 +98,7 @@ export const applyShipRunToProgression = (
     droneDamageLevel: run.droneDamageLevel,
     droneFireRateLevel: run.droneFireRateLevel,
     droneCounts: cloneDroneCounts(run),
+    activeDroneCounts: cloneActiveDroneCounts(run),
     talentRanks: { ...run.talentRanks },
     weaponMode: run.weaponMode,
     mapUnlocked: run.mapUnlocked,
