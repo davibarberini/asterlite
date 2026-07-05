@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getActiveShipFrame } from '../../game/progression/shipFrames';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
-import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
+import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, SurvivalHazardState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
 import {
   NIVITRON_HAND_DIAMOND_RADIUS,
@@ -76,6 +76,11 @@ export class VectorRenderer {
         this.drawAsteroid(state, asteroid);
       }
     });
+    state.hazards.forEach((hazard) => {
+      if (this.isCircleOnScreen(state, hazard.position.x, hazard.position.y, hazard.radius + 18)) {
+        this.drawSurvivalHazard(state, hazard);
+      }
+    });
     this.drawAsteroidFlashes(state, now);
     state.bullets.forEach((bullet) => {
       if (this.isCircleOnScreen(state, bullet.position.x, bullet.position.y, bullet.radius + 8)) {
@@ -120,6 +125,26 @@ export class VectorRenderer {
     for (let y = yOffset; y < state.height; y += gap) {
       this.graphics.lineBetween(0, y, state.width, y);
     }
+  }
+
+  private drawSurvivalHazard(state: GameState, hazard: SurvivalHazardState): void {
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, hazard.position.x);
+    const y = this.toScreenY(state, hazard.position.y);
+    const radius = hazard.radius * viewScale;
+    const armed = hazard.armFor <= 0;
+    const pulse = 0.5 + Math.sin((hazard.age + hazard.id * 0.17) * 5.2) * 0.5;
+    const color = armed ? 0xff6f5f : 0xfff1a8;
+
+    this.graphics.lineStyle(1, color, armed ? 0.32 + pulse * 0.22 : 0.22);
+    this.graphics.strokeCircle(x, y, radius + (armed ? 6 + pulse * 3 : 3) * viewScale);
+    this.graphics.fillStyle(color, armed ? 0.18 : 0.1);
+    this.graphics.fillCircle(x, y, radius * 0.72);
+    this.graphics.lineStyle(2, color, armed ? 0.9 : 0.48);
+    this.graphics.strokeCircle(x, y, radius);
+    this.graphics.lineStyle(1, 0xf5fdff, armed ? 0.5 : 0.26);
+    this.graphics.lineBetween(x - radius * 0.56, y, x + radius * 0.56, y);
+    this.graphics.lineBetween(x, y - radius * 0.56, x, y + radius * 0.56);
   }
 
   private drawZoneFieldTint(state: GameState): void {

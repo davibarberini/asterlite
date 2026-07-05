@@ -84,6 +84,30 @@ export const resolveCollisions = (state: GameState): void => {
   }
 
   if (state.ship.alive && state.ship.invulnerableFor <= 0) {
+    const detonatedHazardIds = new Set<number>();
+    for (const hazard of state.hazards) {
+      if (hazard.armFor > 0 || distance(state.ship.position, hazard.position) >= getShipThreatRadius(state) + hazard.radius) {
+        continue;
+      }
+
+      detonatedHazardIds.add(hazard.id);
+      repelShipFromContact(state, hazard.position, getShipThreatRadius(state) + hazard.radius, balance.collisions.enemyContactKnockback);
+      burstParticles(state, hazard.position, 18, 190);
+      if (!absorbShieldBubbleHit(state, hazard.position, 90)) {
+        damageShip(state, hazard.damage);
+      }
+      break;
+    }
+    if (detonatedHazardIds.size > 0) {
+      state.hazards = state.hazards.filter((hazard) => !detonatedHazardIds.has(hazard.id));
+    }
+
+    if (!state.ship.alive) {
+      state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
+      state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
+      return;
+    }
+
     for (const asteroid of nextAsteroids) {
       if (
         !destroyedAsteroidIds.has(asteroid.id) &&

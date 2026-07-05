@@ -4,6 +4,19 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Survival Proximity Mines
+
+Added the first survival-only hazard for Nova Crown escalation.
+
+Notes:
+- Added serializable `proximityMine` hazard state and a survival hazard system.
+- Added a serializable rare-spawn system with `proximityMine` as its first spawn kind.
+- Rare proximity mines can now appear from Vega Drift onward before the player reaches Nova Crown.
+- Proximity mines begin spawning only after Nova Crown reaches the configured threat threshold.
+- Mines drift in from the screen edge, arm after a short delay, detonate on ship contact, respect shield bubble absorption, and are cleared when leaving survival.
+- The vector renderer draws mines with a compact warning ring and armed-state pulse.
+- Added tests for spawn eligibility and mine detonation damage.
+
 ### Nova Crown Survival Foundation
 
 Turned the final zone into the first endgame survival benchmark for build testing.
@@ -296,12 +309,11 @@ Notes:
 
 ## Ready
 
-### Survival Enemy and Hazard Escalation
+### Survival Hunter and Hazard Escalation
 
-Add readable dangers that enter the survival zone as threat rises.
+Continue adding readable dangers that enter the survival zone as threat rises.
 
 Priority order:
-- Proximity mines or drifting hazards with clear warning visuals.
 - A simple hunter enemy that pressures movement without filling the screen.
 - Elite saucer variants with distinct fire patterns.
 - Timed hazard events such as meteor lanes, gravity pulses, or damage fields.

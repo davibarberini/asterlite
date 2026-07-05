@@ -6,6 +6,7 @@ import { getShipFrameBonusMultiplier } from '../progression/shipFrames';
 import { createTalentRanks } from '../progression/talentTree';
 import { emitAudio } from './events';
 import { createAsteroidField } from './systems/asteroids';
+import { createRareSpawnState } from './systems/rareSpawns';
 import { createSurvivalState } from './systems/survival';
 import { maxTravelLevel } from './zones';
 import { balance } from '../balance';
@@ -161,6 +162,7 @@ export const createGameState = (width: number, height: number, progression = cre
     deathPenaltyFor: 0,
     droneRebootFor: 0,
     bossRewards: createBossRewardState(),
+    rareSpawns: createRareSpawnState(),
     phase: 'playing',
     ship: createShip(width, height, progression),
     shieldBubble: createShieldBubble(normalizedProgression),
@@ -168,6 +170,7 @@ export const createGameState = (width: number, height: number, progression = cre
     drones: [],
     progression: normalizedProgression,
     asteroids: [],
+    hazards: [],
     bullets: [],
     particles: [],
     audioEvents: [],

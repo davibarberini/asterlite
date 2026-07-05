@@ -144,6 +144,19 @@ export type ParticleState = {
   size: number;
 };
 
+export type SurvivalHazardKind = 'proximityMine';
+
+export type SurvivalHazardState = {
+  id: number;
+  kind: SurvivalHazardKind;
+  position: Vec2;
+  velocity: Vec2;
+  radius: number;
+  age: number;
+  armFor: number;
+  damage: number;
+};
+
 export type GamePhase = 'playing' | 'respawning';
 
 export type GameAudioEvent =
@@ -182,11 +195,18 @@ export type BossRewardState = {
   activeIds: BossRewardId[];
 };
 
+export type RareSpawnKind = 'proximityMine';
+
+export type RareSpawnState = {
+  cooldowns: Record<RareSpawnKind, number>;
+};
+
 export type SurvivalState = {
   active: boolean;
   currentSeconds: number;
   threatLevel: number;
   lastAnnouncedThreatLevel: number;
+  hazardSpawnCooldown: number;
 };
 
 export type AchievementStats = {
@@ -341,6 +361,7 @@ export type GameState = {
   deathPenaltyFor: number;
   droneRebootFor: number;
   bossRewards: BossRewardState;
+  rareSpawns: RareSpawnState;
   phase: GamePhase;
   ship: ShipState;
   shieldBubble: ShieldBubbleState;
@@ -348,6 +369,7 @@ export type GameState = {
   drones: DroneState[];
   progression: ProgressionState;
   asteroids: AsteroidState[];
+  hazards: SurvivalHazardState[];
   bullets: BulletState[];
   particles: ParticleState[];
   audioEvents: GameAudioEvent[];

@@ -2904,6 +2904,7 @@ export class GameScene extends Phaser.Scene {
     this.closeModal();
     this.closeShopDrawer();
     this.state.asteroids = [];
+    this.state.hazards = [];
     this.state.bullets = [];
     this.state.particles = [];
     this.state.saucer = null;
@@ -2928,6 +2929,7 @@ export class GameScene extends Phaser.Scene {
       drone.position = { ...this.state.ship.position };
     });
     this.state.asteroids = createAsteroidField(this.state);
+    this.state.hazards = [];
     this.state.bullets = [];
     this.state.particles = [];
     this.state.saucer = null;

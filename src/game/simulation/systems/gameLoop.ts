@@ -5,8 +5,10 @@ import { resolveCollisions } from './collisions';
 import { updateDrones } from './drones';
 import { updateBosses, updatePendingBoss, updateSaucer } from './enemies';
 import { updateParticles } from './particles';
+import { updateRareSpawns } from './rareSpawns';
 import { updateCamera, updateShipMovement } from './shipMovement';
 import { updateSurvival } from './survival';
+import { updateSurvivalHazards } from './survivalHazards';
 import { updateBullets } from './weapons';
 import { emitAudio, emitReward } from '../events';
 import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
@@ -46,6 +48,8 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
   updateParticles(state, dt);
   resolveCollisions(state);
   updateSurvival(state, dt);
+  updateRareSpawns(state, dt);
+  updateSurvivalHazards(state, dt);
   updateBossDiscovery(state);
   maintainAsteroidField(state);
   syncAchievements(state.progression, (def) => {

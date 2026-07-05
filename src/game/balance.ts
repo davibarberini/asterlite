@@ -54,7 +54,27 @@ export const balance = {
     asteroidDensityPerThreat: 1,
     maxAsteroidDensityBonus: 12,
     asteroidSpeedPerThreat: 0.055,
-    maxAsteroidSpeedMultiplier: 1.75
+    maxAsteroidSpeedMultiplier: 1.75,
+    mines: {
+      startsAtThreatLevel: 3,
+      maxCount: 5,
+      spawnInterval: 5.5,
+      spawnIntervalThreatReduction: 0.32,
+      minimumSpawnInterval: 2.8,
+      speed: [14, 34],
+      radius: 15,
+      armSeconds: 1.1,
+      damage: 34,
+      spawnMargin: 110
+    }
+  },
+  rareSpawns: {
+    proximityMine: {
+      startsAtZoneIndex: 2,
+      maxCount: 1,
+      initialCooldown: 16,
+      interval: [24, 38]
+    }
   },
   drones: {
     orbitSpeed: 1.85,

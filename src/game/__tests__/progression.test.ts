@@ -22,7 +22,9 @@ import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateDrones } from '../simulation/systems/drones';
 import { updateBosses } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
+import { updateRareSpawns } from '../simulation/systems/rareSpawns';
 import { getSurvivalThreatLevel } from '../simulation/systems/survival';
+import { updateSurvivalHazards } from '../simulation/systems/survivalHazards';
 import { firePlayerWeapon } from '../simulation/systems/weapons';
 import { zones } from '../simulation/zones';
 import type { AsteroidState, PendingBossState } from '../simulation/types';
@@ -1542,7 +1544,8 @@ describe('nova crown survival', () => {
       active: true,
       currentSeconds: 76,
       threatLevel: 3,
-      lastAnnouncedThreatLevel: 3
+      lastAnnouncedThreatLevel: 3,
+      hazardSpawnCooldown: 0
     };
     state.progression.survivalBestSeconds = 76;
     state.progression.survivalBestThreatLevel = 3;
@@ -1555,5 +1558,70 @@ describe('nova crown survival', () => {
     expect(loaded.survival.threatLevel).toBe(3);
     expect(loaded.progression.survivalBestSeconds).toBe(76);
     expect(loaded.progression.survivalBestThreatLevel).toBe(3);
+  });
+
+  it('spawns proximity mines only after survival threat reaches the mine threshold', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = balance.survival.mines.startsAtThreatLevel - 1;
+    state.survival.hazardSpawnCooldown = 0;
+
+    updateSurvivalHazards(state, 1);
+
+    expect(state.hazards).toHaveLength(0);
+
+    state.survival.threatLevel = balance.survival.mines.startsAtThreatLevel;
+    updateSurvivalHazards(state, 1);
+
+    expect(state.hazards).toHaveLength(1);
+    expect(state.hazards[0]?.kind).toBe('proximityMine');
+  });
+
+  it('uses the rare spawn system to introduce scarce mines from the third zone onward', () => {
+    const earlyState = createGameState(800, 600);
+    earlyState.progression.unlockedZoneIndex = 1;
+    earlyState.progression.currentZoneIndex = 1;
+    earlyState.progression.travelLevel = 1;
+    earlyState.rareSpawns.cooldowns.proximityMine = 0;
+
+    updateRareSpawns(earlyState, 1);
+
+    expect(earlyState.hazards).toHaveLength(0);
+
+    const thirdZoneState = createGameState(800, 600);
+    thirdZoneState.progression.unlockedZoneIndex = 2;
+    thirdZoneState.progression.currentZoneIndex = 2;
+    thirdZoneState.progression.travelLevel = 2;
+    thirdZoneState.rareSpawns.cooldowns.proximityMine = 0;
+
+    updateRareSpawns(thirdZoneState, 1);
+
+    expect(thirdZoneState.hazards).toHaveLength(1);
+    expect(thirdZoneState.hazards[0]?.kind).toBe('proximityMine');
+    expect(thirdZoneState.rareSpawns.cooldowns.proximityMine).toBeGreaterThan(0);
+  });
+
+  it('detonates armed proximity mines against the ship', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.ship.invulnerableFor = 0;
+    state.hazards = [
+      {
+        id: 999,
+        kind: 'proximityMine',
+        position: { ...state.ship.position },
+        velocity: { x: 0, y: 0 },
+        radius: balance.survival.mines.radius,
+        age: 2,
+        armFor: 0,
+        damage: balance.survival.mines.damage
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.hazards).toHaveLength(0);
+    expect(state.ship.hp).toBe(100 - balance.survival.mines.damage);
   });
 });

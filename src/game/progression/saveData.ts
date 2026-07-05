@@ -12,12 +12,13 @@ import { createBossRewardState, normalizeBossRewardState } from './bossRewards';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, getUnlockedShipFrameIdsForExchangeCount, normalizeShipFrameIds } from './shipFrames';
-import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, ShieldBubbleState, ShipFrameId, ShipRunState, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
 import { captureActiveShipRun } from './shipRuns';
+import { createRareSpawnState } from '../simulation/systems/rareSpawns';
 import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/systems/survival';
 
 const SAVE_KEY = 'asteridle.save.v1';
@@ -44,6 +45,7 @@ type SavedGameV1 = {
   };
   shieldBubble: ShieldBubbleState;
   bossRewards?: BossRewardState;
+  rareSpawns?: RareSpawnState;
   survival?: SurvivalState;
 };
 
@@ -198,7 +200,21 @@ const readSurvival = (value: unknown): SurvivalState => {
     active: value.active === true && currentSeconds > 0,
     currentSeconds,
     threatLevel,
-    lastAnnouncedThreatLevel: Math.max(0, Math.floor(readNumber(value.lastAnnouncedThreatLevel, threatLevel)))
+    lastAnnouncedThreatLevel: Math.max(0, Math.floor(readNumber(value.lastAnnouncedThreatLevel, threatLevel))),
+    hazardSpawnCooldown: readNonNegativeNumber(value.hazardSpawnCooldown, 0)
+  };
+};
+
+const readRareSpawns = (value: unknown): RareSpawnState => {
+  const fallback = createRareSpawnState();
+  if (!isRecord(value) || !isRecord(value.cooldowns)) {
+    return fallback;
+  }
+
+  return {
+    cooldowns: {
+      proximityMine: readNonNegativeNumber(value.cooldowns.proximityMine, fallback.cooldowns.proximityMine)
+    }
   };
 };
 
@@ -520,6 +536,7 @@ const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => 
     },
     shieldBubble: readShieldBubble(value.shieldBubble, progression),
     bossRewards: readBossRewards(value.bossRewards),
+    rareSpawns: readRareSpawns(value.rareSpawns),
     survival: readSurvival(value.survival)
   };
 };
@@ -587,6 +604,7 @@ export const loadGameState = (width: number, height: number): GameState => {
   state.phase = state.ship.alive ? 'playing' : 'respawning';
   state.shieldBubble = { ...saved.shieldBubble };
   state.bossRewards = normalizeBossRewardState(saved.bossRewards ?? createBossRewardState());
+  state.rareSpawns = readRareSpawns(saved.rareSpawns);
   state.survival = { ...readSurvival(saved.survival) };
   if (state.progression.currentZoneIndex < maxTravelLevel || !state.ship.alive) {
     state.survival = createSurvivalState();
@@ -627,6 +645,9 @@ export const saveGameState = (state: GameState): void => {
     bossRewards: {
       pendingChoiceIds: [...state.bossRewards.pendingChoiceIds],
       activeIds: [...state.bossRewards.activeIds]
+    },
+    rareSpawns: {
+      cooldowns: { ...state.rareSpawns.cooldowns }
     },
     survival: { ...state.survival }
   };
