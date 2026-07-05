@@ -66,7 +66,7 @@ Notes:
 - Added a modal choice UI that waits for priority popups before opening.
 - Added tests for boss defeat choice generation, choice application, credit reward scaling, save/load persistence, and reset clearing.
 
-### Ship Weapon Identity and Info-Only Weapons Tab
+### Ship Weapon Identity
 
 Moved combat identity onto ship frames instead of selectable Technology weapon modes.
 
@@ -76,7 +76,7 @@ Notes:
 - Prism now fires as a spread/refraction ship even when Spread Battery is not installed.
 - Needle now fires as a piercing/rail ship even when Piercing Rail is not installed.
 - Nivitron now uses the same data model for its rotating turret identity.
-- Manual weapon selection was removed; the Weapons tab is now information-only for the active ship weapon.
+- Manual weapon selection was removed; ship weapon identity now appears in the Hangar.
 - Spread Battery and Piercing Rail were removed from the active Technology route because ship identity now owns those patterns.
 - Legacy save fields for old weapon modes remain tolerated but no longer drive standard ship firing.
 - Added tests covering legacy mode compatibility, Prism spread identity, Needle piercing identity, and Nivitron turret compatibility.
@@ -314,7 +314,7 @@ Notes:
 - Added the four starting upgrade tracks: shot damage, fire rate, hull, and income.
 - Added a base upgrade cap of 500 levels so Technologies can raise it later.
 - Renamed the Warp tab/tree surface to `Technologies` while keeping warp cores as the currency.
-- Hidden Drones, Skills, Weapons, Achievements, and Technologies tabs until their related progression state exists.
+- Hidden Drones, Skills, Achievements, and Technologies tabs until their related progression state exists.
 - Moved crystal asteroid spawning out of the first zone so Skills appears later.
 - Added automatic first gate boss detection after the early asteroid kill target.
 - Added save/default handling and tests for fire rate progression.
@@ -359,7 +359,7 @@ Priority order:
 
 Acceptance:
 - At least one new ship weapon identity changes combat style without adding non-serializable state.
-- The Weapons/Hangar UI previews the identity clearly.
+- The Hangar UI previews the identity clearly.
 - Tests cover the new weapon behavior.
 
 ### Survival Run Modifiers
@@ -574,9 +574,9 @@ Made the warp-core route its own dedicated shop tab.
 Notes:
 - Rendered the warp-core tree as the only content in a dedicated Warp tab.
 - Kept the Upgrades tab focused on Ore Refinery and removed unrelated map/warp/core stats from it.
-- Kept the Weapons tab focused on weapon mode switching and removed ship-stat information from it.
+- Kept the old weapon-mode surface separate from ship-stat information before weapon identity moved into the Hangar.
 - Added purchasable core nodes for Hull Reinforcement, Cannon Amplifier, Armor Plating, Flight Thrusters, Deflector Frame, Spread Battery, Piercing Rail, and drone-family access.
-- Core nodes now install their effect directly; ship stats and weapon unlocks no longer require separate credit purchases from the Weapons tab.
+- Core nodes now install their effect directly; ship stats and old weapon unlocks no longer require separate credit purchases.
 - Drones remain credit purchases after their matching core node is installed.
 - Warp reset now preserves permanent core route effects, and old saves migrate previously purchased ship/weapon/drone access into owned core nodes.
 
@@ -828,7 +828,7 @@ Notes:
 - Saves now track `weaponMode`, `spreadUnlocked`, and `piercingUnlocked`.
 - Spread Shot fires three lower-damage shots with a slower cooldown for crowd control.
 - Piercing Rounds fire a faster shot that can pass through one asteroid before expiring.
-- The Weapons tab shows the active weapon and provides unlock/set buttons.
+- The original implementation exposed active weapon selection through a now-removed weapon surface.
 
 ### Better Death Loop
 

@@ -27,7 +27,6 @@ type TranslationKey =
   | 'nav.hangar'
   | 'nav.drones'
   | 'nav.skills'
-  | 'nav.weapons'
   | 'nav.achievements'
   | 'unit.crystals'
   | 'unit.ranks'
@@ -121,7 +120,6 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'nav.hangar': 'Hangar',
     'nav.drones': 'Drones',
     'nav.skills': 'Skills',
-    'nav.weapons': 'Weapons',
     'nav.achievements': 'Achievements',
     'unit.crystals': 'crystals',
     'unit.ranks': 'ranks',
@@ -214,7 +212,6 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'nav.hangar': 'Hangar',
     'nav.drones': 'Drones',
     'nav.skills': 'Habilidades',
-    'nav.weapons': 'Armas',
     'nav.achievements': 'Conquistas',
     'unit.crystals': 'cristais',
     'unit.ranks': 'níveis',

@@ -19,7 +19,7 @@ import {
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { isSurvivalZone } from '../../game/simulation/systems/survival';
 import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, zones } from '../../game/simulation/zones';
-import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../../game/progression/prestige';
+import { createWarpResetState, getPrestigeCoreGain } from '../../game/progression/prestige';
 import { getActiveGuidedMissionProgress, type GuidedMissionProgress } from '../../game/progression/guidedMissions';
 import {
   ACHIEVEMENT_BONUS_LABELS,
@@ -36,28 +36,21 @@ import { BackgroundMusic } from '../audio/BackgroundMusic';
 import { RetroSound } from '../audio/RetroSound';
 import { AudioSettingsController } from '../ui/AudioSettingsController';
 import { InfoModalController, type ModalContent } from '../ui/InfoModalController';
+import { HangarController } from '../ui/HangarController';
 import { RewardFeedController } from '../ui/RewardFeedController';
 import { SkillTreeModalController } from '../ui/SkillTreeModalController';
 import { WarpCoreTreeController } from '../ui/WarpCoreTreeController';
 import { ZoneMapController } from '../ui/ZoneMapController';
 import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
-import { NIVITRON_HAND_DIAMOND_CENTER, NIVITRON_HAND_PATHS, NIVITRON_HAND_VIEWBOX } from '../view/nivitronHandShape';
 import { balance } from '../../game/balance';
-import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
-import { getShipExchangeRequirement, type ShipExchangeRequirement } from '../../game/progression/shipExchange';
-import {
-  SHIP_FRAME_DEFINITIONS,
-  SHIP_FRAME_BY_ID,
-  getActiveShipFrame,
-  getShipFrameBonusMultiplier,
-  getShipFrameWeaponIdentity,
-  type ShipWeaponIdentity
-} from '../../game/progression/shipFrames';
+import { WARP_UNLOCK_BY_ID, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
+import { getShipExchangeRequirement } from '../../game/progression/shipExchange';
+import { getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
 import { createShipFrameSwitchState } from '../../game/progression/shipRuns';
-import { formatCoreUnit, formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
+import { formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
 
-type ShopTab = 'upgrades' | 'warp' | 'hangar' | 'drones' | 'skills' | 'weapons' | 'achievements';
+type ShopTab = 'upgrades' | 'warp' | 'hangar' | 'drones' | 'skills' | 'achievements';
 type DockTab = ShopTab | 'map';
 
 type ShopAction = {
@@ -102,6 +95,7 @@ export class GameScene extends Phaser.Scene {
   private backgroundMusic!: BackgroundMusic;
   private audioSettings!: AudioSettingsController;
   private infoModal!: InfoModalController;
+  private hangar!: HangarController;
   private skillTreeModal!: SkillTreeModalController;
   private warpCoreTree!: WarpCoreTreeController;
   private zoneMap!: ZoneMapController;
@@ -274,6 +268,7 @@ export class GameScene extends Phaser.Scene {
       setMusicVolume: (volume) => this.backgroundMusic.setVolume(volume)
     });
     this.infoModal = new InfoModalController();
+    this.hangar = new HangarController();
     this.skillTreeModal = new SkillTreeModalController();
     this.warpCoreTree = new WarpCoreTreeController();
     this.zoneMap = new ZoneMapController();
@@ -676,9 +671,6 @@ export class GameScene extends Phaser.Scene {
     if (this.shouldShowSkillsTab()) {
       tabs.push('skills');
     }
-    if (this.shouldShowWeaponsTab()) {
-      tabs.push('weapons');
-    }
     if (this.shouldShowAchievementsTab()) {
       tabs.push('achievements');
     }
@@ -733,10 +725,6 @@ export class GameScene extends Phaser.Scene {
       this.getCrystalBalance() > 0 ||
       countUnlockedTalentRanks(this.state.progression) > 0
     );
-  }
-
-  private shouldShowWeaponsTab(): boolean {
-    return this.shouldShowHangarTab();
   }
 
   private shouldShowAchievementsTab(): boolean {
@@ -887,16 +875,6 @@ export class GameScene extends Phaser.Scene {
       append(circle(16, 15, 1.4));
       return svg;
     }
-    if (tab === 'weapons') {
-      append(path('M7 23 21 8 25 12 11 27 7 23Z'));
-      append(path('M18 9 24 15'));
-      append(path('M6 19 13 26'));
-      append(path('M21 7 25 3'));
-      append(path('M24 10 29 8'));
-      append(circle(26, 6, 1.4));
-      return svg;
-    }
-
     append(path('M10 6 H22 V11 C22 16.5 19 20 16 21.5 C13 20 10 16.5 10 11 V6Z'));
     append(path('M13 10 H19'));
     append(path('M16 8 V18'));
@@ -920,9 +898,6 @@ export class GameScene extends Phaser.Scene {
     }
     if (tab === 'skills') {
       return translate(this.language, 'nav.skills');
-    }
-    if (tab === 'weapons') {
-      return translate(this.language, 'nav.weapons');
     }
     if (tab === 'achievements') {
       return translate(this.language, 'nav.achievements');
@@ -1407,7 +1382,6 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.shipSpeedLevel,
       this.state.progression.deflectorLevel,
       this.state.progression.activeShipFrameId,
-      getShipFrameWeaponIdentity(this.state.progression),
       this.state.progression.unlockedShipFrameIds.join(','),
       this.state.progression.shipExchanges,
       this.state.progression.mapUnlocked,
@@ -1428,9 +1402,6 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.activeDroneCounts.ranger,
       this.state.progression.activeDroneCounts.breaker,
       ...TALENT_DEFINITIONS.map((talent) => getTalentRank(this.state.progression, talent.id)),
-      this.state.progression.weaponMode,
-      this.state.progression.spreadUnlocked,
-      this.state.progression.piercingUnlocked,
       this.getAffordabilitySignature(),
       countUnlockedAchievements(this.state.progression),
       this.getVisibleShopTabs().join(','),
@@ -1449,7 +1420,6 @@ export class GameScene extends Phaser.Scene {
       hangar: () => this.renderHangarTab(),
       drones: () => this.renderDronesTab(),
       skills: () => this.renderSkillsTab(),
-      weapons: () => this.renderWeaponsTab(),
       achievements: () => this.renderAchievementsTab()
     };
 
@@ -1513,11 +1483,7 @@ export class GameScene extends Phaser.Scene {
       }).join(',');
     }
 
-    return [
-      `cannon:${this.state.progression.weaponMode === 'cannon'}`,
-      `spread:${this.state.progression.spreadUnlocked}`,
-      `piercing:${this.state.progression.piercingUnlocked}`
-    ].join(',');
+    return '';
   }
 
   private renderUpgradesTab(): void {
@@ -1593,267 +1559,27 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createHangarShortcutPanel(): HTMLElement {
-    const exchangeRequirement = getShipExchangeRequirement(this.state);
-    const panel = document.createElement('section');
-    panel.className = 'warp-reset-panel warp-reset-panel--shortcut';
-
-    const header = document.createElement('div');
-    header.className = 'warp-reset-panel__header';
-    const titleWrap = document.createElement('div');
-    const kicker = document.createElement('span');
-    kicker.className = 'warp-reset-panel__kicker';
-    kicker.textContent = this.language === 'pt-BR' ? 'Hangar' : 'Hangar';
-    const title = document.createElement('strong');
-    title.textContent = exchangeRequirement.ready
-      ? (this.language === 'pt-BR' ? 'Troca de nave disponível' : 'Ship exchange available')
-      : (this.language === 'pt-BR' ? 'Naves e progresso individual' : 'Ships and individual progress');
-    titleWrap.append(kicker, title);
-
-    const button = document.createElement('button');
-    button.className = 'shop-buy warp-reset-panel__button';
-    button.type = 'button';
-    button.textContent = this.language === 'pt-BR' ? 'Abrir' : 'Open';
-    button.addEventListener('click', () => {
-      this.activeTab = 'hangar';
-      this.shopSignature = '';
-      this.updateShop();
+    return this.hangar.renderShortcut({
+      state: this.state,
+      language: this.language,
+      onOpenHangar: () => {
+        this.activeTab = 'hangar';
+        this.shopSignature = '';
+        this.updateShop();
+      }
     });
-
-    header.append(titleWrap, button);
-    panel.append(header);
-    return panel;
   }
 
   private renderHangarTab(): void {
     this.setShopContent('', '', '', [], [], true);
-    this.shopActionsEl.replaceChildren(this.createWarpResetPanel());
-  }
-
-  private createWarpResetPanel(): HTMLElement {
-    const exchangeRequirement = getShipExchangeRequirement(this.state);
-    const coreGain = exchangeRequirement.coreGain;
-    const crystals = exchangeRequirement.crystals;
-    const availableAfterReset = getAvailableWarpCores(this.state.progression) + coreGain;
-    const resetReady = exchangeRequirement.ready;
-    const activeFrame = getActiveShipFrame(this.state.progression);
-    const nextFrame = SHIP_FRAME_BY_ID[this.getNextExchangeShipFrameId()];
-    const panel = document.createElement('section');
-    panel.className = 'warp-reset-panel';
-
-    const header = document.createElement('div');
-    header.className = 'warp-reset-panel__header';
-    const titleWrap = document.createElement('div');
-    const kicker = document.createElement('span');
-    kicker.className = 'warp-reset-panel__kicker';
-    kicker.textContent = this.language === 'pt-BR' ? 'Hangar de Naves' : 'Ship Hangar';
-    const title = document.createElement('strong');
-    title.textContent = resetReady
-      ? (this.language === 'pt-BR'
-        ? `${nextFrame.name} pronta · +${coreGain} ${formatCoreUnit(this.language, coreGain)}`
-        : `${nextFrame.name} ready · +${coreGain} ${formatCoreUnit(this.language, coreGain)}`)
-      : this.getWarpResetBlockedTitle(exchangeRequirement);
-    titleWrap.append(kicker, title);
-
-    const resetButton = document.createElement('button');
-    resetButton.className = 'shop-buy warp-reset-panel__button';
-    resetButton.type = 'button';
-    resetButton.disabled = !resetReady;
-    resetButton.textContent = resetReady
-      ? (this.language === 'pt-BR' ? 'Liberar nave' : 'Unlock ship')
-      : translate(this.language, 'shop.notReady');
-    resetButton.addEventListener('click', () => this.warpReset(coreGain));
-    header.append(titleWrap, resetButton);
-
-    const stats = document.createElement('div');
-    stats.className = 'warp-reset-panel__stats';
-    stats.replaceChildren(
-      this.createWarpResetStat(translate(this.language, 'shop.crystals'), `${crystals} / ${crystalsPerPrestigeCore}`),
-      this.createWarpResetStat(this.language === 'pt-BR' ? 'Nave atual' : 'Current ship', activeFrame.name),
-      this.createWarpResetStat(this.language === 'pt-BR' ? 'Missões' : 'Missions', `${exchangeRequirement.missionCompletions} / ${exchangeRequirement.requiredMissionCompletions}`),
-      this.createWarpResetStat(translate(this.language, 'shop.availableAfter'), `${availableAfterReset} ${formatCoreUnit(this.language, availableAfterReset)}`)
-    );
-
-    const preview = document.createElement('p');
-    preview.className = 'warp-reset-panel__preview';
-    preview.textContent = this.getWarpResetPreviewText(availableAfterReset, exchangeRequirement);
-
-    panel.append(header, stats, this.createShipFrameList(), preview);
-    return panel;
-  }
-
-  private createShipFrameList(): HTMLElement {
-    const list = document.createElement('div');
-    list.className = 'ship-frame-list';
-    [...SHIP_FRAME_DEFINITIONS]
-      .sort((a, b) => a.unlockExchange - b.unlockExchange)
-      .forEach((frame) => {
-        const unlocked = this.state.progression.unlockedShipFrameIds.includes(frame.id);
-        const active = this.state.progression.activeShipFrameId === frame.id;
-        const run = this.getShipFrameRunSummary(frame.id);
-        const item = unlocked ? document.createElement('button') : document.createElement('div');
-        item.className = 'ship-frame-item';
-        if (item instanceof HTMLButtonElement) {
-          item.type = 'button';
-          item.disabled = active;
-          item.addEventListener('click', () => this.switchShipFrame(frame.id));
-        }
-        item.classList.toggle('is-locked', !unlocked);
-        item.classList.toggle('is-active', active);
-        item.classList.toggle('has-run', Boolean(run));
-
-        const preview = this.createShipFramePreview(frame.id);
-        const body = document.createElement('span');
-        body.className = 'ship-frame-item__body';
-
-        const header = document.createElement('span');
-        header.className = 'ship-frame-item__header';
-        const name = document.createElement('strong');
-        name.textContent = frame.name;
-        const rarity = document.createElement('span');
-        rarity.className = `ship-frame-item__rarity ship-frame-item__rarity--${frame.rarity}`;
-        rarity.textContent = this.getShipFrameRarityLabel(frame.rarity);
-        header.append(name, rarity);
-
-        const meta = document.createElement('span');
-        meta.className = 'ship-frame-item__meta';
-        meta.textContent = unlocked
-          ? (active
-            ? (this.language === 'pt-BR' ? 'Atual' : 'Current')
-            : (this.language === 'pt-BR' ? `${this.getShipFrameBonusText(frame.id)} · Selecionar` : `${this.getShipFrameBonusText(frame.id)} · Select`))
-          : (this.language === 'pt-BR' ? `Libera na troca ${frame.unlockExchange}` : `Unlocks on exchange ${frame.unlockExchange}`);
-
-        const stats = document.createElement('span');
-        stats.className = 'ship-frame-item__stats';
-        stats.textContent = run
-          ? (this.language === 'pt-BR'
-            ? `${this.formatMoney(run.money)} · ${run.crystals} ${formatCrystalUnit(this.language, run.crystals)} · D${run.damageLevel}/A${run.fireRateLevel}`
-            : `${this.formatMoney(run.money)} · ${run.crystals} ${formatCrystalUnit(this.language, run.crystals)} · D${run.damageLevel}/A${run.fireRateLevel}`)
-          : (unlocked ? (this.language === 'pt-BR' ? 'Slot novo' : 'Fresh slot') : this.getShipFrameBonusText(frame.id));
-
-        body.append(header, meta, stats);
-        item.append(preview, body);
-        list.append(item);
-      });
-    return list;
-  }
-
-  private getShipFrameRunSummary(id: ShipFrameId): { money: number; crystals: number; damageLevel: number; fireRateLevel: number } | null {
-    if (id === this.state.progression.activeShipFrameId) {
-      return {
-        money: this.state.money,
-        crystals: this.state.crystals,
-        damageLevel: this.state.progression.shipDamageLevel,
-        fireRateLevel: this.state.progression.shipFireRateLevel
-      };
-    }
-
-    const run = this.state.progression.shipRuns[id];
-    if (!run) {
-      return null;
-    }
-
-    return {
-      money: run.money,
-      crystals: run.crystals,
-      damageLevel: run.shipDamageLevel,
-      fireRateLevel: run.shipFireRateLevel
-    };
-  }
-
-  private createShipFramePreview(id: ShipFrameId): Element {
-    const frame = SHIP_FRAME_BY_ID[id];
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.classList.add('ship-frame-preview');
-    svg.setAttribute('viewBox', id === 'nivitron' ? NIVITRON_HAND_VIEWBOX : '-26 -24 52 48');
-    svg.setAttribute('aria-hidden', 'true');
-
-    if (id === 'nivitron') {
-      const handPaths = NIVITRON_HAND_PATHS.map((pathData) => {
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        path.setAttribute('class', 'ship-frame-preview__hull ship-frame-preview__hull--nivitron');
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('stroke-linejoin', 'round');
-        return path;
-      });
-
-      const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      diamond.setAttribute(
-        'points',
-        `${NIVITRON_HAND_DIAMOND_CENTER.x},${NIVITRON_HAND_DIAMOND_CENTER.y - 2.8} ${NIVITRON_HAND_DIAMOND_CENTER.x + 2.8},${NIVITRON_HAND_DIAMOND_CENTER.y} ${NIVITRON_HAND_DIAMOND_CENTER.x},${NIVITRON_HAND_DIAMOND_CENTER.y + 2.8} ${NIVITRON_HAND_DIAMOND_CENTER.x - 2.8},${NIVITRON_HAND_DIAMOND_CENTER.y}`
-      );
-      diamond.setAttribute('class', 'ship-frame-preview__core');
-      svg.append(...handPaths, diamond);
-      return svg;
-    }
-
-    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    polygon.setAttribute('points', frame.shape.map((point) => `${point.x},${point.y}`).join(' '));
-    polygon.setAttribute('class', 'ship-frame-preview__hull');
-
-    const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    core.setAttribute('cx', '0');
-    core.setAttribute('cy', '0');
-    core.setAttribute('r', '4');
-    core.setAttribute('class', 'ship-frame-preview__core');
-
-    svg.append(polygon, core);
-    return svg;
-  }
-
-  private getShipFrameBonusText(id: ShipFrameId): string {
-    const bonuses = SHIP_FRAME_BY_ID[id].bonuses;
-    const parts: string[] = [];
-    if (id === 'nivitron') {
-      parts.push(this.language === 'pt-BR' ? 'Torreta' : 'Turret');
-    }
-    if (bonuses.damageMultiplier) {
-      parts.push(this.language === 'pt-BR' ? 'Dano' : 'Damage');
-    }
-    if (bonuses.fireRateMultiplier) {
-      parts.push(this.language === 'pt-BR' ? 'Ataque' : 'Attack');
-    }
-    if (bonuses.speedMultiplier) {
-      parts.push(this.language === 'pt-BR' ? 'Velocidade' : 'Speed');
-    }
-    if (bonuses.maxHpMultiplier) {
-      parts.push(this.language === 'pt-BR' ? 'Vida' : 'Hull');
-    }
-    if (bonuses.incomeMultiplier) {
-      parts.push(this.language === 'pt-BR' ? 'Renda' : 'Income');
-    }
-    return parts.length > 0 ? parts.join(' + ') : (this.language === 'pt-BR' ? 'Base' : 'Base');
-  }
-
-  private getShipFrameRarityLabel(rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'): string {
-    if (this.language === 'pt-BR') {
-      const labels = {
-        common: 'Comum',
-        uncommon: 'Incomum',
-        rare: 'Rara',
-        epic: 'Épica',
-        legendary: 'Lendária'
-      } satisfies Record<typeof rarity, string>;
-      return labels[rarity];
-    }
-
-    const labels = {
-      common: 'Common',
-      uncommon: 'Uncommon',
-      rare: 'Rare',
-      epic: 'Epic',
-      legendary: 'Legendary'
-    } satisfies Record<typeof rarity, string>;
-    return labels[rarity];
-  }
-
-  private getNextExchangeShipFrameId(): ShipFrameId {
-    const nextExchange = this.state.progression.shipExchanges + 1;
-    const nextFrame = [...SHIP_FRAME_DEFINITIONS]
-      .sort((a, b) => a.unlockExchange - b.unlockExchange)
-      .find((frame) => frame.unlockExchange === nextExchange);
-    return nextFrame?.id ?? this.state.progression.activeShipFrameId;
+    this.shopActionsEl.replaceChildren(this.hangar.renderPanel({
+      state: this.state,
+      language: this.language,
+      formatMoney: (value) => this.formatMoney(value),
+      getWarpUnlockTitle: (id) => this.getWarpUnlockTitle(id as WarpUnlockId),
+      onUnlockShip: (coreGain) => this.warpReset(coreGain),
+      onSwitchShipFrame: (id) => this.switchShipFrame(id)
+    }));
   }
 
   private createWarpResetStat(label: string, value: string): HTMLElement {
@@ -1917,56 +1643,6 @@ export class GameScene extends Phaser.Scene {
     }
     panel.append(preview);
     return panel;
-  }
-
-  private getWarpResetBlockedTitle(exchangeRequirement: ShipExchangeRequirement): string {
-    if (exchangeRequirement.needsRoute) {
-      return translate(this.language, 'shop.reachZone', { zone: zones[minimumPrestigeTravelLevel]?.name ?? 'a deeper zone' });
-    }
-
-    if (exchangeRequirement.needsMissions) {
-      const count = exchangeRequirement.missingMissionCompletions;
-      return this.language === 'pt-BR'
-        ? `Complete mais ${count} ${count === 1 ? 'missão' : 'missões'}`
-        : `Complete ${count} more ${count === 1 ? 'mission' : 'missions'}`;
-    }
-
-    return translate(this.language, 'shop.nextCore', {
-      count: exchangeRequirement.missingCrystalsForCore,
-      unit: formatCrystalUnit(this.language, exchangeRequirement.missingCrystalsForCore)
-    });
-  }
-
-  private getWarpResetPreviewText(availableAfterReset: number, exchangeRequirement: ShipExchangeRequirement): string {
-    const affordableUnlocks = WARP_UNLOCK_DEFINITIONS.filter((unlock) => {
-      if (hasWarpUnlock(this.state.progression, unlock.id)) {
-        return false;
-      }
-      if (unlock.cost > availableAfterReset) {
-        return false;
-      }
-      return unlock.requires.every((requiredId) => hasWarpUnlock(this.state.progression, requiredId));
-    }).slice(0, 3);
-
-    if (affordableUnlocks.length > 0) {
-      return translate(this.language, 'shop.unlockNext', { items: affordableUnlocks.map((unlock) => this.getWarpUnlockTitle(unlock.id)).join(', ') });
-    }
-
-    if (exchangeRequirement.needsMissions) {
-      return this.language === 'pt-BR'
-        ? 'Conclua missões para preparar a próxima troca de nave.'
-        : 'Complete missions to prepare the next ship exchange.';
-    }
-
-    if (exchangeRequirement.coreGain > 0) {
-      return translate(this.language, 'shop.bankCores');
-    }
-
-    if (exchangeRequirement.needsRoute) {
-      return translate(this.language, 'shop.defeatBosses');
-    }
-
-    return translate(this.language, 'shop.collectCrystals');
   }
 
   private renderSkillsTab(): void {
@@ -2167,31 +1843,6 @@ export class GameScene extends Phaser.Scene {
     );
 
     this.shopActionsEl.replaceChildren(list);
-  }
-
-  private renderWeaponsTab(): void {
-    const activeShip = getActiveShipFrame(this.state.progression);
-    const shipWeaponIdentity = getShipFrameWeaponIdentity(this.state.progression);
-    this.setShopContent(
-      translate(this.language, 'nav.weapons'),
-      this.language === 'pt-BR' ? 'Arma da Nave' : 'Ship Weapon',
-      this.language === 'pt-BR'
-        ? 'O padrão de tiro vem da nave equipada. Naves básicas usam o canhão padrão e se diferenciam pelos atributos.'
-        : 'The firing pattern comes from the equipped ship. Basic ships use the standard cannon and differ through stats.',
-      [
-        [this.language === 'pt-BR' ? 'Nave' : 'Ship', activeShip.name],
-        [this.language === 'pt-BR' ? 'Arma' : 'Weapon', this.formatShipWeaponIdentity(shipWeaponIdentity)],
-        [this.language === 'pt-BR' ? 'Identidade' : 'Identity', this.getShipWeaponIdentitySummary(shipWeaponIdentity)]
-      ],
-      [
-        {
-          label: this.language === 'pt-BR' ? 'Detalhes da arma' : 'Weapon details',
-          disabled: false,
-          onClick: () => this.openInfoModal(this.getShipWeaponIdentityInfo(shipWeaponIdentity)),
-          info: () => this.getShipWeaponIdentityInfo(shipWeaponIdentity)
-        }
-      ]
-    );
   }
 
   private setShopContent(
@@ -2777,58 +2428,6 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private getShipWeaponIdentityInfo(identity: ShipWeaponIdentity): ModalContent {
-    if (identity === 'spread') {
-      return {
-        kicker: 'Ship weapon',
-        title: 'Prism Refraction',
-        copy: 'The active ship refracts every shot into a three-shot fan as part of its built-in weapon identity.',
-        facts: [
-          ['Source', getActiveShipFrame(this.state.progression).name],
-          ['Pattern', 'Three shots'],
-          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier).toFixed(2)} sec`]
-        ]
-      };
-    }
-
-    if (identity === 'piercing') {
-      return {
-        kicker: 'Ship weapon',
-        title: 'Needle Rail',
-        copy: 'The active ship fires focused rounds that punch through one target as part of its built-in weapon identity.',
-        facts: [
-          ['Source', getActiveShipFrame(this.state.progression).name],
-          ['Pierce', `${balance.weapons.piercingCount} asteroid`],
-          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier).toFixed(2)} sec`]
-        ]
-      };
-    }
-
-    if (identity === 'turret') {
-      return {
-        kicker: 'Ship weapon',
-        title: 'Nivitron Turret',
-        copy: 'The active ship rotates its center turret by 10 degrees each time it fires.',
-        facts: [
-          ['Source', getActiveShipFrame(this.state.progression).name],
-          ['Pattern', '10 degree step turret'],
-          ['Cooldown', `${getPlayerFireInterval(this.state.progression, balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier).toFixed(2)} sec`]
-        ]
-      };
-    }
-
-    return {
-      kicker: 'Ship weapon',
-      title: 'Standard Cannon',
-      copy: 'This ship uses the baseline cannon. Its identity comes from hull stats, economy, speed, or durability rather than a unique firing pattern.',
-      facts: [
-        ['Source', getActiveShipFrame(this.state.progression).name],
-        ['Pattern', 'Single shot'],
-        ['Cooldown', `${getPlayerFireInterval(this.state.progression).toFixed(2)} sec`]
-      ]
-    };
-  }
-
   private getDroneTypeInfo(type: DroneType): ModalContent {
     const config = balance.shop.drones[type];
     const requiredUnlock = this.getDroneTypeWarpUnlock(type);
@@ -3264,32 +2863,6 @@ export class GameScene extends Phaser.Scene {
   private getDroneTypeCost(type: DroneType): number {
     const config = balance.shop.drones[type];
     return this.scaledCost(config.baseCost, this.state.progression.droneCounts[type], config.scale);
-  }
-
-  private formatShipWeaponIdentity(identity: ShipWeaponIdentity): string {
-    if (identity === 'spread') {
-      return 'Spread';
-    }
-    if (identity === 'piercing') {
-      return 'Piercing';
-    }
-    if (identity === 'turret') {
-      return 'Turret';
-    }
-    return 'Cannon';
-  }
-
-  private getShipWeaponIdentitySummary(identity: ShipWeaponIdentity): string {
-    if (identity === 'spread') {
-      return this.language === 'pt-BR' ? 'Tiro único' : 'Unique shot';
-    }
-    if (identity === 'piercing') {
-      return this.language === 'pt-BR' ? 'Tiro único' : 'Unique shot';
-    }
-    if (identity === 'turret') {
-      return this.language === 'pt-BR' ? 'Torreta única' : 'Unique turret';
-    }
-    return this.language === 'pt-BR' ? 'Atributos da nave' : 'Ship stats';
   }
 
   private formatBossName(type: BossType): string {

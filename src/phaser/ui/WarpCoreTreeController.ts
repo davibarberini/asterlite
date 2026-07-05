@@ -61,9 +61,9 @@ const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect:
   },
   spreadBattery: {
     title: 'Bateria Spread',
-    summary: 'Libera um modo de arma em leque para controlar multidões.',
-    effect: 'Adiciona o modo Spread Shot na aba de armas.',
-    impact: 'Aba Armas: adiciona o modo Spread Shot.'
+    summary: 'Registro legado do antigo modo de arma em leque.',
+    effect: 'Agora a identidade Spread pertence a naves como Prism.',
+    impact: 'Hangar: identidade de arma por nave.'
   },
   rangerHangar: {
     title: 'Hangar Ranger',
@@ -79,9 +79,9 @@ const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect:
   },
   piercingRail: {
     title: 'Trilho Perfurante',
-    summary: 'Libera um modo de arma focado em tiros que atravessam alvos.',
-    effect: 'Adiciona o modo Piercing na aba de armas.',
-    impact: 'Aba Armas: adiciona o modo Tiros Perfurantes.'
+    summary: 'Registro legado do antigo modo de tiros perfurantes.',
+    effect: 'Agora a identidade Piercing pertence a naves como Needle.',
+    impact: 'Hangar: identidade de arma por nave.'
   }
 };
 

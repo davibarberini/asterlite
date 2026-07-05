@@ -4,6 +4,49 @@ Use this file as the source of truth for engineering improvements. Keep items sm
 
 ## Ready
 
+### Split Progression Test File By Domain
+
+Reduce the single large progression test file into focused suites.
+
+Context:
+- `src/game/__tests__/progression.test.ts` is over 1,700 lines and now covers save loading, economy, weapons, drones, survival, bosses, zones, and UI-adjacent progression rules.
+- This makes feature work slower to navigate and increases merge friction.
+
+Acceptance:
+- Split tests into at least two domain files, such as survival/weapons and progression/save.
+- Keep tests Phaser-independent.
+- Preserve all existing test coverage.
+- Run `pnpm test` and `pnpm run build`.
+
+### Extract Survival Hazard Renderer
+
+Keep the vector renderer from absorbing every new survival visual.
+
+Context:
+- `VectorRenderer.ts` is close to 1,000 lines and now owns ship, bullet, asteroid, boss, saucer, drone, particle, mine, hunter, and survival visual details.
+- Upcoming timed hazards will add more visual rules unless survival rendering is isolated.
+
+Acceptance:
+- Move survival hazard drawing helpers out of `VectorRenderer.ts` into a focused renderer/helper module.
+- Keep renderer objects disposable and Phaser-only.
+- Preserve current mine, hunter, and elite saucer readability.
+- Run `pnpm run build`.
+
+### Normalize Legacy Weapon Save State
+
+Remove old weapon-mode concepts from active runtime surfaces while preserving save compatibility.
+
+Context:
+- Combat identity now comes from ship frames and the Weapons tab has been removed.
+- Legacy fields such as `weaponMode`, `spreadUnlocked`, `piercingUnlocked`, `spreadBattery`, and `piercingRail` still exist for old saves and ship-run persistence.
+
+Acceptance:
+- Decide which legacy fields must remain in saved v1 data and which can be normalized away during load.
+- Keep old saves loading without changing standard ship firing behavior.
+- Remove active UI copy and runtime dependencies that imply manual weapon selection.
+- Add or update tests for legacy save compatibility.
+- Run `pnpm test` and `pnpm run build`.
+
 ### Native Release Signing and Store Prep
 
 Turn the native shells into store-ready release builds.
@@ -15,6 +58,17 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Completed
+
+### Extract Shop and Hangar UI Controllers
+
+Reduced `GameScene.ts` ownership of Hangar UI rendering.
+
+Notes:
+- Added `HangarController` for the ship-exchange panel, Hangar shortcut, ship cards, ship preview SVGs, and Hangar-specific copy.
+- `GameScene` now delegates Hangar rendering through explicit state, formatting, and callback inputs.
+- Preserved current mobile drawer behavior, tab visibility rules, ship unlock, and ship switching behavior.
+- `GameScene.ts` dropped from over 3,200 lines to under 3,000 lines after the extraction and weapon-tab removal.
+- Validated with `pnpm run build`.
 
 ### Add Capacitor Native Packaging
 
