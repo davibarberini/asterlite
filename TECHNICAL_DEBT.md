@@ -4,20 +4,6 @@ Use this file as the source of truth for engineering improvements. Keep items sm
 
 ## Ready
 
-### Split Progression Test File By Domain
-
-Reduce the single large progression test file into focused suites.
-
-Context:
-- `src/game/__tests__/progression.test.ts` is over 1,700 lines and now covers save loading, economy, weapons, drones, survival, bosses, zones, and UI-adjacent progression rules.
-- This makes feature work slower to navigate and increases merge friction.
-
-Acceptance:
-- Split tests into at least two domain files, such as survival/weapons and progression/save.
-- Keep tests Phaser-independent.
-- Preserve all existing test coverage.
-- Run `pnpm test` and `pnpm run build`.
-
 ### Extract Survival Hazard Renderer
 
 Keep the vector renderer from absorbing every new survival visual.
@@ -58,6 +44,17 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Completed
+
+### Split Progression Test File By Domain
+
+Reduced the single large progression test file into focused suites.
+
+Notes:
+- Moved ship weapon identity, Nivitron firing, player fire cooldown, and drone damage tests into `weapons.test.ts`.
+- Moved Nova Crown survival timer, pressure, hazard spawning, elite saucer, and survival hazard combat tests into `survival.test.ts`.
+- Kept save/progression/boss/zone coverage in `progression.test.ts`.
+- Preserved Phaser-independent simulation/progression tests.
+- Validated with `pnpm test` and `pnpm run build`.
 
 ### Extract Shop and Hangar UI Controllers
 
