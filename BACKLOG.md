@@ -4,6 +4,29 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Survival Elite Saucer
+
+Added the first elite survival enemy variant for high-threat Nova Crown runs.
+
+Notes:
+- Saucers now have a serializable `normal` or `elite` kind.
+- Elite saucers begin spawning only in Nova Crown after the configured survival threat threshold.
+- Elite saucers have a larger readable silhouette, magenta styling, higher reward, and a three-shot spread pattern.
+- Added tests for elite spawn eligibility and elite saucer projectile damage.
+
+### Survival Hunter Hazard
+
+Added the first chasing survival enemy for Nova Crown pressure.
+
+Notes:
+- Added `survivalHunter` as a serializable survival hazard type.
+- Hunters begin spawning only after the configured Nova Crown threat threshold.
+- Hunters steer toward the ship with a lateral weave, collide through the existing hazard collision path, and disappear on contact.
+- Hunters can be damaged and destroyed by player or drone shots.
+- The renderer draws hunters as bright green arrowhead threats with a trail based on their actual recent path.
+- Proximity mines now read as small red blinking points with a larger threat area, bigger explosion burst, and smooth white fuse flash.
+- Added tests for hunter spawn threshold, steering, contact removal, shot damage, and impact damage.
+
 ### Survival Proximity Mines
 
 Added the first survival-only hazard for Nova Crown escalation.
@@ -309,17 +332,17 @@ Notes:
 
 ## Ready
 
-### Survival Hunter and Hazard Escalation
+### Survival Timed Hazard Events
 
-Continue adding readable dangers that enter the survival zone as threat rises.
+Add readable timed dangers that enter the survival zone as threat rises.
 
 Priority order:
-- A simple hunter enemy that pressures movement without filling the screen.
-- Elite saucer variants with distinct fire patterns.
-- Timed hazard events such as meteor lanes, gravity pulses, or damage fields.
+- Meteor lanes.
+- Gravity pulses.
+- Damage fields.
 
 Acceptance:
-- At least one new threat type is serializable.
+- At least one timed event type is serializable.
 - The threat appears only after an appropriate survival threat level.
 - Rendering makes the danger readable on mobile.
 - Tests cover spawn eligibility and damage/collision behavior.

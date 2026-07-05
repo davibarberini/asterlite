@@ -128,6 +128,7 @@ export type BulletState = {
 
 export type SaucerState = {
   id: number;
+  kind: 'normal' | 'elite';
   position: Vec2;
   velocity: Vec2;
   radius: number;
@@ -144,7 +145,7 @@ export type ParticleState = {
   size: number;
 };
 
-export type SurvivalHazardKind = 'proximityMine';
+export type SurvivalHazardKind = 'proximityMine' | 'survivalHunter';
 
 export type SurvivalHazardState = {
   id: number;
@@ -152,8 +153,12 @@ export type SurvivalHazardState = {
   position: Vec2;
   velocity: Vec2;
   radius: number;
+  trail: Vec2[];
   age: number;
   armFor: number;
+  fuseFor: number;
+  hp: number;
+  maxHp: number;
   damage: number;
 };
 
@@ -207,6 +212,7 @@ export type SurvivalState = {
   threatLevel: number;
   lastAnnouncedThreatLevel: number;
   hazardSpawnCooldown: number;
+  hunterSpawnCooldown: number;
 };
 
 export type AchievementStats = {

@@ -128,23 +128,98 @@ export class VectorRenderer {
   }
 
   private drawSurvivalHazard(state: GameState, hazard: SurvivalHazardState): void {
+    if (hazard.kind === 'survivalHunter') {
+      this.drawSurvivalHunter(state, hazard);
+      return;
+    }
+    this.drawProximityMine(state, hazard);
+  }
+
+  private drawProximityMine(state: GameState, hazard: SurvivalHazardState): void {
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, hazard.position.x);
+    const y = this.toScreenY(state, hazard.position.y);
+    const radius = balance.survival.mines.visualRadius * viewScale;
+    const areaRadius = hazard.radius * viewScale;
+    const fuseRatio = hazard.fuseFor > 0
+      ? 1 - Math.max(0, Math.min(1, hazard.fuseFor / balance.survival.mines.fuseSeconds))
+      : 1;
+    const blinkSpeed = 4 + fuseRatio * 16;
+    const blinkPhase = 0.5 + Math.sin((hazard.age + hazard.id * 0.17) * blinkSpeed) * 0.5;
+    const smoothBlink = blinkPhase * blinkPhase * (3 - 2 * blinkPhase);
+    const red = 255;
+    const green = Math.round(24 + smoothBlink * 226);
+    const blue = Math.round(46 + smoothBlink * 209);
+    const color = (red << 16) | (green << 8) | blue;
+
+    this.graphics.fillStyle(0xff1f38, 0.04 + fuseRatio * 0.05);
+    this.graphics.fillCircle(x, y, areaRadius);
+    this.graphics.lineStyle(1, color, 0.2 + smoothBlink * 0.24);
+    this.graphics.strokeCircle(x, y, areaRadius);
+    this.graphics.fillStyle(color, 0.64 + smoothBlink * 0.32);
+    this.graphics.fillCircle(x, y, radius);
+    this.graphics.fillStyle(0xffffff, 0.08 + smoothBlink * 0.68);
+    this.graphics.fillCircle(x, y, radius * (0.34 + smoothBlink * 0.3));
+  }
+
+  private drawSurvivalHunter(state: GameState, hazard: SurvivalHazardState): void {
     const viewScale = this.getViewScale(state);
     const x = this.toScreenX(state, hazard.position.x);
     const y = this.toScreenY(state, hazard.position.y);
     const radius = hazard.radius * viewScale;
-    const armed = hazard.armFor <= 0;
-    const pulse = 0.5 + Math.sin((hazard.age + hazard.id * 0.17) * 5.2) * 0.5;
-    const color = armed ? 0xff6f5f : 0xfff1a8;
+    const angle = Math.atan2(hazard.velocity.y, hazard.velocity.x);
+    const nose = {
+      x: x + Math.cos(angle) * radius * 1.35,
+      y: y + Math.sin(angle) * radius * 1.35
+    };
+    const left = {
+      x: x + Math.cos(angle + 2.42) * radius,
+      y: y + Math.sin(angle + 2.42) * radius
+    };
+    const right = {
+      x: x + Math.cos(angle - 2.42) * radius,
+      y: y + Math.sin(angle - 2.42) * radius
+    };
+    const tail = {
+      x: x - Math.cos(angle) * radius * 0.25,
+      y: y - Math.sin(angle) * radius * 0.25
+    };
+    const pulse = 0.5 + Math.sin((hazard.age + hazard.id * 0.11) * 8) * 0.5;
 
-    this.graphics.lineStyle(1, color, armed ? 0.32 + pulse * 0.22 : 0.22);
-    this.graphics.strokeCircle(x, y, radius + (armed ? 6 + pulse * 3 : 3) * viewScale);
-    this.graphics.fillStyle(color, armed ? 0.18 : 0.1);
-    this.graphics.fillCircle(x, y, radius * 0.72);
-    this.graphics.lineStyle(2, color, armed ? 0.9 : 0.48);
-    this.graphics.strokeCircle(x, y, radius);
-    this.graphics.lineStyle(1, 0xf5fdff, armed ? 0.5 : 0.26);
-    this.graphics.lineBetween(x - radius * 0.56, y, x + radius * 0.56, y);
-    this.graphics.lineBetween(x, y - radius * 0.56, x, y + radius * 0.56);
+    this.drawHunterTrail(state, hazard, viewScale);
+    this.graphics.lineStyle(1, 0xcfffda, 0.12 + pulse * 0.18);
+    this.graphics.strokeCircle(x, y, radius * (1.2 + pulse * 0.22));
+    this.graphics.fillStyle(0x00ff22, 0.28);
+    this.graphics.beginPath();
+    this.graphics.moveTo(nose.x, nose.y);
+    this.graphics.lineTo(left.x, left.y);
+    this.graphics.lineTo(tail.x, tail.y);
+    this.graphics.lineTo(right.x, right.y);
+    this.graphics.closePath();
+    this.graphics.fillPath();
+    this.graphics.lineStyle(2, 0x00ff22, 0.96);
+    this.graphics.strokePath();
+    this.graphics.fillStyle(0xf1fff4, 0.92);
+    this.graphics.fillCircle(nose.x, nose.y, Math.max(1.5, radius * 0.16));
+  }
+
+  private drawHunterTrail(state: GameState, hazard: SurvivalHazardState, viewScale: number): void {
+    if (hazard.trail.length < 2) {
+      return;
+    }
+
+    for (let index = 1; index < hazard.trail.length; index += 1) {
+      const previous = hazard.trail[index - 1];
+      const current = hazard.trail[index];
+      const alpha = index / hazard.trail.length;
+      this.graphics.lineStyle(Math.max(1, 4 * viewScale * alpha), 0x00ff22, 0.04 + alpha * 0.28);
+      this.graphics.lineBetween(
+        this.toScreenX(state, previous.x),
+        this.toScreenY(state, previous.y),
+        this.toScreenX(state, current.x),
+        this.toScreenY(state, current.y)
+      );
+    }
   }
 
   private drawZoneFieldTint(state: GameState): void {
@@ -754,18 +829,32 @@ export class VectorRenderer {
     const viewScale = this.getViewScale(state);
     const x = this.toScreenX(state, saucer.position.x);
     const y = this.toScreenY(state, saucer.position.y);
-    this.graphics.lineStyle(2, 0xf5fbff, 0.9);
+    const isElite = saucer.kind === 'elite';
+    const primary = isElite ? 0xff4fd8 : 0xf5fbff;
+    const secondary = isElite ? 0xffd8f7 : 0x92dfff;
+    const width = isElite ? 30 : 24;
+    const cap = isElite ? 13 : 12;
+    const pulse = 0.5 + Math.sin(saucer.id * 0.19 + saucer.fireCooldown * 8) * 0.5;
+
+    if (isElite) {
+      this.graphics.fillStyle(0xff4fd8, 0.08 + pulse * 0.05);
+      this.graphics.fillCircle(x, y, 30 * viewScale);
+    }
+    this.graphics.lineStyle(isElite ? 3 : 2, primary, 0.9);
     this.graphics.beginPath();
-    this.graphics.moveTo(x - 24 * viewScale, y);
-    this.graphics.lineTo(x - 12 * viewScale, y - 9 * viewScale);
-    this.graphics.lineTo(x + 12 * viewScale, y - 9 * viewScale);
-    this.graphics.lineTo(x + 24 * viewScale, y);
+    this.graphics.moveTo(x - width * viewScale, y);
+    this.graphics.lineTo(x - cap * viewScale, y - 9 * viewScale);
+    this.graphics.lineTo(x + cap * viewScale, y - 9 * viewScale);
+    this.graphics.lineTo(x + width * viewScale, y);
     this.graphics.lineTo(x + 10 * viewScale, y + 8 * viewScale);
     this.graphics.lineTo(x - 10 * viewScale, y + 8 * viewScale);
     this.graphics.closePath();
     this.graphics.strokePath();
-    this.graphics.lineStyle(1, 0x92dfff, 0.45);
+    this.graphics.lineStyle(1, secondary, isElite ? 0.72 : 0.45);
     this.graphics.lineBetween(x - 18 * viewScale, y, x + 18 * viewScale, y);
+    if (isElite) {
+      this.graphics.lineBetween(x, y - 11 * viewScale, x, y + 10 * viewScale);
+    }
   }
 
   private drawPendingBossWarning(state: GameState): void {

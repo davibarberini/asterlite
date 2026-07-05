@@ -4,6 +4,7 @@ import { emitReward } from '../events';
 import type { GameState } from '../types';
 import { distance, normalize, randomRange } from '../vector';
 import { balance } from '../../balance';
+import { isSurvivalZone } from './survival';
 
 export const updatePendingBoss = (state: GameState, dt: number): void => {
   const pendingBoss = state.pendingBoss;
@@ -72,8 +73,10 @@ export const updateSaucer = (state: GameState, dt: number): void => {
 
   if (!state.saucer && state.saucerTimer <= 0) {
     const fromLeft = Math.random() > 0.5;
+    const kind = shouldSpawnEliteSaucer(state) ? 'elite' : 'normal';
     state.saucer = {
       id: state.nextId++,
+      kind,
       position: {
         x: state.camera.x + (fromLeft ? -state.width * balance.saucer.spawnOffsetX : state.width * balance.saucer.spawnOffsetX),
         y: state.camera.y + randomRange(state.height * balance.saucer.spawnMinY, state.height * balance.saucer.spawnMaxY)
@@ -82,7 +85,7 @@ export const updateSaucer = (state: GameState, dt: number): void => {
         x: fromLeft ? randomRange(balance.saucer.speedX[0], balance.saucer.speedX[1]) : randomRange(-balance.saucer.speedX[1], -balance.saucer.speedX[0]),
         y: randomRange(balance.saucer.speedY[0], balance.saucer.speedY[1])
       },
-      radius: balance.saucer.radius,
+      radius: kind === 'elite' ? balance.saucer.elite.radius : balance.saucer.radius,
       fireCooldown: balance.saucer.initialFireCooldown,
       alive: true
     };
@@ -98,16 +101,43 @@ export const updateSaucer = (state: GameState, dt: number): void => {
   saucer.fireCooldown -= dt;
 
   if (saucer.fireCooldown <= 0 && state.ship.alive) {
-    const direction = normalize({
-      x: state.ship.position.x - saucer.position.x + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter),
-      y: state.ship.position.y - saucer.position.y + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter)
-    });
-    fireBullet(state, 'saucer', saucer.position, Math.atan2(direction.y, direction.x), balance.saucer.bulletSpeed, balance.saucer.bulletDamage);
-    saucer.fireCooldown = randomRange(balance.saucer.fireCooldown[0], balance.saucer.fireCooldown[1]);
+    fireSaucerPattern(state);
+    saucer.fireCooldown = saucer.kind === 'elite'
+      ? randomRange(balance.saucer.elite.fireCooldown[0], balance.saucer.elite.fireCooldown[1])
+      : randomRange(balance.saucer.fireCooldown[0], balance.saucer.fireCooldown[1]);
   }
 
   if (distance(saucer.position, state.camera) > Math.max(state.width, state.height) * balance.saucer.despawnDistanceMultiplier || !saucer.alive) {
     state.saucer = null;
     state.saucerTimer = randomRange(balance.saucer.respawnTimer[0], balance.saucer.respawnTimer[1]);
   }
+};
+
+const shouldSpawnEliteSaucer = (state: GameState): boolean =>
+  isSurvivalZone(state) &&
+  state.survival.active &&
+  state.survival.threatLevel >= balance.saucer.elite.startsAtSurvivalThreatLevel;
+
+const fireSaucerPattern = (state: GameState): void => {
+  const saucer = state.saucer;
+  if (!saucer) {
+    return;
+  }
+
+  const direction = normalize({
+    x: state.ship.position.x - saucer.position.x + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter),
+    y: state.ship.position.y - saucer.position.y + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter)
+  });
+  const aimAngle = Math.atan2(direction.y, direction.x);
+  const offsets = saucer.kind === 'elite' ? balance.saucer.elite.bulletAngleOffsets : [0];
+  offsets.forEach((offset) => {
+    fireBullet(
+      state,
+      'saucer',
+      saucer.position,
+      aimAngle + offset,
+      saucer.kind === 'elite' ? balance.saucer.elite.bulletSpeed : balance.saucer.bulletSpeed,
+      saucer.kind === 'elite' ? balance.saucer.elite.bulletDamage : balance.saucer.bulletDamage
+    );
+  });
 };

@@ -62,10 +62,28 @@ export const balance = {
       spawnIntervalThreatReduction: 0.32,
       minimumSpawnInterval: 2.8,
       speed: [14, 34],
-      radius: 15,
+      radius: 20,
+      visualRadius: 4,
       armSeconds: 1.1,
+      fuseSeconds: 6,
       damage: 34,
+      explosionParticleSpread: 260,
       spawnMargin: 110
+    },
+    hunters: {
+      startsAtThreatLevel: 5,
+      maxCount: 2,
+      spawnInterval: 11,
+      spawnIntervalThreatReduction: 0.55,
+      minimumSpawnInterval: 6,
+      speed: 104,
+      weaveSpeed: 4.8,
+      weaveStrength: 0.52,
+      radius: 12,
+      trailLength: 28,
+      hp: 3,
+      damage: 24,
+      spawnMargin: 130
     }
   },
   rareSpawns: {
@@ -309,7 +327,16 @@ export const balance = {
     fireCooldown: [1.1, 1.8],
     despawnDistanceMultiplier: 0.9,
     respawnTimer: [12, 22],
-    initialTimer: 18
+    initialTimer: 18,
+    elite: {
+      startsAtSurvivalThreatLevel: 6,
+      radius: 22,
+      bulletDamage: 18,
+      bulletSpeed: 350,
+      fireCooldown: [0.95, 1.35],
+      bulletAngleOffsets: [-0.32, 0, 0.32],
+      rewardMoneyMultiplier: 2.4
+    }
   },
   collisions: {
     flakSplashRadius: 82,

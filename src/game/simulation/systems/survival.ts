@@ -8,7 +8,8 @@ export const createSurvivalState = (): SurvivalState => ({
   currentSeconds: 0,
   threatLevel: 0,
   lastAnnouncedThreatLevel: 0,
-  hazardSpawnCooldown: 0
+  hazardSpawnCooldown: 0,
+  hunterSpawnCooldown: 0
 });
 
 export const isSurvivalZone = (state: GameState): boolean =>
@@ -67,6 +68,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     state.survival.threatLevel = 1;
     state.survival.lastAnnouncedThreatLevel = 1;
     state.survival.hazardSpawnCooldown = balance.survival.mines.spawnInterval;
+    state.survival.hunterSpawnCooldown = balance.survival.hunters.spawnInterval;
     emitReward(state, 'Nova Crown survival started', 'system');
   }
 
@@ -92,6 +94,7 @@ const resetCurrentSurvivalRun = (state: GameState): void => {
   state.survival.threatLevel = 0;
   state.survival.lastAnnouncedThreatLevel = 0;
   state.survival.hazardSpawnCooldown = 0;
+  state.survival.hunterSpawnCooldown = 0;
 };
 
 const formatSurvivalSeconds = (seconds: number): string => {

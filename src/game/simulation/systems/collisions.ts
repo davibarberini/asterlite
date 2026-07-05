@@ -11,7 +11,9 @@ import { balance } from '../../balance';
 
 export const resolveCollisions = (state: GameState): void => {
   const nextAsteroids = [...state.asteroids];
+  const nextHazards = [...state.hazards];
   const destroyedAsteroidIds = new Set<number>();
+  const destroyedHazardIds = new Set<number>();
   const destroyedBulletIds = new Set<number>();
   const deflectedAsteroidIds = new Set<number>();
 
@@ -46,10 +48,42 @@ export const resolveCollisions = (state: GameState): void => {
         }
       }
 
+      if (destroyedBulletIds.has(bullet.id)) {
+        continue;
+      }
+
+      for (const hazard of nextHazards) {
+        if (destroyedHazardIds.has(hazard.id) || distance(bullet.position, hazard.position) >= bullet.radius + hazard.radius) {
+          continue;
+        }
+
+        if (bullet.pierceLeft > 0) {
+          bullet.pierceLeft -= 1;
+        } else {
+          destroyedBulletIds.add(bullet.id);
+        }
+        hazard.hp -= bullet.damage;
+        emitAudio(state, { type: 'asteroidHit' });
+        burstParticles(state, hazard.position, hazard.kind === 'survivalHunter' ? 7 : 8, getHazardParticleSpread(hazard));
+        if (hazard.hp <= 0) {
+          destroyedHazardIds.add(hazard.id);
+          burstParticles(state, hazard.position, hazard.kind === 'survivalHunter' ? 16 : 18, getHazardExplosionSpread(hazard));
+        }
+        break;
+      }
+
+      if (destroyedBulletIds.has(bullet.id)) {
+        continue;
+      }
+
       if (state.saucer && distance(bullet.position, state.saucer.position) < bullet.radius + state.saucer.radius) {
         destroyedBulletIds.add(bullet.id);
         state.saucer.alive = false;
-        const saucerReward = Math.round(balance.saucer.rewardMoney * getAchievementMultiplier(state.progression, 'money'));
+        const saucerReward = Math.round(
+          balance.saucer.rewardMoney *
+          (state.saucer.kind === 'elite' ? balance.saucer.elite.rewardMoneyMultiplier : 1) *
+          getAchievementMultiplier(state.progression, 'money')
+        );
         state.money += saucerReward;
         recordMoneyEarned(state.progression, saucerReward);
         state.progression.achievementStats.saucersDestroyed += 1;
@@ -85,25 +119,30 @@ export const resolveCollisions = (state: GameState): void => {
 
   if (state.ship.alive && state.ship.invulnerableFor <= 0) {
     const detonatedHazardIds = new Set<number>();
-    for (const hazard of state.hazards) {
+    for (const hazard of nextHazards) {
+      if (destroyedHazardIds.has(hazard.id)) {
+        continue;
+      }
       if (hazard.armFor > 0 || distance(state.ship.position, hazard.position) >= getShipThreatRadius(state) + hazard.radius) {
         continue;
       }
 
       detonatedHazardIds.add(hazard.id);
+      destroyedHazardIds.add(hazard.id);
       repelShipFromContact(state, hazard.position, getShipThreatRadius(state) + hazard.radius, balance.collisions.enemyContactKnockback);
-      burstParticles(state, hazard.position, 18, 190);
+      burstParticles(state, hazard.position, hazard.kind === 'proximityMine' ? 26 : 18, getHazardExplosionSpread(hazard));
       if (!absorbShieldBubbleHit(state, hazard.position, 90)) {
         damageShip(state, hazard.damage);
       }
       break;
     }
     if (detonatedHazardIds.size > 0) {
-      state.hazards = state.hazards.filter((hazard) => !detonatedHazardIds.has(hazard.id));
+      state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
     }
 
     if (!state.ship.alive) {
       state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
+      state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
       state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
       return;
     }
@@ -128,6 +167,7 @@ export const resolveCollisions = (state: GameState): void => {
   }
 
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
+  state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
 };
 
@@ -273,6 +313,12 @@ const getShipThreatRadius = (state: GameState): number =>
   state.shieldBubble.active && !state.shieldBubble.broken
     ? state.ship.radius + balance.ship.shieldBubbleRadius
     : state.ship.radius;
+
+const getHazardParticleSpread = (hazard: GameState['hazards'][number]): number =>
+  hazard.kind === 'proximityMine' ? balance.survival.mines.explosionParticleSpread * 0.52 : hazard.radius * 6;
+
+const getHazardExplosionSpread = (hazard: GameState['hazards'][number]): number =>
+  hazard.kind === 'proximityMine' ? balance.survival.mines.explosionParticleSpread : hazard.radius * 9;
 
 const asteroidHitsShipOrShield = (state: GameState, asteroid: GameState['asteroids'][number]): boolean =>
   distance(state.ship.position, asteroid.position) <

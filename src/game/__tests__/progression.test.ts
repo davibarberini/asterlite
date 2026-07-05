@@ -20,7 +20,7 @@ import { createAsteroid, createZoneBossFromPending, getAsteroidReward, getAstero
 import { applyBossRewardChoice } from '../progression/bossRewards';
 import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateDrones } from '../simulation/systems/drones';
-import { updateBosses } from '../simulation/systems/enemies';
+import { updateBosses, updateSaucer } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
 import { updateRareSpawns } from '../simulation/systems/rareSpawns';
 import { getSurvivalThreatLevel } from '../simulation/systems/survival';
@@ -1545,7 +1545,8 @@ describe('nova crown survival', () => {
       currentSeconds: 76,
       threatLevel: 3,
       lastAnnouncedThreatLevel: 3,
-      hazardSpawnCooldown: 0
+      hazardSpawnCooldown: 0,
+      hunterSpawnCooldown: 0
     };
     state.progression.survivalBestSeconds = 76;
     state.progression.survivalBestThreatLevel = 3;
@@ -1613,8 +1614,12 @@ describe('nova crown survival', () => {
         position: { ...state.ship.position },
         velocity: { x: 0, y: 0 },
         radius: balance.survival.mines.radius,
+        trail: [],
         age: 2,
         armFor: 0,
+        fuseFor: balance.survival.mines.fuseSeconds,
+        hp: 1,
+        maxHp: 1,
         damage: balance.survival.mines.damage
       }
     ];
@@ -1623,5 +1628,145 @@ describe('nova crown survival', () => {
 
     expect(state.hazards).toHaveLength(0);
     expect(state.ship.hp).toBe(100 - balance.survival.mines.damage);
+  });
+
+  it('spawns survival hunters only after the hunter threat threshold', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = balance.survival.hunters.startsAtThreatLevel - 1;
+    state.survival.hunterSpawnCooldown = 0;
+
+    updateSurvivalHazards(state, 1);
+
+    expect(state.hazards.some((hazard) => hazard.kind === 'survivalHunter')).toBe(false);
+
+    state.survival.threatLevel = balance.survival.hunters.startsAtThreatLevel;
+    updateSurvivalHazards(state, 1);
+
+    expect(state.hazards.some((hazard) => hazard.kind === 'survivalHunter')).toBe(true);
+  });
+
+  it('upgrades saucer spawns into elite survival saucers after the elite threat threshold', () => {
+    const normalState = createGameState(800, 600);
+    putInFinalZone(normalState);
+    normalState.survival.active = true;
+    normalState.survival.threatLevel = balance.saucer.elite.startsAtSurvivalThreatLevel - 1;
+    normalState.saucerTimer = 0;
+
+    updateSaucer(normalState, 0);
+
+    expect(normalState.saucer?.kind).toBe('normal');
+
+    const eliteState = createGameState(800, 600);
+    putInFinalZone(eliteState);
+    eliteState.survival.active = true;
+    eliteState.survival.threatLevel = balance.saucer.elite.startsAtSurvivalThreatLevel;
+    eliteState.saucerTimer = 0;
+
+    updateSaucer(eliteState, 0);
+
+    expect(eliteState.saucer?.kind).toBe('elite');
+    expect(eliteState.saucer?.radius).toBe(balance.saucer.elite.radius);
+  });
+
+  it('fires elite saucer spread shots that damage the ship', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.ship.invulnerableFor = 0;
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    state.survival.active = true;
+    state.survival.threatLevel = balance.saucer.elite.startsAtSurvivalThreatLevel;
+    state.saucerTimer = 0;
+
+    updateSaucer(state, 0);
+    expect(state.saucer?.kind).toBe('elite');
+
+    state.saucer!.position = { x: state.ship.position.x - 120, y: state.ship.position.y };
+    state.saucer!.fireCooldown = 0;
+    updateSaucer(state, 0);
+
+    expect(state.bullets).toHaveLength(balance.saucer.elite.bulletAngleOffsets.length);
+    expect(state.bullets[0]?.damage).toBe(balance.saucer.elite.bulletDamage);
+
+    state.bullets[0].position = { ...state.ship.position };
+    resolveCollisions(state);
+
+    expect(state.ship.hp).toBe(100 - balance.saucer.elite.bulletDamage);
+  });
+
+  it('steers survival hunters toward the ship and removes them on contact', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.ship.invulnerableFor = 0;
+    state.hazards = [
+      {
+        id: 1001,
+        kind: 'survivalHunter',
+        position: { x: state.ship.position.x - 120, y: state.ship.position.y },
+        velocity: { x: 0, y: 0 },
+        radius: balance.survival.hunters.radius,
+        trail: [{ x: state.ship.position.x - 120, y: state.ship.position.y }],
+        age: 0,
+        armFor: 0,
+        fuseFor: 0,
+        hp: balance.survival.hunters.hp,
+        maxHp: balance.survival.hunters.hp,
+        damage: balance.survival.hunters.damage
+      }
+    ];
+
+    updateSurvivalHazards(state, 0.5);
+
+    expect(state.hazards[0]?.velocity.x).toBeGreaterThan(0);
+    expect(state.hazards[0]?.trail.length).toBeGreaterThan(1);
+
+    state.hazards[0].position = { ...state.ship.position };
+    resolveCollisions(state);
+
+    expect(state.hazards).toHaveLength(0);
+    expect(state.ship.hp).toBe(100 - balance.survival.hunters.damage);
+  });
+
+  it('lets player shots damage and destroy survival hunters', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.hazards = [
+      {
+        id: 1002,
+        kind: 'survivalHunter',
+        position: { x: state.ship.position.x + 64, y: state.ship.position.y },
+        velocity: { x: 0, y: 0 },
+        radius: balance.survival.hunters.radius,
+        trail: [{ x: state.ship.position.x + 64, y: state.ship.position.y }],
+        age: 0,
+        armFor: 0,
+        fuseFor: 0,
+        hp: 1,
+        maxHp: balance.survival.hunters.hp,
+        damage: balance.survival.hunters.damage
+      }
+    ];
+    state.bullets = [
+      {
+        id: 2002,
+        owner: 'player',
+        position: { ...state.hazards[0].position },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 3,
+        damage: 1,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.hazards).toHaveLength(0);
+    expect(state.bullets).toHaveLength(0);
   });
 });
