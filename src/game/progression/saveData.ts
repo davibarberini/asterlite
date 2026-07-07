@@ -202,7 +202,9 @@ const readSurvival = (value: unknown): SurvivalState => {
     threatLevel,
     lastAnnouncedThreatLevel: Math.max(0, Math.floor(readNumber(value.lastAnnouncedThreatLevel, threatLevel))),
     hazardSpawnCooldown: readNonNegativeNumber(value.hazardSpawnCooldown, 0),
-    hunterSpawnCooldown: readNonNegativeNumber(value.hunterSpawnCooldown, 0)
+    hunterSpawnCooldown: readNonNegativeNumber(value.hunterSpawnCooldown, 0),
+    timedEventCooldown: readNonNegativeNumber(value.timedEventCooldown, 0),
+    gravityPulseCooldown: readNonNegativeNumber(value.gravityPulseCooldown, 0)
   };
 };
 

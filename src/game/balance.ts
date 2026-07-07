@@ -84,6 +84,39 @@ export const balance = {
       hp: 3,
       damage: 24,
       spawnMargin: 130
+    },
+    timedEvents: {
+      meteorLane: {
+        startsAtThreatLevel: 4,
+        spawnInterval: 10.5,
+        spawnIntervalThreatReduction: 0.48,
+        minimumSpawnInterval: 5.4,
+        warningSeconds: 2,
+        activeSeconds: 6.2,
+        width: 190,
+        lengthMultiplier: 3.05,
+        damage: 28,
+        hitCooldown: 1.1,
+        threatLevelsPerExtraLane: 3,
+        maxConcurrentLanes: 4,
+        meteorCount: [18, 26],
+        minimumMeteorSpeed: 840,
+        meteorSpawnGap: 0.22,
+        smallMeteorRadius: [12, 19],
+        mediumMeteorRadius: [22, 36],
+        smallMeteorChance: 0.48
+      },
+      gravityPulse: {
+        startsAtThreatLevel: 6,
+        spawnInterval: 14,
+        spawnIntervalThreatReduction: 0.5,
+        minimumSpawnInterval: 8,
+        warningSeconds: 1.6,
+        activeSeconds: 3.1,
+        radius: 190,
+        force: 430,
+        spawnDistance: [70, 190]
+      }
     }
   },
   rareSpawns: {
@@ -353,6 +386,7 @@ export const balance = {
     deflectorArcDot: 0.38,
     shipContactSeparationPadding: 4,
     shipContactKnockback: 190,
-    enemyContactKnockback: 240
+    enemyContactKnockback: 240,
+    meteorContactKnockback: 360
   }
 } as const;

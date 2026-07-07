@@ -8,6 +8,7 @@ import { updateSaucer } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
 import { updateRareSpawns } from '../simulation/systems/rareSpawns';
 import { getSurvivalThreatLevel } from '../simulation/systems/survival';
+import { getMeteorLaneCameraAnchoredCenter, updateSurvivalTimedEvents } from '../simulation/systems/survivalEvents';
 import { updateSurvivalHazards } from '../simulation/systems/survivalHazards';
 import { zones } from '../simulation/zones';
 import { balance } from '../balance';
@@ -89,7 +90,9 @@ describe('nova crown survival', () => {
       threatLevel: 3,
       lastAnnouncedThreatLevel: 3,
       hazardSpawnCooldown: 0,
-      hunterSpawnCooldown: 0
+      hunterSpawnCooldown: 0,
+      timedEventCooldown: 0,
+      gravityPulseCooldown: 0
     };
     state.progression.survivalBestSeconds = 76;
     state.progression.survivalBestThreatLevel = 3;
@@ -188,6 +191,211 @@ describe('nova crown survival', () => {
     updateSurvivalHazards(state, 1);
 
     expect(state.hazards.some((hazard) => hazard.kind === 'survivalHunter')).toBe(true);
+  });
+
+  it('spawns meteor lane timed events only after the survival threat threshold', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = balance.survival.timedEvents.meteorLane.startsAtThreatLevel - 1;
+    state.survival.timedEventCooldown = 0;
+
+    updateSurvivalTimedEvents(state, 1);
+
+    expect(state.survivalEvents).toHaveLength(0);
+
+    state.survival.threatLevel = balance.survival.timedEvents.meteorLane.startsAtThreatLevel;
+    updateSurvivalTimedEvents(state, 1);
+
+    const meteorLane = state.survivalEvents.find((event) => event.kind === 'meteorLane');
+    expect(meteorLane?.kind).toBe('meteorLane');
+    if (!meteorLane || meteorLane.kind !== 'meteorLane') {
+      throw new Error('Expected a meteor lane event');
+    }
+    expect(meteorLane.warningFor).toBeGreaterThan(0);
+    expect(meteorLane.length).toBeGreaterThan(Math.hypot(state.width, state.height) * 2);
+    expect(meteorLane.width).toBeGreaterThan(120);
+    expect(meteorLane.meteors.length).toBeGreaterThanOrEqual(balance.survival.timedEvents.meteorLane.meteorCount[0]);
+    expect(Math.max(...meteorLane.meteors.map((meteor) => meteor.radius))).toBeLessThanOrEqual(meteorLane.width / 6);
+    const roundedTracks = new Set(meteorLane.meteors.map((meteor) => Math.round(meteor.crossOffset / 12)));
+    expect(roundedTracks.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('scales meteor lanes into a mixed-size barrage as survival threat rises', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel =
+      balance.survival.timedEvents.meteorLane.startsAtThreatLevel +
+      balance.survival.timedEvents.meteorLane.threatLevelsPerExtraLane;
+    state.survival.timedEventCooldown = 0;
+
+    updateSurvivalTimedEvents(state, 1);
+
+    const meteorLaneEvents = state.survivalEvents.filter((event) => event.kind === 'meteorLane');
+    expect(meteorLaneEvents).toHaveLength(2);
+    const meteorSizes = meteorLaneEvents.flatMap((event) => event.meteors.map((meteor) => meteor.size));
+    expect(meteorSizes).toContain('medium');
+    expect(meteorSizes).toContain('small');
+    expect(meteorSizes).not.toContain('large');
+  });
+
+  it('spawns gravity pulse timed events only after the survival threat threshold', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = balance.survival.timedEvents.gravityPulse.startsAtThreatLevel - 1;
+    state.survival.gravityPulseCooldown = 0;
+
+    updateSurvivalTimedEvents(state, 1);
+
+    expect(state.survivalEvents.some((event) => event.kind === 'gravityPulse')).toBe(false);
+
+    state.survival.threatLevel = balance.survival.timedEvents.gravityPulse.startsAtThreatLevel;
+    updateSurvivalTimedEvents(state, 1);
+
+    const gravityPulse = state.survivalEvents.find((event) => event.kind === 'gravityPulse');
+    expect(gravityPulse?.kind).toBe('gravityPulse');
+    expect(gravityPulse?.warningFor).toBeGreaterThan(0);
+    expect(gravityPulse?.radius).toBe(balance.survival.timedEvents.gravityPulse.radius);
+  });
+
+  it('pulls the ship only while a gravity pulse is active and in range', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.ship.velocity = { x: 0, y: 0 };
+    state.survivalEvents = [
+      {
+        id: 1450,
+        kind: 'gravityPulse',
+        center: { x: state.ship.position.x + 100, y: state.ship.position.y },
+        radius: balance.survival.timedEvents.gravityPulse.radius,
+        force: balance.survival.timedEvents.gravityPulse.force,
+        age: 0,
+        warningFor: 0.5,
+        activeFor: 2
+      }
+    ];
+
+    updateSurvivalTimedEvents(state, 0.1);
+
+    expect(state.ship.velocity.x).toBe(0);
+
+    state.survivalEvents[0].warningFor = 0;
+    updateSurvivalTimedEvents(state, 1);
+
+    expect(state.ship.velocity.x).toBeGreaterThan(0);
+    expect(Math.abs(state.ship.velocity.y)).toBeLessThan(0.001);
+  });
+
+  it('anchors meteor lanes to the camera only along the lane direction', () => {
+    const horizontalLane = {
+      id: 1400,
+      kind: 'meteorLane' as const,
+      center: { x: 400, y: 300 },
+      anchorCenter: { x: 400, y: 300 },
+      anchorCamera: { x: 400, y: 300 },
+      direction: { x: 1, y: 0 },
+      width: 200,
+      length: 1000,
+      age: 0,
+      warningFor: 0,
+      activeFor: 1,
+      hitCooldown: 0,
+      damage: 10,
+      meteors: []
+    };
+    const verticalLane = {
+      ...horizontalLane,
+      direction: { x: 0, y: 1 }
+    };
+
+    expect(getMeteorLaneCameraAnchoredCenter(horizontalLane, { x: 700, y: 900 })).toEqual({ x: 700, y: 300 });
+    expect(getMeteorLaneCameraAnchoredCenter(verticalLane, { x: 700, y: 900 })).toEqual({ x: 400, y: 900 });
+  });
+
+  it('does not damage the ship for standing inside an active meteor lane area', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.ship.invulnerableFor = 0;
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    state.survivalEvents = [
+      {
+        id: 1401,
+        kind: 'meteorLane',
+        center: { ...state.ship.position },
+        anchorCenter: { ...state.ship.position },
+        anchorCamera: { ...state.camera },
+        direction: { x: 1, y: 0 },
+        width: balance.survival.timedEvents.meteorLane.width,
+        length: 500,
+        age: balance.survival.timedEvents.meteorLane.warningSeconds + 1,
+        warningFor: 0,
+        activeFor: 2,
+        hitCooldown: 0,
+        damage: balance.survival.timedEvents.meteorLane.damage,
+        meteors: []
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.ship.hp).toBe(100);
+  });
+
+  it('damages the ship only when an active meteor crosses the ship', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.ship.invulnerableFor = 0;
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    const length = 500;
+    const width = balance.survival.timedEvents.meteorLane.width;
+    const speedToShip = length / 2 + width * 1.5;
+    state.survivalEvents = [
+      {
+        id: 1402,
+        kind: 'meteorLane',
+        center: { ...state.ship.position },
+        anchorCenter: { ...state.ship.position },
+        anchorCamera: { ...state.camera },
+        direction: { x: 1, y: 0 },
+        width,
+        length,
+        age: 0,
+        warningFor: 0.5,
+        activeFor: 2,
+        hitCooldown: 0,
+        damage: balance.survival.timedEvents.meteorLane.damage,
+        meteors: [
+          {
+            crossOffset: 0,
+            radius: 16,
+            speed: speedToShip,
+            spawnDelay: 0,
+            size: 'medium',
+            rotation: 0,
+            rotationSpeed: 0,
+            idSeed: 0
+          }
+        ]
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.ship.hp).toBe(100);
+
+    state.survivalEvents[0].warningFor = 0;
+    state.survivalEvents[0].age = balance.survival.timedEvents.meteorLane.warningSeconds + 1;
+    const positionBeforeHit = { ...state.ship.position };
+    resolveCollisions(state);
+
+    expect(state.ship.hp).toBe(100 - balance.survival.timedEvents.meteorLane.damage);
+    expect(state.ship.position.x).toBeGreaterThan(positionBeforeHit.x);
+    expect(state.ship.velocity.x).toBeGreaterThan(balance.collisions.shipContactKnockback);
+    expect(state.survivalEvents[0]?.kind === 'meteorLane' ? state.survivalEvents[0].hitCooldown : undefined).toBe(balance.survival.timedEvents.meteorLane.hitCooldown);
   });
 
   it('upgrades saucer spawns into elite survival saucers after the elite threat threshold', () => {

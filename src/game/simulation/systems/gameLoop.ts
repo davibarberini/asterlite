@@ -8,6 +8,7 @@ import { updateParticles } from './particles';
 import { updateRareSpawns } from './rareSpawns';
 import { updateCamera, updateShipMovement } from './shipMovement';
 import { updateSurvival } from './survival';
+import { updateSurvivalTimedEvents } from './survivalEvents';
 import { updateSurvivalHazards } from './survivalHazards';
 import { updateBullets } from './weapons';
 import { emitAudio, emitReward } from '../events';
@@ -49,6 +50,7 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
   resolveCollisions(state);
   updateSurvival(state, dt);
   updateRareSpawns(state, dt);
+  updateSurvivalTimedEvents(state, dt);
   updateSurvivalHazards(state, dt);
   updateBossDiscovery(state);
   maintainAsteroidField(state);

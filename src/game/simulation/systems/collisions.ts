@@ -1,13 +1,14 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
 import { queueBossRewardChoices } from '../../progression/bossRewards';
 import { getMissileSplashDamage, getMissileSplashRadius, getShotgunPelletDamage, hasMissileExplosion } from '../../progression/talentTree';
-import type { GameState, Vec2 } from '../types';
+import type { GameState, SurvivalMeteorLaneEventState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
 import { getExplorationZone, getZoneAsteroidDamageMultiplier, getZoneByIndex } from '../zones';
 import { getAsteroidReward, splitAsteroid } from './asteroids';
 import { burstParticles } from './particles';
 import { emitAudio, emitReward } from '../events';
 import { balance } from '../../balance';
+import { getMeteorLaneMeteorPosition, isSurvivalTimedEventActive } from './survivalEvents';
 
 export const resolveCollisions = (state: GameState): void => {
   const nextAsteroids = [...state.asteroids];
@@ -138,6 +139,38 @@ export const resolveCollisions = (state: GameState): void => {
     }
     if (detonatedHazardIds.size > 0) {
       state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
+    }
+
+    for (const event of state.survivalEvents) {
+      if (
+        event.kind !== 'meteorLane' ||
+        !isSurvivalTimedEventActive(event) ||
+        event.hitCooldown > 0
+      ) {
+        continue;
+      }
+
+      const hitMeteor = getMeteorHit(state, event);
+      if (!hitMeteor) {
+        continue;
+      }
+
+      const contactPosition = {
+        x: hitMeteor.position.x - event.direction.x * hitMeteor.radius,
+        y: hitMeteor.position.y - event.direction.y * hitMeteor.radius
+      };
+      event.hitCooldown = balance.survival.timedEvents.meteorLane.hitCooldown;
+      repelShipFromContact(
+        state,
+        contactPosition,
+        getShipThreatRadius(state) + hitMeteor.radius,
+        balance.collisions.meteorContactKnockback
+      );
+      burstParticles(state, hitMeteor.position, 18, event.width * 0.9);
+      if (!absorbShieldBubbleHit(state, hitMeteor.position, 120)) {
+        damageShip(state, event.damage);
+      }
+      break;
     }
 
     if (!state.ship.alive) {
@@ -323,6 +356,20 @@ const getHazardExplosionSpread = (hazard: GameState['hazards'][number]): number 
 const asteroidHitsShipOrShield = (state: GameState, asteroid: GameState['asteroids'][number]): boolean =>
   distance(state.ship.position, asteroid.position) <
   getShipThreatRadius(state) + asteroid.radius * balance.asteroids.collisionRadiusMultiplier;
+
+const getMeteorHit = (state: GameState, event: SurvivalMeteorLaneEventState): { position: Vec2; radius: number } | null => {
+  for (const meteor of event.meteors) {
+    const meteorPosition = getMeteorLaneMeteorPosition(event, meteor);
+    if (!meteorPosition) {
+      continue;
+    }
+    if (distance(state.ship.position, meteorPosition) < getShipThreatRadius(state) + meteor.radius) {
+      return { position: meteorPosition, radius: meteor.radius };
+    }
+  }
+
+  return null;
+};
 
 const absorbShieldBubbleHit = (state: GameState, hitPosition: Vec2, particleSpread: number): boolean => {
   if (!state.shieldBubble.active || state.shieldBubble.broken) {

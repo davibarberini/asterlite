@@ -162,6 +162,48 @@ export type SurvivalHazardState = {
   damage: number;
 };
 
+export type SurvivalTimedEventKind = 'meteorLane' | 'gravityPulse';
+
+export type SurvivalMeteorVisualState = {
+  crossOffset: number;
+  radius: number;
+  speed: number;
+  spawnDelay: number;
+  size: Extract<AsteroidSize, 'medium' | 'small'>;
+  rotation: number;
+  rotationSpeed: number;
+  idSeed: number;
+};
+
+export type SurvivalTimedEventBaseState = {
+  id: number;
+  kind: SurvivalTimedEventKind;
+  center: Vec2;
+  age: number;
+  warningFor: number;
+  activeFor: number;
+};
+
+export type SurvivalMeteorLaneEventState = SurvivalTimedEventBaseState & {
+  kind: 'meteorLane';
+  anchorCenter: Vec2;
+  anchorCamera: Vec2;
+  direction: Vec2;
+  width: number;
+  length: number;
+  hitCooldown: number;
+  damage: number;
+  meteors: SurvivalMeteorVisualState[];
+};
+
+export type SurvivalGravityPulseEventState = SurvivalTimedEventBaseState & {
+  kind: 'gravityPulse';
+  radius: number;
+  force: number;
+};
+
+export type SurvivalTimedEventState = SurvivalMeteorLaneEventState | SurvivalGravityPulseEventState;
+
 export type GamePhase = 'playing' | 'respawning';
 
 export type GameAudioEvent =
@@ -213,6 +255,8 @@ export type SurvivalState = {
   lastAnnouncedThreatLevel: number;
   hazardSpawnCooldown: number;
   hunterSpawnCooldown: number;
+  timedEventCooldown: number;
+  gravityPulseCooldown: number;
 };
 
 export type AchievementStats = {
@@ -376,6 +420,7 @@ export type GameState = {
   progression: ProgressionState;
   asteroids: AsteroidState[];
   hazards: SurvivalHazardState[];
+  survivalEvents: SurvivalTimedEventState[];
   bullets: BulletState[];
   particles: ParticleState[];
   audioEvents: GameAudioEvent[];

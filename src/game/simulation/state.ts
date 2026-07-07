@@ -171,6 +171,7 @@ export const createGameState = (width: number, height: number, progression = cre
     progression: normalizedProgression,
     asteroids: [],
     hazards: [],
+    survivalEvents: [],
     bullets: [],
     particles: [],
     audioEvents: [],

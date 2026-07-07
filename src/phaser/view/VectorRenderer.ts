@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { getActiveShipFrame } from '../../game/progression/shipFrames';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
-import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, SurvivalHazardState, Vec2 } from '../../game/simulation/types';
+import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, SurvivalHazardState, SurvivalMeteorLaneEventState, SurvivalMeteorVisualState, SurvivalTimedEventState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
+import { getMeteorLaneMeteorPosition, getNormal, isSurvivalTimedEventActive } from '../../game/simulation/systems/survivalEvents';
 import {
   NIVITRON_HAND_DIAMOND_RADIUS,
   NIVITRON_HAND_GAME_SIZE,
@@ -70,6 +71,7 @@ export class VectorRenderer {
     this.updateAsteroidReadabilityState(state, now);
     this.drawZoneFieldTint(state);
     this.drawGridGlow(state);
+    state.survivalEvents.forEach((event) => this.drawSurvivalTimedEvent(state, event));
 
     state.asteroids.forEach((asteroid) => {
       if (this.isCircleOnScreen(state, asteroid.position.x, asteroid.position.y, asteroid.radius + 12)) {
@@ -124,6 +126,198 @@ export class VectorRenderer {
     }
     for (let y = yOffset; y < state.height; y += gap) {
       this.graphics.lineBetween(0, y, state.width, y);
+    }
+  }
+
+  private drawSurvivalTimedEvent(state: GameState, event: SurvivalTimedEventState): void {
+    if (event.kind === 'gravityPulse') {
+      this.drawGravityPulse(state, event);
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const center = {
+      x: this.toScreenX(state, event.center.x),
+      y: this.toScreenY(state, event.center.y)
+    };
+    const normal = getNormal(event.direction);
+    const halfLength = event.length * viewScale * 0.5;
+    const halfWidth = event.width * viewScale * 0.5;
+    const along = {
+      x: event.direction.x * halfLength,
+      y: event.direction.y * halfLength
+    };
+    const across = {
+      x: normal.x * halfWidth,
+      y: normal.y * halfWidth
+    };
+    const corners = [
+      { x: center.x - along.x - across.x, y: center.y - along.y - across.y },
+      { x: center.x + along.x - across.x, y: center.y + along.y - across.y },
+      { x: center.x + along.x + across.x, y: center.y + along.y + across.y },
+      { x: center.x - along.x + across.x, y: center.y - along.y + across.y }
+    ];
+    const active = isSurvivalTimedEventActive(event);
+    const pulse = 0.5 + Math.sin((event.age + event.id * 0.13) * (active ? 10 : 7)) * 0.5;
+    const color = active ? 0xff4f3f : 0xffd36a;
+    const fillAlpha = active ? 0.13 + pulse * 0.08 : 0.04 + pulse * 0.05;
+    const lineAlpha = active ? 0.42 + pulse * 0.28 : 0.22 + pulse * 0.26;
+
+    this.graphics.fillStyle(color, fillAlpha);
+    this.graphics.beginPath();
+    this.graphics.moveTo(corners[0].x, corners[0].y);
+    corners.slice(1).forEach((corner) => this.graphics.lineTo(corner.x, corner.y));
+    this.graphics.closePath();
+    this.graphics.fillPath();
+
+    this.graphics.lineStyle(active ? 2 : 1, color, lineAlpha);
+    this.graphics.beginPath();
+    this.graphics.moveTo(corners[0].x, corners[0].y);
+    corners.slice(1).forEach((corner) => this.graphics.lineTo(corner.x, corner.y));
+    this.graphics.closePath();
+    this.graphics.strokePath();
+
+    this.graphics.lineStyle(1, active ? 0xfff1a8 : 0xf2fbff, active ? 0.22 : 0.12 + pulse * 0.16);
+    this.graphics.lineBetween(center.x - along.x, center.y - along.y, center.x + along.x, center.y + along.y);
+
+    event.meteors.forEach((meteor) => this.drawMeteorLaneRock(state, event, meteor, active, pulse));
+  }
+
+  private drawGravityPulse(state: GameState, event: Extract<SurvivalTimedEventState, { kind: 'gravityPulse' }>): void {
+    if (!this.isCircleOnScreen(state, event.center.x, event.center.y, event.radius + 18)) {
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, event.center.x);
+    const y = this.toScreenY(state, event.center.y);
+    const radius = event.radius * viewScale;
+    const active = isSurvivalTimedEventActive(event);
+    const pulse = 0.5 + Math.sin((event.age + event.id * 0.19) * (active ? 9 : 6)) * 0.5;
+    const color = active ? 0x92dfff : 0xffd36a;
+
+    this.graphics.fillStyle(active ? 0x92dfff : 0xffd36a, active ? 0.04 + pulse * 0.035 : 0.025 + pulse * 0.03);
+    this.graphics.fillCircle(x, y, radius);
+    this.graphics.lineStyle(active ? 2 : 1, color, active ? 0.38 + pulse * 0.28 : 0.22 + pulse * 0.26);
+    this.graphics.strokeCircle(x, y, radius);
+    this.graphics.lineStyle(1, active ? 0xd8fff5 : 0xf2fbff, active ? 0.18 + pulse * 0.22 : 0.12 + pulse * 0.14);
+    this.graphics.strokeCircle(x, y, radius * (0.58 + pulse * 0.12));
+
+    if (!active) {
+      return;
+    }
+
+    this.graphics.fillStyle(0xd8fff5, 0.18 + pulse * 0.18);
+    this.graphics.fillCircle(x, y, Math.max(4, radius * 0.055));
+    this.graphics.lineStyle(1, 0xd8fff5, 0.2 + pulse * 0.2);
+    for (let index = 0; index < 10; index += 1) {
+      const angle = (index / 10) * Math.PI * 2 + event.age * 0.8;
+      const outer = radius * 0.9;
+      const inner = radius * (0.24 + pulse * 0.08);
+      this.graphics.lineBetween(
+        x + Math.cos(angle) * outer,
+        y + Math.sin(angle) * outer,
+        x + Math.cos(angle) * inner,
+        y + Math.sin(angle) * inner
+      );
+    }
+  }
+
+  private drawMeteorLaneRock(
+    state: GameState,
+    event: SurvivalMeteorLaneEventState,
+    meteor: SurvivalMeteorVisualState,
+    active: boolean,
+    pulse: number
+  ): void {
+    const viewScale = this.getViewScale(state);
+    const worldPosition = getMeteorLaneMeteorPosition(event, meteor);
+    if (!worldPosition) {
+      return;
+    }
+
+    if (!this.isCircleOnScreen(state, worldPosition.x, worldPosition.y, meteor.radius + 54)) {
+      return;
+    }
+
+    const x = this.toScreenX(state, worldPosition.x);
+    const y = this.toScreenY(state, worldPosition.y);
+    const radius = meteor.radius * viewScale;
+    const alpha = active ? 0.86 : 0.12 + pulse * 0.18;
+
+    if (active) {
+      const trailLength = radius * (meteor.size === 'medium' ? 8.8 : 7.2);
+      const trailWidth = Math.max(2.4, radius * 0.82);
+      const tail = {
+        x: x - event.direction.x * trailLength,
+        y: y - event.direction.y * trailLength
+      };
+      const midTail = {
+        x: x - event.direction.x * trailLength * 0.52,
+        y: y - event.direction.y * trailLength * 0.52
+      };
+
+      this.graphics.lineStyle(trailWidth * 2.25, 0xff2a12, 0.16);
+      this.graphics.lineBetween(tail.x, tail.y, x, y);
+      this.graphics.lineStyle(trailWidth * 1.45, 0xff5f1f, 0.34);
+      this.graphics.lineBetween(
+        x - event.direction.x * trailLength * 0.8,
+        y - event.direction.y * trailLength * 0.8,
+        x,
+        y
+      );
+      this.graphics.lineStyle(trailWidth * 0.82, 0xffb13b, 0.54);
+      this.graphics.lineBetween(midTail.x, midTail.y, x, y);
+      this.graphics.lineStyle(Math.max(1, trailWidth * 0.38), 0xfff1a8, 0.68);
+      this.graphics.lineBetween(
+        x - event.direction.x * trailLength * 0.32,
+        y - event.direction.y * trailLength * 0.32,
+        x,
+        y
+      );
+      this.graphics.fillStyle(0xff3f1f, 0.18);
+      this.graphics.fillCircle(midTail.x, midTail.y, radius * 0.92);
+      this.graphics.fillStyle(0xff8a24, 0.28);
+      this.graphics.fillCircle(
+        x - event.direction.x * radius * 1.05,
+        y - event.direction.y * radius * 1.05,
+        radius * 0.72
+      );
+    }
+
+    const pointCount = meteor.size === 'medium' ? 8 : 6;
+    const rotation = meteor.rotation + event.age * meteor.rotationSpeed;
+    const fillColor = meteor.size === 'medium' ? 0x7a5648 : 0x9a735a;
+    const strokeColor = active ? 0xffc16a : 0xffd36a;
+    this.graphics.fillStyle(fillColor, active ? 0.86 : alpha * 0.52);
+    this.graphics.beginPath();
+    for (let index = 0; index < pointCount; index += 1) {
+      const angle = rotation + (index / pointCount) * Math.PI * 2;
+      const pointRadius = radius * (0.78 + ((index * 37 + meteor.idSeed) % 5) * 0.08);
+      const point = {
+        x: x + Math.cos(angle) * pointRadius,
+        y: y + Math.sin(angle) * pointRadius
+      };
+      if (index === 0) {
+        this.graphics.moveTo(point.x, point.y);
+      } else {
+        this.graphics.lineTo(point.x, point.y);
+      }
+    }
+    this.graphics.closePath();
+    this.graphics.fillPath();
+    this.graphics.lineStyle(active ? 2 : 1, strokeColor, active ? 0.76 : alpha);
+    this.graphics.strokePath();
+
+    if (active) {
+      this.graphics.fillStyle(0xfff1a8, 0.54);
+      this.graphics.fillCircle(
+        x + event.direction.x * radius * 0.32,
+        y + event.direction.y * radius * 0.32,
+        Math.max(1.2, radius * 0.2)
+      );
+      this.graphics.lineStyle(Math.max(1, radius * 0.22), 0xff8a24, 0.38);
+      this.graphics.strokeCircle(x, y, radius * 1.18);
     }
   }
 

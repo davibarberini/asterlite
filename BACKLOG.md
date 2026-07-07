@@ -4,6 +4,33 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Survival Gravity Pulse Events
+
+Added the second timed survival hazard for Nova Crown escalation.
+
+Notes:
+- Added serializable `gravityPulse` timed event state alongside meteor lanes.
+- Gravity pulses start after their configured survival threat threshold.
+- Pulses warn before becoming active, then pull the ship toward the center while the ship is inside the radius.
+- Pulse rendering uses a simple circular field with active inward lines so it stays readable on mobile.
+- Added tests for threat-gated spawn eligibility and active-only pull behavior.
+
+### Survival Meteor Lane Events
+
+Added the first timed survival hazard for Nova Crown threat escalation.
+
+Notes:
+- Added serializable `meteorLane` survival event state and a dedicated timed event system.
+- Meteor lanes begin spawning only after the configured survival threat threshold.
+- Meteor lanes warn before becoming active, then track the camera only along the lane direction so players can still escape perpendicular to the barrage.
+- Higher threat levels can create multiple concurrent meteor lanes.
+- Each lane spawns denser mixed-size medium/small asteroids from one side with faster, heavier fire trails and staggered tracks to reduce visual overlap.
+- Barrage damage comes from individual meteor hits, not from standing inside the warning area.
+- Meteor hits knock the ship away harder than normal asteroid contact.
+- Meteor hits respect the existing shield bubble absorption and per-event hit cooldown.
+- The vector renderer draws lanes as simple warning/active bands without adding extra HUD clutter.
+- Added tests for threat-gated spawn eligibility, threat-scaled multi-lane barrages, area safety, and meteor-hit collision behavior.
+
 ### Survival Elite Saucer
 
 Added the first elite survival enemy variant for high-threat Nova Crown runs.
@@ -332,17 +359,15 @@ Notes:
 
 ## Ready
 
-### Survival Timed Hazard Events
+### Survival Damage Field Timed Events
 
-Add readable timed dangers that enter the survival zone as threat rises.
+Add the remaining readable timed survival danger beyond meteor lanes and gravity pulses.
 
 Priority order:
-- Meteor lanes.
-- Gravity pulses.
 - Damage fields.
 
 Acceptance:
-- At least one timed event type is serializable.
+- The damage field event type is serializable.
 - The threat appears only after an appropriate survival threat level.
 - Rendering makes the danger readable on mobile.
 - Tests cover spawn eligibility and damage/collision behavior.
