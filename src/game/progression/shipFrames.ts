@@ -1,7 +1,7 @@
 import type { ProgressionState, ShipFrameId, Vec2 } from '../simulation/types';
 
 export type ShipFrameRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type ShipWeaponIdentity = 'standard' | 'spread' | 'piercing' | 'turret';
+export type ShipWeaponIdentity = 'standard' | 'spread' | 'piercing' | 'turret' | 'aura' | 'velocity' | 'ram';
 
 export type ShipFrameDefinition = {
   id: ShipFrameId;
@@ -39,7 +39,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Kestrel',
     rarity: 'uncommon',
     unlockExchange: 1,
-    weaponIdentity: 'standard',
+    weaponIdentity: 'velocity',
     shape: [
       { x: 20, y: 0 },
       { x: -5, y: 8 },
@@ -57,7 +57,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Bulwark',
     rarity: 'uncommon',
     unlockExchange: 2,
-    weaponIdentity: 'standard',
+    weaponIdentity: 'ram',
     shape: [
       { x: 16, y: 0 },
       { x: 2, y: 14 },
@@ -150,7 +150,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Ember',
     rarity: 'rare',
     unlockExchange: 6,
-    weaponIdentity: 'standard',
+    weaponIdentity: 'aura',
     shape: [
       { x: 20, y: 0 },
       { x: 2, y: 11 },

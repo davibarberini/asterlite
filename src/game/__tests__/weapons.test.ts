@@ -4,6 +4,7 @@ import { getPlayerFireInterval } from '../progression/idleBonuses';
 import { getShipFrameWeaponIdentity } from '../progression/shipFrames';
 import { createGameState } from '../simulation/state';
 import { createAsteroid } from '../simulation/systems/asteroids';
+import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateDrones } from '../simulation/systems/drones';
 import { updateGame } from '../simulation/systems/gameLoop';
 import { firePlayerWeapon } from '../simulation/systems/weapons';
@@ -85,6 +86,81 @@ describe('ship weapons and drone damage', () => {
     expect(state.ship.fireCooldown).toBeCloseTo(
       getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier)
     );
+  });
+
+  it('scales Kestrel shot damage and cooldown from movement speed', () => {
+    const slowState = createGameState(800, 600);
+    slowState.progression.activeShipFrameId = 'kestrel';
+    slowState.ship.velocity = { x: 0, y: 0 };
+
+    firePlayerWeapon(slowState);
+
+    const fastState = createGameState(800, 600);
+    fastState.progression.activeShipFrameId = 'kestrel';
+    fastState.ship.velocity = { x: balance.ship.maxSpeed, y: 0 };
+
+    firePlayerWeapon(fastState);
+
+    expect(getShipFrameWeaponIdentity(fastState.progression)).toBe('velocity');
+    expect(fastState.bullets[0]?.damage).toBeGreaterThan(slowState.bullets[0]?.damage ?? 0);
+    expect(fastState.ship.fireCooldown).toBeLessThan(slowState.ship.fireCooldown);
+  });
+
+  it('lets Bulwark ram weak asteroids without taking contact damage', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'bulwark';
+    state.ship.invulnerableFor = 0;
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    state.asteroids = [
+      createAsteroid(state, 'small', { ...state.ship.position }, { x: 0, y: 0 }, 'common')
+    ];
+
+    resolveCollisions(state);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('ram');
+    expect(state.asteroids).toHaveLength(0);
+    expect(state.ship.hp).toBe(state.ship.maxHp);
+  });
+
+  it('uses Ember as a continuous aura ship instead of firing cannon bullets', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'ember';
+    state.progression.unlockedShipFrameIds = ['vector', 'ember'];
+
+    firePlayerWeapon(state);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('aura');
+    expect(state.bullets).toHaveLength(0);
+    expect(state.ship.fireCooldown).toBeGreaterThan(0);
+  });
+
+  it('damages nearby asteroids with the Ember aura and scales with attack speed', () => {
+    const baseState = createGameState(800, 600);
+    baseState.progression.activeShipFrameId = 'ember';
+    baseState.asteroids = [
+      createAsteroid(baseState, 'large', { x: baseState.ship.position.x + 60, y: baseState.ship.position.y }, { x: 0, y: 0 }, 'common')
+    ];
+    const baseAsteroidId = baseState.asteroids[0].id;
+    const baseHp = baseState.asteroids[0].hp;
+
+    updateGame(baseState, neutralInput(), 1);
+    const baseDamage = baseHp - (baseState.asteroids.find((asteroid) => asteroid.id === baseAsteroidId)?.hp ?? baseHp);
+
+    const fastState = createGameState(800, 600);
+    fastState.progression.activeShipFrameId = 'ember';
+    fastState.progression.shipFireRateLevel = 10;
+    fastState.asteroids = [
+      createAsteroid(fastState, 'large', { x: fastState.ship.position.x + 60, y: fastState.ship.position.y }, { x: 0, y: 0 }, 'common')
+    ];
+    const fastAsteroidId = fastState.asteroids[0].id;
+    const fastHp = fastState.asteroids[0].hp;
+
+    updateGame(fastState, neutralInput(), 1);
+    const fastDamage = fastHp - (fastState.asteroids.find((asteroid) => asteroid.id === fastAsteroidId)?.hp ?? fastHp);
+
+    expect(baseDamage).toBeGreaterThan(0);
+    expect(fastDamage).toBeGreaterThan(baseDamage);
   });
 
   it('fires the legendary nivitron from its rotating turret angle', () => {

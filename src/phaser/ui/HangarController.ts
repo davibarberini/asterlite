@@ -276,6 +276,15 @@ export class HangarController {
     if (identity === 'turret') {
       return 'Turret';
     }
+    if (identity === 'aura') {
+      return 'Aura';
+    }
+    if (identity === 'velocity') {
+      return language === 'pt-BR' ? 'Velocidade' : 'Velocity';
+    }
+    if (identity === 'ram') {
+      return language === 'pt-BR' ? 'Aríete' : 'Ram';
+    }
     return language === 'pt-BR' ? 'Canhão' : 'Cannon';
   }
 }

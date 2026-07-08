@@ -1,5 +1,6 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
-import { queueBossRewardChoices } from '../../progression/bossRewards';
+import { getBossRewardPlayerFireIntervalMultiplier, queueBossRewardChoices } from '../../progression/bossRewards';
+import { getFireRateMultiplier } from '../../progression/idleBonuses';
 import {
   emitShipUnlock,
   recordAsteroidBurstUnlockProgress,
@@ -9,6 +10,7 @@ import {
   resetNoDamageShipUnlockProgress,
   syncShipUnlocks
 } from '../../progression/shipUnlocks';
+import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
 import { getMissileSplashDamage, getMissileSplashRadius, getShotgunPelletDamage, hasMissileExplosion } from '../../progression/talentTree';
 import type { GameState, SurvivalMeteorLaneEventState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
@@ -19,7 +21,7 @@ import { emitAudio, emitReward } from '../events';
 import { balance } from '../../balance';
 import { getMeteorLaneMeteorPosition, isSurvivalTimedEventActive } from './survivalEvents';
 
-export const resolveCollisions = (state: GameState): void => {
+export const resolveCollisions = (state: GameState, dt = 0): void => {
   const asteroidDestroyCountBefore = state.progression.achievementStats.asteroidsDestroyed;
   const nextAsteroids = [...state.asteroids];
   const nextHazards = [...state.hazards];
@@ -229,8 +231,66 @@ export const resolveCollisions = (state: GameState): void => {
 
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
+  applyShipAuraDamage(state, dt, destroyedAsteroidIds, destroyedHazardIds, nextAsteroids, nextHazards);
+  state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
+  state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
   syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
+};
+
+const applyShipAuraDamage = (
+  state: GameState,
+  dt: number,
+  destroyedAsteroidIds: Set<number>,
+  destroyedHazardIds: Set<number>,
+  nextAsteroids: GameState['asteroids'],
+  nextHazards: GameState['hazards']
+): void => {
+  if (
+    dt <= 0 ||
+    !state.ship.alive ||
+    getShipFrameWeaponIdentity(state.progression) !== 'aura'
+  ) {
+    return;
+  }
+
+  const damage = getShipAuraDamagePerSecond(state) * dt;
+  const radius = balance.weapons.auraRadius;
+  for (const asteroid of [...nextAsteroids]) {
+    if (destroyedAsteroidIds.has(asteroid.id) || distance(state.ship.position, asteroid.position) > radius + asteroid.radius) {
+      continue;
+    }
+    asteroid.hp -= damage;
+    if (asteroid.hp <= 0) {
+      destroyedAsteroidIds.add(asteroid.id);
+      destroyAsteroid(state, asteroid, nextAsteroids);
+    }
+  }
+
+  for (const hazard of nextHazards) {
+    if (destroyedHazardIds.has(hazard.id) || distance(state.ship.position, hazard.position) > radius + hazard.radius) {
+      continue;
+    }
+    hazard.hp -= damage;
+    if (hazard.hp <= 0) {
+      destroyedHazardIds.add(hazard.id);
+      burstParticles(state, hazard.position, hazard.kind === 'survivalHunter' ? 16 : 18, getHazardExplosionSpread(hazard));
+    }
+  }
+};
+
+const getShipAuraDamagePerSecond = (state: GameState): number => {
+  const baseDamage = Math.max(
+    0.05,
+    state.progression.shipDamageLevel *
+      balance.weapons.playerDamageMultiplier *
+      getAchievementMultiplier(state.progression, 'damage') *
+      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
+  );
+  return baseDamage *
+    balance.weapons.auraDamagePerSecondMultiplier *
+    getFireRateMultiplier(state.progression) /
+    getBossRewardPlayerFireIntervalMultiplier(state);
 };
 
 const syncCollisionShipUnlocks = (state: GameState, asteroidDestroyCountBefore: number): void => {
@@ -363,22 +423,62 @@ const collideShipWithAsteroid = (
   }
 
   recordAsteroidCollisionUnlockProgress(state);
+  if (applyRamCollisionDamage(state, asteroid, destroyedAsteroidIds, nextAsteroids)) {
+    return;
+  }
   if (absorbShieldBubbleHit(state, asteroid.position, asteroid.radius * 2.4)) {
     repelAsteroidFromShip(state, asteroid);
     return;
   }
 
+  const knockback = asteroid.bossType ? balance.collisions.enemyContactKnockback : balance.collisions.shipContactKnockback;
   repelShipFromContact(
     state,
     asteroid.position,
     getShipThreatRadius(state) + asteroid.radius * balance.asteroids.collisionRadiusMultiplier,
-    asteroid.bossType ? balance.collisions.enemyContactKnockback : balance.collisions.shipContactKnockback
+    knockback * (getShipFrameWeaponIdentity(state.progression) === 'ram' ? balance.weapons.ramKnockbackMultiplier : 1)
   );
   damageShip(state, getAsteroidContactDamage(state, asteroid));
 };
 
+const applyRamCollisionDamage = (
+  state: GameState,
+  asteroid: GameState['asteroids'][number],
+  destroyedAsteroidIds: Set<number>,
+  nextAsteroids: GameState['asteroids']
+): boolean => {
+  if (getShipFrameWeaponIdentity(state.progression) !== 'ram') {
+    return false;
+  }
+
+  asteroid.hp -= getRamCollisionDamage(state);
+  emitAudio(state, { type: 'asteroidHit' });
+  burstParticles(state, asteroid.position, 10, asteroid.radius * 2.8);
+  if (asteroid.hp > 0) {
+    return false;
+  }
+
+  destroyedAsteroidIds.add(asteroid.id);
+  destroyAsteroid(state, asteroid, nextAsteroids);
+  return true;
+};
+
+const getRamCollisionDamage = (state: GameState): number =>
+  Math.max(
+    1,
+    state.progression.shipDamageLevel *
+      balance.weapons.playerDamageMultiplier *
+      getAchievementMultiplier(state.progression, 'damage') *
+      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier') *
+      balance.weapons.ramDamageMultiplier
+  );
+
 const getAsteroidContactDamage = (state: GameState, asteroid: GameState['asteroids'][number]): number =>
-  Math.round(balance.collisions.asteroidDamage[asteroid.size] * getZoneAsteroidDamageMultiplier(state));
+  Math.round(
+    balance.collisions.asteroidDamage[asteroid.size] *
+      getZoneAsteroidDamageMultiplier(state) *
+      (getShipFrameWeaponIdentity(state.progression) === 'ram' ? balance.weapons.ramContactDamageMultiplier : 1)
+  );
 
 const getShipThreatRadius = (state: GameState): number =>
   state.shieldBubble.active && !state.shieldBubble.broken

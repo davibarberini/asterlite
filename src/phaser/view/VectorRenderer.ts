@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { getActiveShipFrame } from '../../game/progression/shipFrames';
+import { getActiveShipFrame, getShipFrameWeaponIdentity } from '../../game/progression/shipFrames';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
 import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, SurvivalHazardState, SurvivalMeteorLaneEventState, SurvivalMeteorVisualState, SurvivalTimedEventState, Vec2 } from '../../game/simulation/types';
@@ -109,6 +109,7 @@ export class VectorRenderer {
     }
 
     if (state.ship.alive) {
+      this.drawShipAuraWeapon(state);
       this.drawShip(state, state.ship, thrusting);
     }
   }
@@ -497,6 +498,24 @@ export class VectorRenderer {
       this.graphics.lineTo(flameC.x, flameC.y);
       this.graphics.strokePath();
     }
+  }
+
+  private drawShipAuraWeapon(state: GameState): void {
+    if (getShipFrameWeaponIdentity(state.progression) !== 'aura') {
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, state.ship.position.x);
+    const y = this.toScreenY(state, state.ship.position.y);
+    const radius = balance.weapons.auraRadius * viewScale;
+    const pulse = 0.5 + Math.sin(this.scene.time.now * 0.0048) * 0.5;
+    this.graphics.fillStyle(0xff8a4c, 0.035 + pulse * 0.025);
+    this.graphics.fillCircle(x, y, radius);
+    this.graphics.lineStyle(1, 0xffc36f, 0.28 + pulse * 0.18);
+    this.graphics.strokeCircle(x, y, radius * (0.92 + pulse * 0.06));
+    this.graphics.lineStyle(1, 0xfff1a8, 0.1 + pulse * 0.12);
+    this.graphics.strokeCircle(x, y, radius * 0.58);
   }
 
   private drawNivitronHand(state: GameState, ship: ShipState, viewScale: number): void {

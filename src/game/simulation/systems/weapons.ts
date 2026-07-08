@@ -74,6 +74,28 @@ export const firePlayerWeapon = (state: GameState): void => {
       getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
   );
 
+  if (shipWeaponIdentity === 'aura') {
+    ship.fireCooldown = getPlayerFireInterval(state.progression) * getBossRewardPlayerFireIntervalMultiplier(state);
+    return;
+  }
+
+  if (shipWeaponIdentity === 'velocity') {
+    const speedRatio = getShipVelocityRatio(state);
+    fireBullet(
+      state,
+      'player',
+      ship.position,
+      ship.rotation,
+      balance.weapons.bulletSpeed,
+      baseDamage * (1 + speedRatio * balance.weapons.velocityDamageBonusAtMaxSpeed),
+      ship.velocity
+    );
+    ship.fireCooldown = getPlayerFireInterval(state.progression) *
+      (1 - speedRatio * balance.weapons.velocityFireRateBonusAtMaxSpeed) *
+      getBossRewardPlayerFireIntervalMultiplier(state);
+    return;
+  }
+
   if (shipWeaponIdentity === 'turret') {
     ship.turretAngle = (ship.turretAngle + balance.weapons.nivitronTurretStepAngle) % (Math.PI * 2);
     fireBullet(
@@ -137,6 +159,9 @@ export const firePlayerWeapon = (state: GameState): void => {
   );
   ship.fireCooldown = getPlayerFireInterval(state.progression) * getBossRewardPlayerFireIntervalMultiplier(state);
 };
+
+const getShipVelocityRatio = (state: GameState): number =>
+  Math.max(0, Math.min(1, Math.hypot(state.ship.velocity.x, state.ship.velocity.y) / Math.max(1, balance.ship.maxSpeed)));
 
 export const updateBullets = (state: GameState, dt: number): void => {
   state.bullets = state.bullets

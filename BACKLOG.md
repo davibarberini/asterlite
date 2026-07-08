@@ -4,6 +4,24 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Ship Build Identity Expansion
+
+Expanded ship combat identities for Ember, Kestrel, and Bulwark.
+
+Notes:
+- Added a new serializable-free `aura` ship weapon identity.
+- Added a new serializable-free `velocity` ship weapon identity.
+- Added a new serializable-free `ram` ship weapon identity.
+- Ember now uses the aura identity instead of the standard cannon.
+- The Ember aura deals continuous nearby damage to asteroids and survival hazards.
+- Aura damage scales with ship damage, ship frame damage bonuses, achievement damage, fire-rate upgrades, and rapid-fire boss rewards.
+- Pressing fire on Ember no longer creates standard cannon bullets.
+- Kestrel now gains shot damage and reduced shot cooldown from current movement speed.
+- Bulwark now damages asteroids by ramming, destroys weak asteroids on impact, reduces contact damage, and applies stronger impact knockback.
+- The vector renderer shows Ember's active aura as a subtle orange field around the ship.
+- The Hangar now labels aura, velocity, and ram ships clearly in their weapon identity text.
+- Added tests for Ember's no-bullet aura behavior, attack-speed-scaled aura damage, Kestrel speed scaling, and Bulwark ram collision behavior.
+
 ### Global Core Reset Progression
 
 Moved core earning from ship exchange/crystal routing into Nova Crown survival.
@@ -411,21 +429,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Ship Build Identity Expansion
-
-Make each ship feel like a build archetype for survival attempts.
-
-Priority order:
-- Give at least one more existing ship a unique weapon identity.
-- Add an aura/field-style ship weapon that deals continuous nearby damage.
-- Add stronger hangar/weapon copy that explains each archetype.
-- Keep upgrades, drones, and boss rewards relevant across all ship identities.
-
-Acceptance:
-- At least one new ship weapon identity changes combat style without adding non-serializable state.
-- The Hangar UI previews the identity clearly.
-- Tests cover the new weapon behavior.
 
 ### Survival Run Modifiers
 

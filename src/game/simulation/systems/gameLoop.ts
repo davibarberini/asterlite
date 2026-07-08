@@ -48,7 +48,7 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
   updateBosses(state, dt);
   updateSaucer(state, dt);
   updateParticles(state, dt);
-  resolveCollisions(state);
+  resolveCollisions(state, dt);
   updateSurvival(state, dt);
   updateShipUnlockProgress(state, dt, (id) => emitShipUnlock(state, id));
   updateRareSpawns(state, dt);
