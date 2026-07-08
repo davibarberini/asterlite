@@ -7,6 +7,7 @@ import {
   type ShipFrameRarity,
   type ShipWeaponIdentity
 } from '../../game/progression/shipFrames';
+import { SHIP_UNLOCK_DEFINITIONS, getShipUnlockProgressLabel } from '../../game/progression/shipUnlocks';
 import { getAvailableWarpCores, hasWarpUnlock, WARP_UNLOCK_DEFINITIONS } from '../../game/progression/warpUnlocks';
 import type { GameState, ShipFrameId } from '../../game/simulation/types';
 import { zones } from '../../game/simulation/zones';
@@ -36,7 +37,6 @@ export class HangarController {
     const availableAfterReset = getAvailableWarpCores(options.state.progression) + coreGain;
     const resetReady = exchangeRequirement.ready;
     const activeFrame = getActiveShipFrame(options.state.progression);
-    const nextFrame = SHIP_FRAME_BY_ID[this.getNextExchangeShipFrameId(options.state)];
     const panel = document.createElement('section');
     panel.className = 'warp-reset-panel';
 
@@ -49,8 +49,8 @@ export class HangarController {
     const title = document.createElement('strong');
     title.textContent = resetReady
       ? (options.language === 'pt-BR'
-        ? `${nextFrame.name} pronta · +${coreGain} ${formatCoreUnit(options.language, coreGain)}`
-        : `${nextFrame.name} ready · +${coreGain} ${formatCoreUnit(options.language, coreGain)}`)
+        ? `Reset warp pronto · +${coreGain} ${formatCoreUnit(options.language, coreGain)}`
+        : `Warp reset ready · +${coreGain} ${formatCoreUnit(options.language, coreGain)}`)
       : this.getWarpResetBlockedTitle(options, exchangeRequirement);
     titleWrap.append(kicker, title);
 
@@ -59,7 +59,7 @@ export class HangarController {
     resetButton.type = 'button';
     resetButton.disabled = !resetReady;
     resetButton.textContent = resetReady
-      ? (options.language === 'pt-BR' ? 'Liberar nave' : 'Unlock ship')
+      ? (options.language === 'pt-BR' ? 'Reset warp' : 'Warp reset')
       : translate(options.language, 'shop.notReady');
     resetButton.addEventListener('click', () => options.onUnlockShip(coreGain));
     header.append(titleWrap, resetButton);
@@ -113,7 +113,7 @@ export class HangarController {
     const list = document.createElement('div');
     list.className = 'ship-frame-list';
     [...SHIP_FRAME_DEFINITIONS]
-      .sort((a, b) => a.unlockExchange - b.unlockExchange)
+      .sort((a, b) => this.getShipUnlockOrder(a.id) - this.getShipUnlockOrder(b.id))
       .forEach((frame) => {
         const unlocked = options.state.progression.unlockedShipFrameIds.includes(frame.id);
         const active = options.state.progression.activeShipFrameId === frame.id;
@@ -148,13 +148,13 @@ export class HangarController {
           ? (active
             ? (options.language === 'pt-BR' ? 'Atual' : 'Current')
             : (options.language === 'pt-BR' ? `${this.getShipFrameBonusText(options.language, frame.id)} · Selecionar` : `${this.getShipFrameBonusText(options.language, frame.id)} · Select`))
-          : (options.language === 'pt-BR' ? `Libera na troca ${frame.unlockExchange}` : `Unlocks on exchange ${frame.unlockExchange}`);
+          : this.getShipUnlockDescription(options.language, frame.id);
 
         const stats = document.createElement('span');
         stats.className = 'ship-frame-item__stats';
         stats.textContent = run
           ? `${options.formatMoney(run.money)} · ${run.crystals} ${formatCrystalUnit(options.language, run.crystals)} · D${run.damageLevel}/A${run.fireRateLevel}`
-          : (unlocked ? (options.language === 'pt-BR' ? 'Slot novo' : 'Fresh slot') : this.getShipFrameBonusText(options.language, frame.id));
+          : (unlocked ? (options.language === 'pt-BR' ? 'Slot novo' : 'Fresh slot') : `${getShipUnlockProgressLabel(options.state.progression, frame.id)} · ${this.getShipFrameBonusText(options.language, frame.id)}`);
 
         body.append(header, meta, stats);
         item.append(preview, body);
@@ -272,12 +272,13 @@ export class HangarController {
     return labels[rarity];
   }
 
-  private getNextExchangeShipFrameId(state: GameState): ShipFrameId {
-    const nextExchange = state.progression.shipExchanges + 1;
-    const nextFrame = [...SHIP_FRAME_DEFINITIONS]
-      .sort((a, b) => a.unlockExchange - b.unlockExchange)
-      .find((frame) => frame.unlockExchange === nextExchange);
-    return nextFrame?.id ?? state.progression.activeShipFrameId;
+  private getShipUnlockOrder(id: ShipFrameId): number {
+    const index = SHIP_UNLOCK_DEFINITIONS.findIndex((definition) => definition.id === id);
+    return index >= 0 ? index : SHIP_UNLOCK_DEFINITIONS.length;
+  }
+
+  private getShipUnlockDescription(language: LanguageCode, id: ShipFrameId): string {
+    return SHIP_UNLOCK_DEFINITIONS.find((definition) => definition.id === id)?.getDescription(language) ?? '';
   }
 
   private createStat(label: string, value: string): HTMLElement {

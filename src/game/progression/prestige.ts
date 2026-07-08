@@ -2,7 +2,7 @@ import type { GameState, ProgressionState } from '../simulation/types';
 import { createGameState, createProgression } from '../simulation/state';
 import { balance } from '../balance';
 import { applyOwnedWarpUnlockEffects } from './warpUnlocks';
-import { getNextShipFrameId, getUnlockedShipFrameIdsForExchangeCount } from './shipFrames';
+import { normalizeShipFrameIds } from './shipFrames';
 import { createDefaultShipRun, withCapturedActiveShipRun } from './shipRuns';
 
 export const crystalsPerPrestigeCore = balance.economy.prestige.crystalsPerCore;
@@ -23,7 +23,10 @@ export const getPrestigeCoreGain = (state: GameState): number => {
 export const createWarpResetState = (previousState: GameState, width: number, height: number, coreGain: number): GameState => {
   const permanentProgression = createProgression();
   const nextExchangeCount = previousState.progression.shipExchanges + 1;
-  const nextShipFrameId = getNextShipFrameId(previousState.progression, nextExchangeCount);
+  const unlockedShipFrameIds = normalizeShipFrameIds(previousState.progression.unlockedShipFrameIds);
+  const activeShipFrameId = unlockedShipFrameIds.includes(previousState.progression.activeShipFrameId)
+    ? previousState.progression.activeShipFrameId
+    : 'vector';
   permanentProgression.prestigeCores = previousState.progression.prestigeCores + Math.max(0, Math.floor(coreGain));
   permanentProgression.ownedWarpUnlockIds = [...previousState.progression.ownedWarpUnlockIds];
   permanentProgression.announcedAffordableWarpUnlockIds = [...previousState.progression.announcedAffordableWarpUnlockIds];
@@ -34,11 +37,12 @@ export const createWarpResetState = (previousState: GameState, width: number, he
     startedAt: { ...previousState.progression.guidedMissions.startedAt }
   };
   permanentProgression.shipExchanges = nextExchangeCount;
-  permanentProgression.unlockedShipFrameIds = getUnlockedShipFrameIdsForExchangeCount(nextExchangeCount);
-  permanentProgression.activeShipFrameId = nextShipFrameId;
+  permanentProgression.unlockedShipFrameIds = unlockedShipFrameIds;
+  permanentProgression.activeShipFrameId = activeShipFrameId;
+  permanentProgression.shipUnlockProgress = { ...previousState.progression.shipUnlockProgress };
   permanentProgression.shipRuns = {
     ...withCapturedActiveShipRun(previousState),
-    [nextShipFrameId]: createDefaultShipRun()
+    [activeShipFrameId]: createDefaultShipRun()
   };
   permanentProgression.spreadUnlocked = previousState.progression.spreadUnlocked;
   permanentProgression.piercingUnlocked = previousState.progression.piercingUnlocked;

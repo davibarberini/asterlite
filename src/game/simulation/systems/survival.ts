@@ -11,7 +11,8 @@ export const createSurvivalState = (): SurvivalState => ({
   hazardSpawnCooldown: 0,
   hunterSpawnCooldown: 0,
   timedEventCooldown: 0,
-  gravityPulseCooldown: 0
+  gravityPulseCooldown: 0,
+  damageFieldCooldown: 0
 });
 
 export const isSurvivalZone = (state: GameState): boolean =>
@@ -74,6 +75,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     state.survival.hunterSpawnCooldown = balance.survival.hunters.spawnInterval;
     state.survival.timedEventCooldown = balance.survival.timedEvents.meteorLane.spawnInterval;
     state.survival.gravityPulseCooldown = balance.survival.timedEvents.gravityPulse.spawnInterval;
+    state.survival.damageFieldCooldown = balance.survival.timedEvents.damageField.spawnInterval;
     emitReward(state, 'Nova Crown survival started', 'system');
   }
 
@@ -102,6 +104,7 @@ const resetCurrentSurvivalRun = (state: GameState): void => {
   state.survival.hunterSpawnCooldown = 0;
   state.survival.timedEventCooldown = 0;
   state.survival.gravityPulseCooldown = 0;
+  state.survival.damageFieldCooldown = 0;
   state.survivalEvents = [];
 };
 

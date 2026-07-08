@@ -162,7 +162,7 @@ export type SurvivalHazardState = {
   damage: number;
 };
 
-export type SurvivalTimedEventKind = 'meteorLane' | 'gravityPulse';
+export type SurvivalTimedEventKind = 'meteorLane' | 'gravityPulse' | 'damageField';
 
 export type SurvivalMeteorVisualState = {
   crossOffset: number;
@@ -202,7 +202,15 @@ export type SurvivalGravityPulseEventState = SurvivalTimedEventBaseState & {
   force: number;
 };
 
-export type SurvivalTimedEventState = SurvivalMeteorLaneEventState | SurvivalGravityPulseEventState;
+export type SurvivalDamageFieldEventState = SurvivalTimedEventBaseState & {
+  kind: 'damageField';
+  radius: number;
+  damage: number;
+  hitCooldown: number;
+};
+
+export type SurvivalTimedEventState = SurvivalMeteorLaneEventState | SurvivalGravityPulseEventState | SurvivalDamageFieldEventState;
+
 
 export type GamePhase = 'playing' | 'respawning';
 
@@ -257,6 +265,7 @@ export type SurvivalState = {
   hunterSpawnCooldown: number;
   timedEventCooldown: number;
   gravityPulseCooldown: number;
+  damageFieldCooldown: number;
 };
 
 export type AchievementStats = {
@@ -362,6 +371,15 @@ export type ShipRunState = {
   dronesPurchased: number;
 };
 
+export type ShipUnlockProgress = {
+  asteroidCollisions: number;
+  asteroidBurstBest: number;
+  prismBossDefeatsSinceDrop: number;
+  novaCrownShipFrameIds: ShipFrameId[];
+  meteorImpactsSurvived: number;
+  wraithNoDamageSeconds: number;
+};
+
 export type ProgressionState = {
   passiveIncomeLevel: number;
   shipDamageLevel: number;
@@ -388,6 +406,7 @@ export type ProgressionState = {
   survivalBestThreatLevel: number;
   activeShipFrameId: ShipFrameId;
   unlockedShipFrameIds: ShipFrameId[];
+  shipUnlockProgress: ShipUnlockProgress;
   shipRuns: Partial<Record<ShipFrameId, ShipRunState>>;
   shipExchanges: number;
   prestigeCores: number;

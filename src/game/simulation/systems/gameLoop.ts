@@ -28,6 +28,7 @@ import {
 } from '../../progression/talentTree';
 import { syncGuidedMissions } from '../../progression/guidedMissions';
 import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
+import { emitShipUnlock, updateShipUnlockProgress } from '../../progression/shipUnlocks';
 import { balance } from '../../balance';
 import { hasShieldBubbleUnlocked } from '../state';
 export const updateGame = (state: GameState, input: InputActions, dt: number): void => {
@@ -49,6 +50,7 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
   updateParticles(state, dt);
   resolveCollisions(state);
   updateSurvival(state, dt);
+  updateShipUnlockProgress(state, dt, (id) => emitShipUnlock(state, id));
   updateRareSpawns(state, dt);
   updateSurvivalTimedEvents(state, dt);
   updateSurvivalHazards(state, dt);

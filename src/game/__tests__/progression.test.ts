@@ -14,6 +14,10 @@ import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
 import { getShipExchangeRequirement } from '../progression/shipExchange';
 import { createShipFrameSwitchState } from '../progression/shipRuns';
 import { getUnlockedShipFrameIdsForExchangeCount } from '../progression/shipFrames';
+import {
+  recordPrismBossDefeatUnlockProgress,
+  syncShipUnlocks
+} from '../progression/shipUnlocks';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
@@ -86,6 +90,11 @@ describe('save loading', () => {
       rareBossProgress: 12,
       rareBossesFound: 1
     };
+    savedState.progression.shipUnlockProgress = {
+      ...savedState.progression.shipUnlockProgress,
+      asteroidCollisions: 23,
+      novaCrownShipFrameIds: ['vector']
+    };
     savedState.progression.ownedWarpUnlockIds = ['droneSystems'];
     savedState.progression.announcedAffordableWarpUnlockIds = ['droneSystems'];
     savedState.bossRewards = {
@@ -125,6 +134,8 @@ describe('save loading', () => {
       rareBossProgress: 12,
       rareBossesFound: 1
     });
+    expect(loadedState.progression.shipUnlockProgress.asteroidCollisions).toBe(23);
+    expect(loadedState.progression.shipUnlockProgress.novaCrownShipFrameIds).toEqual(['vector']);
     expect(loadedState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
     expect(loadedState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems']);
     expect(loadedState.bossRewards).toEqual({
@@ -1194,8 +1205,8 @@ describe('boss gates and warp reset', () => {
     expect(nextState.bossRewards.activeIds).toEqual([]);
     expect(nextState.bossRewards.pendingChoiceIds).toEqual([]);
     expect(nextState.progression.shipExchanges).toBe(1);
-    expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector', 'nivitron', 'kestrel']);
-    expect(nextState.progression.activeShipFrameId).toBe('kestrel');
+    expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector']);
+    expect(nextState.progression.activeShipFrameId).toBe('vector');
     expect(nextState.progression.guidedMissions.activeMissionId).toBe('warpForFirstCore');
     expect(nextState.progression.guidedMissions.completedMissionIds).toEqual(['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals']);
     expect(nextState.ship.maxHp).toBe(100);
@@ -1247,7 +1258,7 @@ describe('boss gates and warp reset', () => {
     expect(restoredKestrel.progression.shipDamageLevel).toBe(3);
   });
 
-  it('ship exchange saves the current ship run and starts the newly unlocked ship fresh', () => {
+  it('ship exchange resets the active ship without unlocking the next ship frame', () => {
     const state = createGameState(800, 600);
     state.money = 2200;
     state.crystals = crystalsPerPrestigeCore;
@@ -1259,25 +1270,61 @@ describe('boss gates and warp reset', () => {
 
     const nextState = createWarpResetState(state, 800, 600, 1);
 
-    expect(nextState.progression.activeShipFrameId).toBe('kestrel');
+    expect(nextState.progression.activeShipFrameId).toBe('vector');
+    expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector']);
     expect(nextState.money).toBe(0);
     expect(nextState.crystals).toBe(0);
     expect(nextState.progression.shipDamageLevel).toBe(1);
-    expect(nextState.progression.shipRuns.vector?.money).toBe(2200);
-    expect(nextState.progression.shipRuns.vector?.crystals).toBe(crystalsPerPrestigeCore);
-    expect(nextState.progression.shipRuns.vector?.shipDamageLevel).toBe(10);
-
-    const vectorState = createShipFrameSwitchState(nextState, 800, 600, 'vector');
-
-    expect(vectorState.money).toBe(2200);
-    expect(vectorState.crystals).toBe(crystalsPerPrestigeCore);
-    expect(vectorState.progression.shipDamageLevel).toBe(10);
-    expect(vectorState.progression.shipFireRateLevel).toBe(8);
+    expect(nextState.progression.shipRuns.vector?.money).toBe(0);
+    expect(nextState.progression.shipRuns.vector?.crystals).toBe(0);
+    expect(nextState.progression.shipRuns.vector?.shipDamageLevel).toBe(1);
   });
 
-  it('keeps the legendary nivitron unlocked from the start for testing', () => {
-    expect(createProgression().unlockedShipFrameIds).toContain('nivitron');
-    expect(getUnlockedShipFrameIdsForExchangeCount(0)).toContain('nivitron');
+  it('starts with only Vector and does not unlock ships from exchange count', () => {
+    expect(createProgression().unlockedShipFrameIds).toEqual(['vector']);
+    expect(getUnlockedShipFrameIdsForExchangeCount(9)).toEqual(['vector']);
+  });
+
+  it('unlocks ship frames from their milestone progress', () => {
+    const state = createGameState(800, 600);
+
+    state.progression.achievementStats.asteroidsDestroyed = 1000;
+    state.progression.shipUnlockProgress.asteroidCollisions = 1000;
+    state.progression.shipUnlockProgress.asteroidBurstBest = 3;
+    state.progression.shipUnlockProgress.novaCrownShipFrameIds = ['vector', 'kestrel', 'bulwark'];
+    state.progression.shipUnlockProgress.meteorImpactsSurvived = 250;
+    state.progression.shipUnlockProgress.wraithNoDamageSeconds = 180;
+    state.progression.survivalBestSeconds = 600;
+    state.progression.survivalBestThreatLevel = 30;
+
+    syncShipUnlocks(state);
+
+    expect(state.progression.unlockedShipFrameIds).toEqual([
+      'vector',
+      'kestrel',
+      'bulwark',
+      'needle',
+      'atlas',
+      'ember',
+      'voidRunner',
+      'wraith',
+      'aurora',
+      'nivitron'
+    ]);
+  });
+
+  it('unlocks Prism from rare boss drop or pity progress', () => {
+    const dropState = createGameState(800, 600);
+    recordPrismBossDefeatUnlockProgress(dropState, 0.01);
+    syncShipUnlocks(dropState);
+    expect(dropState.progression.unlockedShipFrameIds).toContain('prism');
+
+    const pityState = createGameState(800, 600);
+    for (let index = 0; index < 50; index += 1) {
+      recordPrismBossDefeatUnlockProgress(pityState, 0.99);
+    }
+    syncShipUnlocks(pityState);
+    expect(pityState.progression.unlockedShipFrameIds).toContain('prism');
   });
 });
 

@@ -4,6 +4,41 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Ship Unlock Milestones
+
+Replaced exchange-order ship unlocks with ship-specific gameplay milestones.
+
+Notes:
+- Added serializable ship unlock progress for asteroid collisions, burst destroys, Prism boss pity, Nova Crown ship visits, meteor impacts, and no-damage survival time.
+- New games now start with only Vector unlocked; Nivitron is a real endgame unlock at Nova Crown threat level 30.
+- Kestrel unlocks from destroying 1,000 asteroids.
+- Bulwark unlocks from colliding with 1,000 asteroids.
+- Needle unlocks from destroying 3 asteroids in the same collision resolution window.
+- Prism unlocks from a 2% Prism Boss drop with a guaranteed unlock on the 50th Prism Boss defeat.
+- Atlas unlocks after reaching Nova Crown with 3 different ships.
+- Ember unlocks after surviving 250 meteor impacts in Nova Crown.
+- Void Runner unlocks after surviving 10 minutes in Nova Crown.
+- Wraith unlocks after surviving 3 minutes in Nova Crown without taking HP damage.
+- Aurora unlocks at Nova Crown threat level 20.
+- Warp reset now preserves the current hangar instead of unlocking the next ship by exchange count.
+- Hangar locked cards now show each ship's milestone requirement and progress.
+- Added tests for exchange behavior and milestone unlock rules.
+
+### Survival Toxic Damage Fields
+
+Added persistent toxic fields for Nova Crown spatial pressure.
+
+Notes:
+- Added serializable `damageField` timed event state alongside meteor lanes and gravity pulses.
+- Damage fields start after their configured survival threat threshold.
+- Fields spawn as active huge fixed-position toxic zones within a large range around the player.
+- Toxic fields use low counts so each one reads as a major space-denial hazard.
+- Fields persist while nearby and are recycled only after they move far enough away that the player should not notice.
+- Fields damage the ship in cooldown-based ticks while the ship is inside the radius.
+- Field damage respects shield bubble absorption through the existing collision path.
+- The vector renderer draws fields as drifting toxic smoke instead of hard circular markers.
+- Added tests for threat-gated spawn eligibility, fixed-position recycling, and field damage behavior.
+
 ### Survival Gravity Pulse Events
 
 Added the second timed survival hazard for Nova Crown escalation.
@@ -11,9 +46,11 @@ Added the second timed survival hazard for Nova Crown escalation.
 Notes:
 - Added serializable `gravityPulse` timed event state alongside meteor lanes.
 - Gravity pulses start after their configured survival threat threshold.
-- Pulses warn before becoming active, then pull the ship toward the center while the ship is inside the radius.
-- Pulse rendering uses a simple circular field with active inward lines so it stays readable on mobile.
-- Added tests for threat-gated spawn eligibility and active-only pull behavior.
+- Gravity wells spawn as active fixed-position hazards within a large range around the player.
+- Gravity wells persist while nearby and are recycled only after they move far enough away that the player should not notice.
+- Gravity wells pull the ship toward the center while the ship is inside the radius.
+- Gravity well rendering now reads more like a black hole with a dark core, halo, and orbit/accretion lines.
+- Added tests for threat-gated spawn eligibility, fixed-position recycling, and pull behavior.
 
 ### Survival Meteor Lane Events
 
@@ -358,19 +395,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Survival Damage Field Timed Events
-
-Add the remaining readable timed survival danger beyond meteor lanes and gravity pulses.
-
-Priority order:
-- Damage fields.
-
-Acceptance:
-- The damage field event type is serializable.
-- The threat appears only after an appropriate survival threat level.
-- Rendering makes the danger readable on mobile.
-- Tests cover spawn eligibility and damage/collision behavior.
 
 ### Ship Build Identity Expansion
 

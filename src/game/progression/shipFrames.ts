@@ -253,7 +253,7 @@ export const normalizeShipFrameIds = (ids: unknown): ShipFrameId[] => {
   const validIds = Array.isArray(ids)
     ? ids.filter((id): id is ShipFrameId => typeof id === 'string' && id in SHIP_FRAME_BY_ID)
     : [];
-  return Array.from(new Set(['vector', 'nivitron', ...validIds]));
+  return Array.from(new Set(['vector', ...validIds]));
 };
 
 export const getActiveShipFrame = (progression: ProgressionState): ShipFrameDefinition =>
@@ -262,11 +262,7 @@ export const getActiveShipFrame = (progression: ProgressionState): ShipFrameDefi
 export const getShipFrameWeaponIdentity = (progression: ProgressionState): ShipWeaponIdentity =>
   getActiveShipFrame(progression).weaponIdentity;
 
-export const getUnlockedShipFrameIdsForExchangeCount = (exchangeCount: number): ShipFrameId[] =>
-  SHIP_FRAME_DEFINITIONS
-    .filter((frame) => frame.unlockExchange <= exchangeCount)
-    .sort((a, b) => a.unlockExchange - b.unlockExchange)
-    .map((frame) => frame.id);
+export const getUnlockedShipFrameIdsForExchangeCount = (_exchangeCount: number): ShipFrameId[] => ['vector'];
 
 export const getNextShipFrameId = (previousProgression: ProgressionState, nextExchangeCount: number): ShipFrameId => {
   const currentUnlocked = normalizeShipFrameIds(previousProgression.unlockedShipFrameIds);

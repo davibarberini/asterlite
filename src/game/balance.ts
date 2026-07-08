@@ -36,9 +36,9 @@ export const balance = {
     startingInvulnerableFor: 2,
     respawnDelay: 4.2,
     turnSpeed: 4.25,
-    thrust: 112,
+    thrust: 224,
     drag: 0.993,
-    maxSpeed: 164,
+    maxSpeed: 328,
     speedBonusPerLevel: 0.12,
     pointerArrivalRadius: 34,
     pointerBrakeRadius: 72,
@@ -108,14 +108,28 @@ export const balance = {
       },
       gravityPulse: {
         startsAtThreatLevel: 6,
-        spawnInterval: 14,
-        spawnIntervalThreatReduction: 0.5,
-        minimumSpawnInterval: 8,
-        warningSeconds: 1.6,
-        activeSeconds: 3.1,
-        radius: 190,
+        maxCount: 3,
+        threatLevelsPerExtraWell: 5,
+        spawnInterval: 5,
+        spawnIntervalThreatReduction: 0.18,
+        minimumSpawnInterval: 2.6,
+        radius: 380,
         force: 430,
-        spawnDistance: [70, 190]
+        spawnDistance: [650, 1320],
+        despawnDistance: 2150
+      },
+      damageField: {
+        startsAtThreatLevel: 7,
+        maxCount: 4,
+        threatLevelsPerExtraField: 4,
+        spawnInterval: 3.6,
+        spawnIntervalThreatReduction: 0.12,
+        minimumSpawnInterval: 2,
+        radius: 945,
+        damage: 18,
+        hitCooldown: 0.85,
+        spawnDistance: [1100, 2200],
+        despawnDistance: 3400
       }
     }
   },
@@ -155,7 +169,7 @@ export const balance = {
   weapons: {
     bulletSpeed: 540,
     droneBulletSpeed: 430,
-    playerDamageMultiplier: 0.4,
+    playerDamageMultiplier: 1,
     playerFireInterval: 0.8,
     spreadCooldownMultiplier: 1.15,
     spreadDamageMultiplier: 0.4,

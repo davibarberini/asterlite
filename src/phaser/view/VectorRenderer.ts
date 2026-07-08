@@ -134,6 +134,10 @@ export class VectorRenderer {
       this.drawGravityPulse(state, event);
       return;
     }
+    if (event.kind === 'damageField') {
+      this.drawDamageField(state, event);
+      return;
+    }
 
     const viewScale = this.getViewScale(state);
     const center = {
@@ -193,27 +197,28 @@ export class VectorRenderer {
     const y = this.toScreenY(state, event.center.y);
     const radius = event.radius * viewScale;
     const active = isSurvivalTimedEventActive(event);
-    const pulse = 0.5 + Math.sin((event.age + event.id * 0.19) * (active ? 9 : 6)) * 0.5;
-    const color = active ? 0x92dfff : 0xffd36a;
+    const pulse = 0.5 + Math.sin((event.age + event.id * 0.19) * 5.2) * 0.5;
 
-    this.graphics.fillStyle(active ? 0x92dfff : 0xffd36a, active ? 0.04 + pulse * 0.035 : 0.025 + pulse * 0.03);
+    this.graphics.fillStyle(0x0b1018, 0.18);
     this.graphics.fillCircle(x, y, radius);
-    this.graphics.lineStyle(active ? 2 : 1, color, active ? 0.38 + pulse * 0.28 : 0.22 + pulse * 0.26);
+    this.graphics.fillStyle(0x173a52, 0.075 + pulse * 0.03);
+    this.graphics.fillCircle(x, y, radius * 0.72);
+    this.graphics.lineStyle(2, 0x92dfff, 0.28 + pulse * 0.22);
     this.graphics.strokeCircle(x, y, radius);
-    this.graphics.lineStyle(1, active ? 0xd8fff5 : 0xf2fbff, active ? 0.18 + pulse * 0.22 : 0.12 + pulse * 0.14);
-    this.graphics.strokeCircle(x, y, radius * (0.58 + pulse * 0.12));
+    this.graphics.lineStyle(1, 0xd8fff5, 0.14 + pulse * 0.16);
+    this.graphics.strokeCircle(x, y, radius * (0.48 + pulse * 0.06));
 
-    if (!active) {
-      return;
-    }
+    const coreRadius = Math.max(7, radius * 0.075);
+    this.graphics.fillStyle(0x010308, 0.94);
+    this.graphics.fillCircle(x, y, coreRadius * 1.55);
+    this.graphics.lineStyle(Math.max(1, radius * 0.012), 0xfff1a8, 0.4 + pulse * 0.22);
+    this.drawArcSegments(x, y, coreRadius * 2.25, event.age * 2.4, Math.PI * 1.65, 10);
 
-    this.graphics.fillStyle(0xd8fff5, 0.18 + pulse * 0.18);
-    this.graphics.fillCircle(x, y, Math.max(4, radius * 0.055));
-    this.graphics.lineStyle(1, 0xd8fff5, 0.2 + pulse * 0.2);
-    for (let index = 0; index < 10; index += 1) {
-      const angle = (index / 10) * Math.PI * 2 + event.age * 0.8;
-      const outer = radius * 0.9;
-      const inner = radius * (0.24 + pulse * 0.08);
+    this.graphics.lineStyle(1, 0x92dfff, 0.16 + pulse * 0.16);
+    for (let index = 0; index < 14; index += 1) {
+      const angle = (index / 14) * Math.PI * 2 + event.age * 0.55;
+      const outer = radius * (0.84 - (index % 3) * 0.06);
+      const inner = radius * (0.18 + pulse * 0.04);
       this.graphics.lineBetween(
         x + Math.cos(angle) * outer,
         y + Math.sin(angle) * outer,
@@ -221,6 +226,37 @@ export class VectorRenderer {
         y + Math.sin(angle) * inner
       );
     }
+  }
+
+  private drawDamageField(state: GameState, event: Extract<SurvivalTimedEventState, { kind: 'damageField' }>): void {
+    if (!this.isCircleOnScreen(state, event.center.x, event.center.y, event.radius + 18)) {
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, event.center.x);
+    const y = this.toScreenY(state, event.center.y);
+    const radius = event.radius * viewScale;
+    const active = isSurvivalTimedEventActive(event);
+    const pulse = 0.5 + Math.sin((event.age + event.id * 0.23) * 2.8) * 0.5;
+
+    this.graphics.fillStyle(0x466a52, 0.045);
+    this.graphics.fillCircle(x, y, radius * 0.92);
+    for (let index = 0; index < 15; index += 1) {
+      const seed = event.id * 31 + index * 17;
+      const angle = seed * 0.73 + Math.sin(event.age * 0.22 + index) * 0.18;
+      const distanceFromCenter = radius * (0.08 + ((seed % 100) / 100) * 0.72);
+      const puffPulse = 0.5 + Math.sin(event.age * (0.75 + (index % 4) * 0.12) + seed) * 0.5;
+      const puffRadius = radius * (0.17 + ((seed % 7) / 7) * 0.16) * (0.92 + puffPulse * 0.18);
+      const puffX = x + Math.cos(angle) * distanceFromCenter;
+      const puffY = y + Math.sin(angle) * distanceFromCenter;
+      const color = index % 3 === 0 ? 0x9fcf7a : index % 3 === 1 ? 0x6f8f6a : 0x45544d;
+      this.graphics.fillStyle(color, 0.08 + puffPulse * 0.055 + pulse * 0.025);
+      this.graphics.fillCircle(puffX, puffY, puffRadius);
+    }
+
+    this.graphics.fillStyle(0xc9ff89, 0.045 + pulse * 0.035);
+    this.graphics.fillCircle(x, y, radius * 0.18);
   }
 
   private drawMeteorLaneRock(

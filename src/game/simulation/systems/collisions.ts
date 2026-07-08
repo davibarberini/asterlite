@@ -1,5 +1,14 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
 import { queueBossRewardChoices } from '../../progression/bossRewards';
+import {
+  emitShipUnlock,
+  recordAsteroidBurstUnlockProgress,
+  recordAsteroidCollisionUnlockProgress,
+  recordMeteorImpactUnlockProgress,
+  recordPrismBossDefeatUnlockProgress,
+  resetNoDamageShipUnlockProgress,
+  syncShipUnlocks
+} from '../../progression/shipUnlocks';
 import { getMissileSplashDamage, getMissileSplashRadius, getShotgunPelletDamage, hasMissileExplosion } from '../../progression/talentTree';
 import type { GameState, SurvivalMeteorLaneEventState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
@@ -11,6 +20,7 @@ import { balance } from '../../balance';
 import { getMeteorLaneMeteorPosition, isSurvivalTimedEventActive } from './survivalEvents';
 
 export const resolveCollisions = (state: GameState): void => {
+  const asteroidDestroyCountBefore = state.progression.achievementStats.asteroidsDestroyed;
   const nextAsteroids = [...state.asteroids];
   const nextHazards = [...state.hazards];
   const destroyedAsteroidIds = new Set<number>();
@@ -142,6 +152,22 @@ export const resolveCollisions = (state: GameState): void => {
     }
 
     for (const event of state.survivalEvents) {
+      if (event.kind === 'damageField') {
+        if (
+          !isSurvivalTimedEventActive(event) ||
+          event.hitCooldown > 0 ||
+          distance(state.ship.position, event.center) >= getShipThreatRadius(state) + event.radius
+        ) {
+          continue;
+        }
+
+        event.hitCooldown = balance.survival.timedEvents.damageField.hitCooldown;
+        burstParticles(state, state.ship.position, 10, event.radius * 0.72);
+        if (!absorbShieldBubbleHit(state, state.ship.position, 100)) {
+          damageShip(state, event.damage);
+        }
+        break;
+      }
       if (
         event.kind !== 'meteorLane' ||
         !isSurvivalTimedEventActive(event) ||
@@ -170,10 +196,12 @@ export const resolveCollisions = (state: GameState): void => {
       if (!absorbShieldBubbleHit(state, hitMeteor.position, 120)) {
         damageShip(state, event.damage);
       }
+      recordMeteorImpactUnlockProgress(state);
       break;
     }
 
     if (!state.ship.alive) {
+      syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
       state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
       state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
       state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
@@ -202,6 +230,15 @@ export const resolveCollisions = (state: GameState): void => {
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
+  syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
+};
+
+const syncCollisionShipUnlocks = (state: GameState, asteroidDestroyCountBefore: number): void => {
+  recordAsteroidBurstUnlockProgress(
+    state,
+    state.progression.achievementStats.asteroidsDestroyed - asteroidDestroyCountBefore
+  );
+  syncShipUnlocks(state, (id) => emitShipUnlock(state, id));
 };
 
 const tryRicochetBulletOffAsteroid = (
@@ -325,6 +362,7 @@ const collideShipWithAsteroid = (
     return;
   }
 
+  recordAsteroidCollisionUnlockProgress(state);
   if (absorbShieldBubbleHit(state, asteroid.position, asteroid.radius * 2.4)) {
     repelAsteroidFromShip(state, asteroid);
     return;
@@ -517,6 +555,9 @@ const destroyAsteroid = (
     state.progression.travelLevel = state.progression.unlockedZoneIndex;
     state.progression.mapUnlocked = true;
     state.progression.bossDefeats += 1;
+    if (asteroid.bossType === 'prism') {
+      recordPrismBossDefeatUnlockProgress(state);
+    }
     state.progression.bossDiscovery.rareBossProgress = 0;
     queueBossRewardChoices(state);
     emitAudio(state, { type: 'bossDefeated' });
@@ -541,6 +582,7 @@ const damageShip = (state: GameState, amount: number): void => {
   }
 
   state.ship.hp = Math.max(0, state.ship.hp - damage);
+  resetNoDamageShipUnlockProgress(state);
   state.ship.invulnerableFor = 0.75;
   emitAudio(state, { type: 'shipHit' });
   burstParticles(state, state.ship.position, damage >= state.ship.maxHp * 0.25 ? 18 : 8, 160);

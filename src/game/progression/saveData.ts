@@ -11,8 +11,8 @@ import {
 import { createBossRewardState, normalizeBossRewardState } from './bossRewards';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
 import { createGuidedMissionState } from './guidedMissions';
-import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, getUnlockedShipFrameIdsForExchangeCount, normalizeShipFrameIds } from './shipFrames';
-import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, normalizeShipFrameIds } from './shipFrames';
+import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
@@ -20,6 +20,7 @@ import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
 import { captureActiveShipRun } from './shipRuns';
 import { createRareSpawnState } from '../simulation/systems/rareSpawns';
 import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/systems/survival';
+import { createShipUnlockProgress, normalizeShipUnlockProgress } from './shipUnlocks';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
@@ -204,7 +205,8 @@ const readSurvival = (value: unknown): SurvivalState => {
     hazardSpawnCooldown: readNonNegativeNumber(value.hazardSpawnCooldown, 0),
     hunterSpawnCooldown: readNonNegativeNumber(value.hunterSpawnCooldown, 0),
     timedEventCooldown: readNonNegativeNumber(value.timedEventCooldown, 0),
-    gravityPulseCooldown: readNonNegativeNumber(value.gravityPulseCooldown, 0)
+    gravityPulseCooldown: readNonNegativeNumber(value.gravityPulseCooldown, 0),
+    damageFieldCooldown: readNonNegativeNumber(value.damageFieldCooldown, 0)
   };
 };
 
@@ -321,6 +323,24 @@ const isGuidedMissionId = (value: unknown): value is GuidedMissionId =>
 const isShipFrameId = (value: unknown): value is ShipFrameId =>
   typeof value === 'string' && value in SHIP_FRAME_BY_ID;
 
+const readShipUnlockProgress = (value: unknown): ShipUnlockProgress => {
+  const fallback = createShipUnlockProgress();
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  return normalizeShipUnlockProgress({
+    asteroidCollisions: readNonNegativeNumber(value.asteroidCollisions, fallback.asteroidCollisions),
+    asteroidBurstBest: readNonNegativeNumber(value.asteroidBurstBest, fallback.asteroidBurstBest),
+    prismBossDefeatsSinceDrop: readNonNegativeNumber(value.prismBossDefeatsSinceDrop, fallback.prismBossDefeatsSinceDrop),
+    novaCrownShipFrameIds: Array.isArray(value.novaCrownShipFrameIds)
+      ? value.novaCrownShipFrameIds.filter(isShipFrameId)
+      : fallback.novaCrownShipFrameIds,
+    meteorImpactsSurvived: readNonNegativeNumber(value.meteorImpactsSurvived, fallback.meteorImpactsSurvived),
+    wraithNoDamageSeconds: readNonNegativeNumber(value.wraithNoDamageSeconds, fallback.wraithNoDamageSeconds)
+  });
+};
+
 const readGuidedMissions = (value: unknown): GuidedMissionState => {
   const fallback = createGuidedMissionState();
   if (!isRecord(value)) {
@@ -405,10 +425,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const currentZoneIndex = Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex))));
   const ownedWarpUnlockIds = readWarpUnlockIds(value.ownedWarpUnlockIds);
   const savedShipExchanges = Math.max(0, Math.floor(readNumber(value.shipExchanges, 0)));
-  const unlockedShipFrameIds = Array.from(new Set([
-    ...normalizeShipFrameIds(value.unlockedShipFrameIds),
-    ...getUnlockedShipFrameIdsForExchangeCount(savedShipExchanges)
-  ]));
+  const unlockedShipFrameIds = normalizeShipFrameIds(value.unlockedShipFrameIds);
   const activeShipFrameId = isShipFrameId(value.activeShipFrameId) && unlockedShipFrameIds.includes(value.activeShipFrameId)
     ? value.activeShipFrameId
     : 'vector';
@@ -464,11 +481,9 @@ const readProgression = (value: unknown): ProgressionState | null => {
     survivalBestThreatLevel: Math.max(0, Math.floor(readNumber(value.survivalBestThreatLevel, 0))),
     activeShipFrameId,
     unlockedShipFrameIds,
+    shipUnlockProgress: readShipUnlockProgress(value.shipUnlockProgress),
     shipRuns: readShipRuns(value.shipRuns, unlockedShipFrameIds),
-    shipExchanges: Math.max(
-      savedShipExchanges,
-      ...unlockedShipFrameIds.map((id) => SHIP_FRAME_BY_ID[id].unlockExchange)
-    ),
+    shipExchanges: savedShipExchanges,
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
     ownedWarpUnlockIds,
     announcedAffordableWarpUnlockIds: readWarpUnlockIds(value.announcedAffordableWarpUnlockIds),

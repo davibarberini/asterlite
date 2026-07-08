@@ -40,6 +40,9 @@ const putInFinalZone = (state: ReturnType<typeof createGameState>): void => {
   state.saucerTimer = 999;
 };
 
+const distanceBetween = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+
 beforeEach(() => {
   vi.stubGlobal('window', {
     localStorage: createLocalStorage()
@@ -92,7 +95,8 @@ describe('nova crown survival', () => {
       hazardSpawnCooldown: 0,
       hunterSpawnCooldown: 0,
       timedEventCooldown: 0,
-      gravityPulseCooldown: 0
+      gravityPulseCooldown: 0,
+      damageFieldCooldown: 0
     };
     state.progression.survivalBestSeconds = 76;
     state.progression.survivalBestThreatLevel = 3;
@@ -256,11 +260,43 @@ describe('nova crown survival', () => {
 
     const gravityPulse = state.survivalEvents.find((event) => event.kind === 'gravityPulse');
     expect(gravityPulse?.kind).toBe('gravityPulse');
-    expect(gravityPulse?.warningFor).toBeGreaterThan(0);
+    expect(gravityPulse?.warningFor).toBe(0);
     expect(gravityPulse?.radius).toBe(balance.survival.timedEvents.gravityPulse.radius);
+    expect(gravityPulse?.radius).toBeGreaterThanOrEqual(380);
   });
 
-  it('pulls the ship only while a gravity pulse is active and in range', () => {
+  it('keeps gravity wells fixed nearby and recycles them only after a far range', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = balance.survival.timedEvents.gravityPulse.startsAtThreatLevel;
+    state.survival.gravityPulseCooldown = 0;
+
+    updateSurvivalTimedEvents(state, 1);
+
+    const gravityWell = state.survivalEvents.find((event) => event.kind === 'gravityPulse');
+    expect(gravityWell?.kind).toBe('gravityPulse');
+    if (!gravityWell || gravityWell.kind !== 'gravityPulse') {
+      throw new Error('Expected a gravity pulse event');
+    }
+    const originalCenter = { ...gravityWell.center };
+
+    updateSurvivalTimedEvents(state, 20);
+
+    const nearbyWell = state.survivalEvents.find((event) => event.id === gravityWell.id);
+    expect(nearbyWell?.center).toEqual(originalCenter);
+
+    state.ship.position = {
+      x: originalCenter.x + balance.survival.timedEvents.gravityPulse.despawnDistance + 80,
+      y: originalCenter.y
+    };
+    state.camera = { ...state.ship.position };
+    updateSurvivalTimedEvents(state, 1);
+
+    expect(state.survivalEvents.some((event) => event.id === gravityWell.id)).toBe(false);
+  });
+
+  it('pulls the ship while inside a gravity well', () => {
     const state = createGameState(800, 600);
     putInFinalZone(state);
     state.ship.velocity = { x: 0, y: 0 };
@@ -272,20 +308,110 @@ describe('nova crown survival', () => {
         radius: balance.survival.timedEvents.gravityPulse.radius,
         force: balance.survival.timedEvents.gravityPulse.force,
         age: 0,
-        warningFor: 0.5,
-        activeFor: 2
+        warningFor: 0,
+        activeFor: 1
       }
     ];
 
-    updateSurvivalTimedEvents(state, 0.1);
-
-    expect(state.ship.velocity.x).toBe(0);
-
-    state.survivalEvents[0].warningFor = 0;
     updateSurvivalTimedEvents(state, 1);
 
     expect(state.ship.velocity.x).toBeGreaterThan(0);
     expect(Math.abs(state.ship.velocity.y)).toBeLessThan(0.001);
+  });
+
+  it('spawns persistent toxic damage fields only after the survival threat threshold', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = balance.survival.timedEvents.damageField.startsAtThreatLevel - 1;
+    state.survival.damageFieldCooldown = 0;
+
+    updateSurvivalTimedEvents(state, 1);
+
+    expect(state.survivalEvents.some((event) => event.kind === 'damageField')).toBe(false);
+
+    state.survival.threatLevel = balance.survival.timedEvents.damageField.startsAtThreatLevel;
+    updateSurvivalTimedEvents(state, 1);
+
+    const damageField = state.survivalEvents.find((event) => event.kind === 'damageField');
+    expect(damageField?.kind).toBe('damageField');
+    expect(damageField?.warningFor).toBe(0);
+    expect(damageField?.radius).toBe(balance.survival.timedEvents.damageField.radius);
+    expect(damageField?.radius).toBeGreaterThanOrEqual(945);
+    expect(damageField ? distanceBetween(damageField.center, state.ship.position) : 0).toBeGreaterThanOrEqual(balance.survival.timedEvents.damageField.spawnDistance[0]);
+  });
+
+  it('keeps toxic damage fields low-count even as threat rises', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel =
+      balance.survival.timedEvents.damageField.startsAtThreatLevel +
+      balance.survival.timedEvents.damageField.threatLevelsPerExtraField * 12;
+
+    for (let index = 0; index < 24; index += 1) {
+      state.survival.damageFieldCooldown = 0;
+      updateSurvivalTimedEvents(state, 1);
+    }
+
+    expect(state.survivalEvents.filter((event) => event.kind === 'damageField').length).toBeLessThanOrEqual(balance.survival.timedEvents.damageField.maxCount);
+  });
+
+  it('keeps toxic damage fields fixed nearby and recycles them only after a far range', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.survival.active = true;
+    state.survival.threatLevel = balance.survival.timedEvents.damageField.startsAtThreatLevel;
+    state.survival.damageFieldCooldown = 0;
+
+    updateSurvivalTimedEvents(state, 1);
+
+    const damageField = state.survivalEvents.find((event) => event.kind === 'damageField');
+    expect(damageField?.kind).toBe('damageField');
+    if (!damageField || damageField.kind !== 'damageField') {
+      throw new Error('Expected a damage field event');
+    }
+    const originalCenter = { ...damageField.center };
+
+    updateSurvivalTimedEvents(state, 20);
+
+    const nearbyField = state.survivalEvents.find((event) => event.id === damageField.id);
+    expect(nearbyField?.center).toEqual(originalCenter);
+
+    state.ship.position = {
+      x: originalCenter.x + balance.survival.timedEvents.damageField.despawnDistance + 80,
+      y: originalCenter.y
+    };
+    state.camera = { ...state.ship.position };
+    updateSurvivalTimedEvents(state, 1);
+
+    expect(state.survivalEvents.some((event) => event.id === damageField.id)).toBe(false);
+  });
+
+  it('damages the ship while inside a toxic damage field', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.ship.invulnerableFor = 0;
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    state.survivalEvents = [
+      {
+        id: 1460,
+        kind: 'damageField',
+        center: { ...state.ship.position },
+        radius: balance.survival.timedEvents.damageField.radius,
+        damage: balance.survival.timedEvents.damageField.damage,
+        hitCooldown: 0,
+        age: 0,
+        warningFor: 0,
+        activeFor: 1
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.ship.hp).toBe(100 - balance.survival.timedEvents.damageField.damage);
+    expect(state.survivalEvents[0]?.kind === 'damageField' ? state.survivalEvents[0].hitCooldown : undefined).toBe(balance.survival.timedEvents.damageField.hitCooldown);
   });
 
   it('anchors meteor lanes to the camera only along the lane direction', () => {

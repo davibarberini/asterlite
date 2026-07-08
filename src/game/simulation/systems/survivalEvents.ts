@@ -1,5 +1,5 @@
 import { balance } from '../../balance';
-import type { GameState, SurvivalGravityPulseEventState, SurvivalMeteorLaneEventState, SurvivalMeteorVisualState, SurvivalTimedEventState, Vec2 } from '../types';
+import type { GameState, SurvivalDamageFieldEventState, SurvivalGravityPulseEventState, SurvivalMeteorLaneEventState, SurvivalMeteorVisualState, SurvivalTimedEventState, Vec2 } from '../types';
 import { distance, normalize, randomRange } from '../vector';
 import { isSurvivalZone } from './survival';
 
@@ -10,6 +10,7 @@ export const updateSurvivalTimedEvents = (state: GameState, dt: number): void =>
 
   updateSurvivalMeteorLanes(state, dt);
   updateSurvivalGravityPulses(state, dt);
+  updateSurvivalDamageFields(state, dt);
 };
 
 const updateSurvivalMeteorLanes = (state: GameState, dt: number): void => {
@@ -37,16 +38,42 @@ const updateSurvivalGravityPulses = (state: GameState, dt: number): void => {
     return;
   }
 
+  state.survivalEvents = state.survivalEvents.filter((event) => (
+    event.kind !== 'gravityPulse' ||
+    distance(event.center, state.ship.position) <= balance.survival.timedEvents.gravityPulse.despawnDistance
+  ));
+
+  const targetGravityWellCount = getGravityWellTargetCount(state);
+  const currentGravityWellCount = getGravityWellCount(state);
   state.survival.gravityPulseCooldown = Math.max(0, state.survival.gravityPulseCooldown - dt);
-  if (
-    state.survival.gravityPulseCooldown > 0 ||
-    state.survivalEvents.some((event) => event.kind === 'gravityPulse')
-  ) {
+  if (state.survival.gravityPulseCooldown > 0 || currentGravityWellCount >= targetGravityWellCount) {
     return;
   }
 
   state.survivalEvents.push(createGravityPulseEvent(state));
   state.survival.gravityPulseCooldown = getGravityPulseSpawnInterval(state);
+};
+
+const updateSurvivalDamageFields = (state: GameState, dt: number): void => {
+  if (!shouldSpawnDamageFields(state)) {
+    state.survival.damageFieldCooldown = 0;
+    return;
+  }
+
+  state.survivalEvents = state.survivalEvents.filter((event) => (
+    event.kind !== 'damageField' ||
+    distance(event.center, state.ship.position) <= balance.survival.timedEvents.damageField.despawnDistance
+  ));
+
+  const targetDamageFieldCount = getDamageFieldTargetCount(state);
+  const currentDamageFieldCount = getDamageFieldCount(state);
+  state.survival.damageFieldCooldown = Math.max(0, state.survival.damageFieldCooldown - dt);
+  if (state.survival.damageFieldCooldown > 0 || currentDamageFieldCount >= targetDamageFieldCount) {
+    return;
+  }
+
+  state.survivalEvents.push(createDamageFieldEvent(state));
+  state.survival.damageFieldCooldown = getDamageFieldSpawnInterval(state);
 };
 
 export const createMeteorLaneEvent = (state: GameState, laneIndex = 0): SurvivalMeteorLaneEventState => {
@@ -99,8 +126,28 @@ export const createGravityPulseEvent = (state: GameState): SurvivalGravityPulseE
     radius: config.radius,
     force: config.force,
     age: 0,
-    warningFor: config.warningSeconds,
-    activeFor: config.activeSeconds
+    warningFor: 0,
+    activeFor: 1
+  };
+};
+
+export const createDamageFieldEvent = (state: GameState): SurvivalDamageFieldEventState => {
+  const config = balance.survival.timedEvents.damageField;
+  const angle = randomRange(0, Math.PI * 2);
+  const distanceFromShip = randomRange(config.spawnDistance[0], config.spawnDistance[1]);
+  return {
+    id: state.nextId++,
+    kind: 'damageField',
+    center: {
+      x: state.ship.position.x + Math.cos(angle) * distanceFromShip,
+      y: state.ship.position.y + Math.sin(angle) * distanceFromShip
+    },
+    radius: config.radius,
+    damage: config.damage,
+    hitCooldown: 0,
+    age: 0,
+    warningFor: 0,
+    activeFor: 1
   };
 };
 
@@ -151,10 +198,13 @@ export const getMeteorLaneMeteorPosition = (
 };
 
 const updateTimedEvent = (state: GameState, event: SurvivalTimedEventState, dt: number): SurvivalTimedEventState => {
-  const warningFor = Math.max(0, event.warningFor - dt);
-  const activeFor = event.warningFor > 0
+  const persistent = event.kind === 'damageField' || event.kind === 'gravityPulse';
+  const warningFor = persistent ? 0 : Math.max(0, event.warningFor - dt);
+  const activeFor = persistent
     ? event.activeFor
-    : Math.max(0, event.activeFor - dt);
+    : event.warningFor > 0
+      ? event.activeFor
+      : Math.max(0, event.activeFor - dt);
   const updated = {
     ...event,
     age: event.age + dt,
@@ -166,6 +216,12 @@ const updateTimedEvent = (state: GameState, event: SurvivalTimedEventState, dt: 
     return {
       ...updated,
       center: getMeteorLaneCameraAnchoredCenter(updated, state.camera),
+      hitCooldown: Math.max(0, updated.hitCooldown - dt)
+    };
+  }
+  if (updated.kind === 'damageField') {
+    return {
+      ...updated,
       hitCooldown: Math.max(0, updated.hitCooldown - dt)
     };
   }
@@ -186,8 +242,20 @@ const shouldSpawnGravityPulses = (state: GameState): boolean =>
   state.survival.active &&
   state.survival.threatLevel >= balance.survival.timedEvents.gravityPulse.startsAtThreatLevel;
 
+const shouldSpawnDamageFields = (state: GameState): boolean =>
+  isSurvivalZone(state) &&
+  state.ship.alive &&
+  state.survival.active &&
+  state.survival.threatLevel >= balance.survival.timedEvents.damageField.startsAtThreatLevel;
+
 const getMeteorLaneCount = (state: GameState): number =>
   state.survivalEvents.filter((event) => event.kind === 'meteorLane').length;
+
+const getDamageFieldCount = (state: GameState): number =>
+  state.survivalEvents.filter((event) => event.kind === 'damageField').length;
+
+const getGravityWellCount = (state: GameState): number =>
+  state.survivalEvents.filter((event) => event.kind === 'gravityPulse').length;
 
 const getMeteorLaneTargetCount = (state: GameState): number => {
   const config = balance.survival.timedEvents.meteorLane;
@@ -198,6 +266,30 @@ const getMeteorLaneTargetCount = (state: GameState): number => {
   return Math.min(
     config.maxConcurrentLanes,
     1 + Math.floor((state.survival.threatLevel - config.startsAtThreatLevel) / config.threatLevelsPerExtraLane)
+  );
+};
+
+const getDamageFieldTargetCount = (state: GameState): number => {
+  const config = balance.survival.timedEvents.damageField;
+  if (!shouldSpawnDamageFields(state)) {
+    return 0;
+  }
+
+  return Math.min(
+    config.maxCount,
+    1 + Math.floor((state.survival.threatLevel - config.startsAtThreatLevel) / config.threatLevelsPerExtraField)
+  );
+};
+
+const getGravityWellTargetCount = (state: GameState): number => {
+  const config = balance.survival.timedEvents.gravityPulse;
+  if (!shouldSpawnGravityPulses(state)) {
+    return 0;
+  }
+
+  return Math.min(
+    config.maxCount,
+    1 + Math.floor((state.survival.threatLevel - config.startsAtThreatLevel) / config.threatLevelsPerExtraWell)
   );
 };
 
@@ -213,6 +305,16 @@ const getMeteorLaneSpawnInterval = (state: GameState): number => {
 
 const getGravityPulseSpawnInterval = (state: GameState): number => {
   const config = balance.survival.timedEvents.gravityPulse;
+  return Math.max(
+    config.minimumSpawnInterval,
+    config.spawnInterval -
+      Math.max(0, state.survival.threatLevel - config.startsAtThreatLevel) *
+        config.spawnIntervalThreatReduction
+  );
+};
+
+const getDamageFieldSpawnInterval = (state: GameState): number => {
+  const config = balance.survival.timedEvents.damageField;
   return Math.max(
     config.minimumSpawnInterval,
     config.spawnInterval -

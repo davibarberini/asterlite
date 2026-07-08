@@ -3,6 +3,7 @@ import { createAchievementStats, createUnlockedAchievements, getEffectiveMaxHp }
 import { createBossRewardState } from '../progression/bossRewards';
 import { createGuidedMissionState } from '../progression/guidedMissions';
 import { getShipFrameBonusMultiplier } from '../progression/shipFrames';
+import { createShipUnlockProgress } from '../progression/shipUnlocks';
 import { createTalentRanks } from '../progression/talentTree';
 import { emitAudio } from './events';
 import { createAsteroidField } from './systems/asteroids';
@@ -93,7 +94,8 @@ export const createProgression = (): ProgressionState => ({
   survivalBestSeconds: 0,
   survivalBestThreatLevel: 0,
   activeShipFrameId: 'vector',
-  unlockedShipFrameIds: ['vector', 'nivitron'],
+  unlockedShipFrameIds: ['vector'],
+  shipUnlockProgress: createShipUnlockProgress(),
   shipRuns: {},
   shipExchanges: 0,
   prestigeCores: 0,
