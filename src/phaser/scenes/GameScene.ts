@@ -19,7 +19,7 @@ import {
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { isSurvivalZone } from '../../game/simulation/systems/survival';
 import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, zones } from '../../game/simulation/zones';
-import { createWarpResetState, getPrestigeCoreGain } from '../../game/progression/prestige';
+import { createCoreResetState, getPrestigeCoreGain, minimumCoreResetThreatLevel } from '../../game/progression/prestige';
 import { getActiveGuidedMissionProgress, type GuidedMissionProgress } from '../../game/progression/guidedMissions';
 import {
   ACHIEVEMENT_BONUS_LABELS,
@@ -45,7 +45,6 @@ import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
 import { balance } from '../../game/balance';
 import { WARP_UNLOCK_BY_ID, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
-import { getShipExchangeRequirement } from '../../game/progression/shipExchange';
 import { getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
 import { createShipFrameSwitchState } from '../../game/progression/shipRuns';
 import { formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
@@ -713,7 +712,6 @@ export class GameScene extends Phaser.Scene {
       this.shouldShowTechnologiesTab() ||
       this.getCrystalBalance() > 0 ||
       this.getPrestigeGain() > 0 ||
-      this.state.progression.shipExchanges > 0 ||
       this.state.progression.unlockedShipFrameIds.length > 1 ||
       Object.keys(this.state.progression.shipRuns).length > 1
     );
@@ -991,8 +989,8 @@ export class GameScene extends Phaser.Scene {
     const titles: Record<GuidedMissionProgress['id'], string> = {
       drawGateBoss: this.language === 'pt-BR' ? 'Atrair o boss do portal' : 'Draw out the gate boss',
       defeatGateBoss: this.language === 'pt-BR' ? 'Derrotar o boss' : 'Defeat the boss',
-      collectWarpCrystals: this.language === 'pt-BR' ? 'Coletar cristais de warp' : 'Collect warp crystals',
-      warpForFirstCore: this.language === 'pt-BR' ? 'Trocar de nave' : 'Exchange ships',
+      collectWarpCrystals: this.language === 'pt-BR' ? 'Coletar cristais' : 'Collect crystals',
+      warpForFirstCore: this.language === 'pt-BR' ? 'Fazer Core Reset' : 'Core Reset',
       installDroneSystems: this.language === 'pt-BR' ? 'Instalar sistemas de drones' : 'Install Drone Systems',
       clearAsteroids: this.language === 'pt-BR' ? 'Limpar asteroides' : 'Clear asteroids',
       surviveAsteroids: this.language === 'pt-BR' ? 'Limpar sem morrer' : 'Clear without dying',
@@ -1393,6 +1391,8 @@ export class GameScene extends Phaser.Scene {
       hasActiveZoneBoss(this.state),
       this.state.pendingBoss?.spawnIn.toFixed(1) ?? 'none',
       this.state.progression.prestigeCores,
+      this.state.survival.active ? this.state.survival.threatLevel : 0,
+      this.getPrestigeGain(),
       this.getCrystalBalance(),
       this.state.progression.dronesPurchased,
       this.state.progression.droneCounts.sentry,
@@ -1454,7 +1454,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.activeTab === 'warp') {
-      return `cores:${getAvailableWarpCores(this.state.progression)},warp:${this.getPrestigeGain() > 0}`;
+      return `cores:${getAvailableWarpCores(this.state.progression)},reset:${this.getPrestigeGain()}:${this.state.survival.threatLevel}`;
     }
 
     if (this.activeTab === 'hangar') {
@@ -1549,6 +1549,7 @@ export class GameScene extends Phaser.Scene {
     });
     coreTree.classList.add('warp-tree-board--inline');
     const panels: HTMLElement[] = [];
+    panels.push(this.createCoreResetPanel());
     if (this.shouldShowHangarTab()) {
       panels.push(this.createHangarShortcutPanel());
     }
@@ -1576,10 +1577,52 @@ export class GameScene extends Phaser.Scene {
       state: this.state,
       language: this.language,
       formatMoney: (value) => this.formatMoney(value),
-      getWarpUnlockTitle: (id) => this.getWarpUnlockTitle(id as WarpUnlockId),
-      onUnlockShip: (coreGain) => this.warpReset(coreGain),
       onSwitchShipFrame: (id) => this.switchShipFrame(id)
     }));
+  }
+
+  private createCoreResetPanel(): HTMLElement {
+    const coreGain = this.getPrestigeGain();
+    const ready = coreGain > 0;
+    const panel = document.createElement('section');
+    panel.className = 'warp-reset-panel';
+
+    const header = document.createElement('div');
+    header.className = 'warp-reset-panel__header';
+    const titleWrap = document.createElement('div');
+    const kicker = document.createElement('span');
+    kicker.className = 'warp-reset-panel__kicker';
+    kicker.textContent = this.language === 'pt-BR' ? 'Core Reset' : 'Core Reset';
+    const title = document.createElement('strong');
+    title.textContent = ready
+      ? (this.language === 'pt-BR' ? `Disponível · +${coreGain} ${coreGain === 1 ? 'core' : 'cores'}` : `Available · +${coreGain} ${coreGain === 1 ? 'core' : 'cores'}`)
+      : (this.language === 'pt-BR' ? `Requer Nova Crown threat ${minimumCoreResetThreatLevel}` : `Requires Nova Crown threat ${minimumCoreResetThreatLevel}`);
+    titleWrap.append(kicker, title);
+
+    const resetButton = document.createElement('button');
+    resetButton.className = 'shop-buy warp-reset-panel__button';
+    resetButton.type = 'button';
+    resetButton.disabled = !ready;
+    resetButton.textContent = ready ? (this.language === 'pt-BR' ? 'Resetar' : 'Reset') : translate(this.language, 'shop.notReady');
+    resetButton.addEventListener('click', () => this.coreReset(coreGain));
+    header.append(titleWrap, resetButton);
+
+    const stats = document.createElement('div');
+    stats.className = 'warp-reset-panel__stats';
+    stats.replaceChildren(
+      this.createWarpResetStat('Threat', this.state.survival.active ? this.state.survival.threatLevel.toString() : '0'),
+      this.createWarpResetStat(this.language === 'pt-BR' ? 'Guardados' : 'Banked', this.state.progression.prestigeCores.toString()),
+      this.createWarpResetStat(this.language === 'pt-BR' ? 'Disponíveis' : 'Available', getAvailableWarpCores(this.state.progression).toString())
+    );
+
+    const preview = document.createElement('p');
+    preview.className = 'warp-reset-panel__preview';
+    preview.textContent = this.language === 'pt-BR'
+      ? 'Reseta a run da nave atual e converte a pressão da Nova Crown em cores globais. Cores e tecnologias valem para todas as naves.'
+      : 'Resets the current ship run and converts Nova Crown pressure into global cores. Cores and technologies apply to every ship.';
+
+    panel.append(header, stats, preview);
+    return panel;
   }
 
   private createWarpResetStat(label: string, value: string): HTMLElement {
@@ -2115,8 +2158,8 @@ export class GameScene extends Phaser.Scene {
     this.modalKickerEl.textContent = this.language === 'pt-BR' ? 'Recompensa de Boss' : 'Boss Reward';
     this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha um bônus da run' : 'Choose a run bonus';
     this.modalCopyEl.textContent = this.language === 'pt-BR'
-      ? 'Este bônus dura até a próxima troca de nave ou warp reset.'
-      : 'This bonus lasts until the next ship exchange or warp reset.';
+      ? 'Este bônus dura até o próximo Core Reset da nave atual.'
+      : 'This bonus lasts until the next Core Reset for the current ship.';
     this.modalCopyEl.classList.remove('is-hidden');
 
     const actions = document.createElement('div');
@@ -2602,15 +2645,15 @@ export class GameScene extends Phaser.Scene {
     this.updateHud();
   }
 
-  private warpReset(coreGain: number): void {
-    const exchangeRequirement = getShipExchangeRequirement(this.state);
-    if (!exchangeRequirement.ready || coreGain <= 0) {
+  private coreReset(coreGain: number): void {
+    if (this.getPrestigeGain() <= 0 || coreGain <= 0) {
       return;
     }
 
-    this.state = createWarpResetState(this.state, this.scale.width, this.scale.height, exchangeRequirement.coreGain);
+    this.state = createCoreResetState(this.state, this.scale.width, this.scale.height, coreGain);
     this.offlineStatusFor = 0;
     this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
     this.shopSignature = '';
     this.retroSound.play({ type: 'warpReset' });
     saveGameState(this.state);

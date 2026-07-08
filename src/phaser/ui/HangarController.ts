@@ -1,5 +1,3 @@
-import { crystalsPerPrestigeCore, minimumPrestigeTravelLevel } from '../../game/progression/prestige';
-import { getShipExchangeRequirement, type ShipExchangeRequirement } from '../../game/progression/shipExchange';
 import {
   SHIP_FRAME_BY_ID,
   SHIP_FRAME_DEFINITIONS,
@@ -8,18 +6,14 @@ import {
   type ShipWeaponIdentity
 } from '../../game/progression/shipFrames';
 import { SHIP_UNLOCK_DEFINITIONS, getShipUnlockProgressLabel } from '../../game/progression/shipUnlocks';
-import { getAvailableWarpCores, hasWarpUnlock, WARP_UNLOCK_DEFINITIONS } from '../../game/progression/warpUnlocks';
 import type { GameState, ShipFrameId } from '../../game/simulation/types';
-import { zones } from '../../game/simulation/zones';
-import { formatCoreUnit, formatCrystalUnit, translate, type LanguageCode } from '../../game/i18n';
+import { formatCrystalUnit, type LanguageCode } from '../../game/i18n';
 import { NIVITRON_HAND_DIAMOND_CENTER, NIVITRON_HAND_PATHS, NIVITRON_HAND_VIEWBOX } from '../view/nivitronHandShape';
 
 type HangarRenderOptions = {
   state: GameState;
   language: LanguageCode;
   formatMoney: (value: number) => string;
-  getWarpUnlockTitle: (id: string) => string;
-  onUnlockShip: (coreGain: number) => void;
   onSwitchShipFrame: (id: ShipFrameId) => void;
 };
 
@@ -31,11 +25,6 @@ type HangarShortcutOptions = {
 
 export class HangarController {
   renderPanel(options: HangarRenderOptions): HTMLElement {
-    const exchangeRequirement = getShipExchangeRequirement(options.state);
-    const coreGain = exchangeRequirement.coreGain;
-    const crystals = exchangeRequirement.crystals;
-    const availableAfterReset = getAvailableWarpCores(options.state.progression) + coreGain;
-    const resetReady = exchangeRequirement.ready;
     const activeFrame = getActiveShipFrame(options.state.progression);
     const panel = document.createElement('section');
     panel.className = 'warp-reset-panel';
@@ -47,42 +36,30 @@ export class HangarController {
     kicker.className = 'warp-reset-panel__kicker';
     kicker.textContent = options.language === 'pt-BR' ? 'Hangar de Naves' : 'Ship Hangar';
     const title = document.createElement('strong');
-    title.textContent = resetReady
-      ? (options.language === 'pt-BR'
-        ? `Reset warp pronto · +${coreGain} ${formatCoreUnit(options.language, coreGain)}`
-        : `Warp reset ready · +${coreGain} ${formatCoreUnit(options.language, coreGain)}`)
-      : this.getWarpResetBlockedTitle(options, exchangeRequirement);
+    title.textContent = options.language === 'pt-BR' ? 'Naves e progresso individual' : 'Ships and individual progress';
     titleWrap.append(kicker, title);
 
-    const resetButton = document.createElement('button');
-    resetButton.className = 'shop-buy warp-reset-panel__button';
-    resetButton.type = 'button';
-    resetButton.disabled = !resetReady;
-    resetButton.textContent = resetReady
-      ? (options.language === 'pt-BR' ? 'Reset warp' : 'Warp reset')
-      : translate(options.language, 'shop.notReady');
-    resetButton.addEventListener('click', () => options.onUnlockShip(coreGain));
-    header.append(titleWrap, resetButton);
+    header.append(titleWrap);
 
     const stats = document.createElement('div');
     stats.className = 'warp-reset-panel__stats';
     stats.replaceChildren(
-      this.createStat(translate(options.language, 'shop.crystals'), `${crystals} / ${crystalsPerPrestigeCore}`),
       this.createStat(options.language === 'pt-BR' ? 'Nave atual' : 'Current ship', activeFrame.name),
-      this.createStat(options.language === 'pt-BR' ? 'Missões' : 'Missions', `${exchangeRequirement.missionCompletions} / ${exchangeRequirement.requiredMissionCompletions}`),
-      this.createStat(translate(options.language, 'shop.availableAfter'), `${availableAfterReset} ${formatCoreUnit(options.language, availableAfterReset)}`)
+      this.createStat(options.language === 'pt-BR' ? 'Liberadas' : 'Unlocked', `${options.state.progression.unlockedShipFrameIds.length} / ${SHIP_FRAME_DEFINITIONS.length}`),
+      this.createStat(options.language === 'pt-BR' ? 'Slot atual' : 'Current slot', `${options.formatMoney(options.state.money)} · ${options.state.crystals} ${formatCrystalUnit(options.language, options.state.crystals)}`)
     );
 
     const preview = document.createElement('p');
     preview.className = 'warp-reset-panel__preview';
-    preview.textContent = this.getWarpResetPreviewText(options, availableAfterReset, exchangeRequirement);
+    preview.textContent = options.language === 'pt-BR'
+      ? 'Trocar de nave preserva cores e tecnologias globais, mas usa dinheiro, cristais e melhorias próprios daquela nave.'
+      : 'Switching ships keeps global cores and technologies, while credits, crystals, and upgrades remain tied to each ship.';
 
     panel.append(header, stats, this.createShipFrameList(options), preview);
     return panel;
   }
 
   renderShortcut(options: HangarShortcutOptions): HTMLElement {
-    const exchangeRequirement = getShipExchangeRequirement(options.state);
     const panel = document.createElement('section');
     panel.className = 'warp-reset-panel warp-reset-panel--shortcut';
 
@@ -93,9 +70,7 @@ export class HangarController {
     kicker.className = 'warp-reset-panel__kicker';
     kicker.textContent = 'Hangar';
     const title = document.createElement('strong');
-    title.textContent = exchangeRequirement.ready
-      ? (options.language === 'pt-BR' ? 'Troca de nave disponível' : 'Ship exchange available')
-      : (options.language === 'pt-BR' ? 'Naves e progresso individual' : 'Ships and individual progress');
+    title.textContent = options.language === 'pt-BR' ? 'Naves e progresso individual' : 'Ships and individual progress';
     titleWrap.append(kicker, title);
 
     const button = document.createElement('button');
@@ -289,56 +264,6 @@ export class HangarController {
     valueEl.textContent = value;
     stat.append(labelEl, valueEl);
     return stat;
-  }
-
-  private getWarpResetBlockedTitle(options: HangarRenderOptions, exchangeRequirement: ShipExchangeRequirement): string {
-    if (exchangeRequirement.needsRoute) {
-      return translate(options.language, 'shop.reachZone', { zone: zones[minimumPrestigeTravelLevel]?.name ?? 'a deeper zone' });
-    }
-
-    if (exchangeRequirement.needsMissions) {
-      const count = exchangeRequirement.missingMissionCompletions;
-      return options.language === 'pt-BR'
-        ? `Complete mais ${count} ${count === 1 ? 'missão' : 'missões'}`
-        : `Complete ${count} more ${count === 1 ? 'mission' : 'missions'}`;
-    }
-
-    return translate(options.language, 'shop.nextCore', {
-      count: exchangeRequirement.missingCrystalsForCore,
-      unit: formatCrystalUnit(options.language, exchangeRequirement.missingCrystalsForCore)
-    });
-  }
-
-  private getWarpResetPreviewText(options: HangarRenderOptions, availableAfterReset: number, exchangeRequirement: ShipExchangeRequirement): string {
-    const affordableUnlocks = WARP_UNLOCK_DEFINITIONS.filter((unlock) => {
-      if (hasWarpUnlock(options.state.progression, unlock.id)) {
-        return false;
-      }
-      if (unlock.cost > availableAfterReset) {
-        return false;
-      }
-      return unlock.requires.every((requiredId) => hasWarpUnlock(options.state.progression, requiredId));
-    }).slice(0, 3);
-
-    if (affordableUnlocks.length > 0) {
-      return translate(options.language, 'shop.unlockNext', { items: affordableUnlocks.map((unlock) => options.getWarpUnlockTitle(unlock.id)).join(', ') });
-    }
-
-    if (exchangeRequirement.needsMissions) {
-      return options.language === 'pt-BR'
-        ? 'Conclua missões para preparar a próxima troca de nave.'
-        : 'Complete missions to prepare the next ship exchange.';
-    }
-
-    if (exchangeRequirement.coreGain > 0) {
-      return translate(options.language, 'shop.bankCores');
-    }
-
-    if (exchangeRequirement.needsRoute) {
-      return translate(options.language, 'shop.defeatBosses');
-    }
-
-    return translate(options.language, 'shop.collectCrystals');
   }
 
   private formatShipWeaponIdentity(language: LanguageCode, identity: ShipWeaponIdentity): string {

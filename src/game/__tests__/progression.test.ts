@@ -7,11 +7,10 @@ import {
   getPlayerFireInterval,
   getRefineryMilestoneMultiplier
 } from '../progression/idleBonuses';
-import { createWarpResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from '../progression/prestige';
+import { createCoreResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumCoreResetThreatLevel } from '../progression/prestige';
 import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
-import { getShipExchangeRequirement } from '../progression/shipExchange';
 import { createShipFrameSwitchState } from '../progression/shipRuns';
 import { getUnlockedShipFrameIdsForExchangeCount } from '../progression/shipFrames';
 import {
@@ -549,12 +548,16 @@ describe('first warp goal', () => {
 
   it('guides ready resets and first technology purchase without persisted UI state', () => {
     const state = createGameState(800, 600);
-    state.progression.travelLevel = minimumPrestigeTravelLevel;
-    state.crystals = crystalsPerPrestigeCore;
+    state.progression.currentZoneIndex = zones.length - 1;
+    state.progression.unlockedZoneIndex = zones.length - 1;
+    state.progression.travelLevel = zones.length - 1;
+    state.survival.active = true;
+    state.survival.threatLevel = minimumCoreResetThreatLevel;
 
     expect(getFirstWarpGoal(state)?.type).toBe('warpForFirstCore');
 
-    state.crystals = 0;
+    state.survival.active = false;
+    state.survival.threatLevel = 0;
     state.progression.prestigeCores = WARP_UNLOCK_BY_ID.droneSystems.cost;
 
     expect(getFirstWarpGoal(state)?.type).toBe('installDroneSystems');
@@ -722,7 +725,7 @@ describe('core ship upgrades', () => {
 
 });
 
-describe('boss gates and warp reset', () => {
+describe('boss gates and core reset', () => {
   it('paces boss HP and zone density from first gate to late route checks', () => {
     const state = createGameState(800, 600);
     const makePendingBoss = (bossZoneIndex: number): PendingBossState => ({
@@ -937,12 +940,12 @@ describe('boss gates and warp reset', () => {
     expect(state.rewardEvents.some((event) => event.kind === 'boss' && event.text.includes('First gate boss'))).toBe(true);
   });
 
-  it('does not trigger the first boss from lifetime asteroid kills after warp reset', () => {
+  it('does not trigger the first boss from lifetime asteroid kills after core reset', () => {
     const state = createGameState(800, 600);
     state.progression.achievementStats.asteroidsDestroyed = 1000;
     state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids;
 
-    const nextState = createWarpResetState(state, 800, 600, 1);
+    const nextState = createCoreResetState(state, 800, 600, 1);
 
     updateGame(nextState, neutralInput(), 0);
 
@@ -979,51 +982,24 @@ describe('boss gates and warp reset', () => {
     expect(state.progression.bossDiscovery.rareBossProgress).toBe(balance.bosses.rareDiscoveryAsteroids);
   });
 
-  it('calculates first warp core gain after the first route gate', () => {
+  it('calculates global core gain from Nova Crown threat level', () => {
     const state = createGameState(800, 600);
     state.crystals = crystalsPerPrestigeCore * 2 + 3;
-    state.progression.travelLevel = minimumPrestigeTravelLevel - 1;
 
     expect(getPrestigeCoreGain(state)).toBe(0);
 
-    state.progression.travelLevel = minimumPrestigeTravelLevel;
+    state.progression.currentZoneIndex = zones.length - 1;
+    state.progression.unlockedZoneIndex = zones.length - 1;
+    state.progression.travelLevel = zones.length - 1;
+    state.survival.active = true;
+    state.survival.threatLevel = minimumCoreResetThreatLevel - 1;
 
-    expect(minimumPrestigeTravelLevel).toBe(1);
     expect(crystalsPerPrestigeCore).toBe(12);
+    expect(getPrestigeCoreGain(state)).toBe(0);
+
+    state.survival.threatLevel = 20;
+
     expect(getPrestigeCoreGain(state)).toBe(2);
-  });
-
-  it('keeps the first ship exchange gated only by route and crystals', () => {
-    const state = createGameState(800, 600);
-    state.progression.travelLevel = minimumPrestigeTravelLevel;
-    state.crystals = crystalsPerPrestigeCore;
-
-    const requirement = getShipExchangeRequirement(state);
-
-    expect(requirement.requiredMissionCompletions).toBe(0);
-    expect(requirement.coreGain).toBe(1);
-    expect(requirement.ready).toBe(true);
-  });
-
-  it('requires guided mission progress for repeated ship exchanges', () => {
-    const state = createGameState(800, 600);
-    state.progression.travelLevel = minimumPrestigeTravelLevel;
-    state.progression.shipExchanges = 1;
-    state.crystals = crystalsPerPrestigeCore;
-    state.progression.guidedMissions.completedMissionIds = ['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals'];
-
-    const blockedRequirement = getShipExchangeRequirement(state);
-
-    expect(blockedRequirement.ready).toBe(false);
-    expect(blockedRequirement.needsMissions).toBe(true);
-    expect(blockedRequirement.missingMissionCompletions).toBe(1);
-
-    state.progression.guidedMissions.completedMissionIds = ['drawGateBoss', 'defeatGateBoss', 'collectWarpCrystals', 'warpForFirstCore'];
-
-    const readyRequirement = getShipExchangeRequirement(state);
-
-    expect(readyRequirement.requiredMissionCompletions).toBe(4);
-    expect(readyRequirement.ready).toBe(true);
   });
 
   it('defeating a boss unlocks the next zone without moving the current zone', () => {
@@ -1158,7 +1134,7 @@ describe('boss gates and warp reset', () => {
     expect(state.shieldBubble.broken).toBe(true);
   });
 
-  it('ship exchange preserves meta progress while resetting bought ship upgrades', () => {
+  it('core reset preserves global progress while resetting bought ship upgrades', () => {
     const state = createGameState(800, 600);
     state.money = 5000;
     state.crystals = 48;
@@ -1191,7 +1167,7 @@ describe('boss gates and warp reset', () => {
     state.progression.achievementStats.prestigeWarps = 4;
     state.progression.unlockedAchievements.firstBlood = true;
 
-    const nextState = createWarpResetState(state, 800, 600, 3);
+    const nextState = createCoreResetState(state, 800, 600, 3);
 
     expect(nextState.money).toBe(0);
     expect(nextState.crystals).toBe(0);
@@ -1204,7 +1180,7 @@ describe('boss gates and warp reset', () => {
     expect(nextState.progression.passiveIncomeLevel).toBe(0);
     expect(nextState.bossRewards.activeIds).toEqual([]);
     expect(nextState.bossRewards.pendingChoiceIds).toEqual([]);
-    expect(nextState.progression.shipExchanges).toBe(1);
+    expect(nextState.progression.shipExchanges).toBe(0);
     expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector']);
     expect(nextState.progression.activeShipFrameId).toBe('vector');
     expect(nextState.progression.guidedMissions.activeMissionId).toBe('warpForFirstCore');
@@ -1258,17 +1234,17 @@ describe('boss gates and warp reset', () => {
     expect(restoredKestrel.progression.shipDamageLevel).toBe(3);
   });
 
-  it('ship exchange resets the active ship without unlocking the next ship frame', () => {
+  it('core reset resets the active ship without unlocking the next ship frame', () => {
     const state = createGameState(800, 600);
     state.money = 2200;
     state.crystals = crystalsPerPrestigeCore;
-    state.progression.travelLevel = minimumPrestigeTravelLevel;
-    state.progression.unlockedZoneIndex = minimumPrestigeTravelLevel;
-    state.progression.currentZoneIndex = minimumPrestigeTravelLevel;
+    state.progression.travelLevel = zones.length - 1;
+    state.progression.unlockedZoneIndex = zones.length - 1;
+    state.progression.currentZoneIndex = zones.length - 1;
     state.progression.shipDamageLevel = 10;
     state.progression.shipFireRateLevel = 8;
 
-    const nextState = createWarpResetState(state, 800, 600, 1);
+    const nextState = createCoreResetState(state, 800, 600, 1);
 
     expect(nextState.progression.activeShipFrameId).toBe('vector');
     expect(nextState.progression.unlockedShipFrameIds).toEqual(['vector']);

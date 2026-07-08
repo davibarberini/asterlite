@@ -4,6 +4,22 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Global Core Reset Progression
+
+Moved core earning from ship exchange/crystal routing into Nova Crown survival.
+
+Notes:
+- Core Reset is now available only during active Nova Crown survival at threat level 10 or higher.
+- Core gain now scales from current threat level: 1 core at threat 10, 2 at threat 20, 3 at threat 30, and so on.
+- Warp/ship exchange reset was removed from the Hangar UI.
+- The Hangar now focuses only on ship unlock progress and per-ship run state.
+- The Technologies tab now owns the Core Reset panel because cores and installed technologies are global.
+- Core Reset resets the current ship's local run state while preserving global cores, installed technologies, ship unlocks, achievements, and survival bests.
+- Installed technologies now remain available when switching between ships; per-ship money, crystals, skills, and upgrades stay local to the ship.
+- Removed the obsolete ship exchange requirement module.
+- Updated player-facing copy away from "ship exchange" and "warp crystals" where it described the old reset model.
+- Updated tests for core gain, reset preservation, and the new Nova Crown threshold.
+
 ### Ship Unlock Milestones
 
 Replaced exchange-order ship unlocks with ship-specific gameplay milestones.
