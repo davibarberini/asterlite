@@ -27,7 +27,7 @@ export const ACHIEVEMENT_BONUS_LABELS: Record<AchievementBonusCategory, string> 
   damage: 'dano',
   speed: 'velocidade',
   maxHp: 'HP máximo',
-  passive: 'refinaria',
+  passive: 'offline',
   crystals: 'cristais',
   armor: 'armadura',
   droneDamage: 'dano de drones'
@@ -162,8 +162,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
   {
     id: 'refineryBoot',
-    name: 'Refinaria Online',
-    description: 'Compre o nível 1 da refinaria.',
+    name: 'Relé Online',
+    description: 'Compre o nível 1 de ganho offline.',
     icon: 'R',
     bonusCategory: 'passive',
     bonusPercent: 0.5,
@@ -171,8 +171,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
   {
     id: 'oreFlow',
-    name: 'Fluxo de Minério',
-    description: 'Alcance nível 5 da refinaria.',
+    name: 'Fluxo Offline',
+    description: 'Alcance nível 5 de ganho offline.',
     icon: 'R',
     bonusCategory: 'passive',
     bonusPercent: 0.5,
@@ -180,8 +180,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
   {
     id: 'megaFoundry',
-    name: 'Mega Fundição',
-    description: 'Alcance nível 15 da refinaria.',
+    name: 'Banco Orbital',
+    description: 'Alcance nível 15 de ganho offline.',
     icon: 'R',
     bonusCategory: 'passive',
     bonusPercent: 1,
@@ -189,8 +189,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
   {
     id: 'titanSmelter',
-    name: 'Fundição Titã',
-    description: 'Alcance nível 30 da refinaria.',
+    name: 'Rede Autônoma',
+    description: 'Alcance nível 30 de ganho offline.',
     icon: 'R',
     bonusCategory: 'passive',
     bonusPercent: 1.5,

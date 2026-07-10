@@ -1,4 +1,5 @@
 export class BackgroundMusic {
+  private static readonly outputGain = 1 / 3;
   private readonly audio: HTMLAudioElement;
   private context: AudioContext | null = null;
   private source: MediaElementAudioSourceNode | null = null;
@@ -45,7 +46,7 @@ export class BackgroundMusic {
   }
 
   private getEffectiveVolume(): number {
-    return this.volume;
+    return this.volume * BackgroundMusic.outputGain;
   }
 
   private ensureAudioGraph(): void {

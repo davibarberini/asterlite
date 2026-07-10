@@ -60,7 +60,7 @@ const completeRewardText = (rewardKind: GuidedMissionProgress['rewardKind']): st
     case 'hull':
       return '+10 Hull';
     case 'income':
-      return '+1 Credits/sec level';
+      return '+1 Offline income level';
     case 'fireRate':
       return '+1 Attack speed level';
     case 'drone':

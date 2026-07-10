@@ -1,7 +1,7 @@
 import type { ProgressionState, ShipFrameId, Vec2 } from '../simulation/types';
 
 export type ShipFrameRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type ShipWeaponIdentity = 'standard' | 'spread' | 'piercing' | 'turret' | 'aura' | 'velocity' | 'ram';
+export type ShipWeaponIdentity = 'standard' | 'spread' | 'piercing' | 'turret' | 'aura' | 'velocity' | 'ram' | 'phase';
 
 export type ShipFrameDefinition = {
   id: ShipFrameId;
@@ -171,7 +171,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     name: 'Wraith',
     rarity: 'epic',
     unlockExchange: 8,
-    weaponIdentity: 'standard',
+    weaponIdentity: 'phase',
     shape: [
       { x: 22, y: 0 },
       { x: 4, y: 8 },

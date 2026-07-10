@@ -21,8 +21,8 @@ export const TALENT_GRID_ROWS = 7;
 export const TALENT_DEFINITIONS: TalentDefinition[] = [
   {
     id: 'refineryYield',
-    name: 'Refinery Yield',
-    summary: '+10% passive refinery income per rank.',
+    name: 'Offline Relay',
+    summary: '+10% offline credit income per rank.',
     branch: 'economy',
     maxRank: 3,
     baseCost: 2,
@@ -55,7 +55,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
   {
     id: 'salvageLoop',
     name: 'Salvage Loop',
-    summary: 'Death refinery penalty lasts 25% less.',
+    summary: '+25% offline credit income.',
     branch: 'economy',
     maxRank: 1,
     baseCost: 8,
@@ -349,17 +349,15 @@ export const getTalentRankLabel = (progression: ProgressionState, id: TalentId):
   return `${rank}/${talent.maxRank}`;
 };
 
-export const getRefineryIncomeMultiplier = (progression: ProgressionState): number =>
-  1 + getTalentRank(progression, 'refineryYield') * 0.1;
+export const getOfflineIncomeTalentMultiplier = (progression: ProgressionState): number =>
+  (1 + getTalentRank(progression, 'refineryYield') * 0.1) *
+  (getTalentRank(progression, 'salvageLoop') > 0 ? 1.25 : 1);
 
 export const getCombatBountyMultiplier = (progression: ProgressionState): number =>
   1 + getTalentRank(progression, 'combatBounty') * 0.12;
 
 export const getCrystalDropMultiplier = (progression: ProgressionState): number =>
   1 + getTalentRank(progression, 'crystalSeam') * 0.2;
-
-export const getDeathPenaltyMultiplier = (progression: ProgressionState): number =>
-  getTalentRank(progression, 'salvageLoop') > 0 ? 0.75 : 1;
 
 export const getPropulsionSkillMultiplier = (progression: ProgressionState): number =>
   1 + getTalentRank(progression, 'propulsionTuning') * 0.06 + getTalentRank(progression, 'vectorNozzles') * 0.08;

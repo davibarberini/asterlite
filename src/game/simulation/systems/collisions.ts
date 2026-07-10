@@ -681,6 +681,10 @@ const damageShip = (state: GameState, amount: number): void => {
     return;
   }
 
+  if (absorbWraithPhaseHit(state)) {
+    return;
+  }
+
   state.ship.hp = Math.max(0, state.ship.hp - damage);
   resetNoDamageShipUnlockProgress(state);
   state.ship.invulnerableFor = 0.75;
@@ -707,6 +711,19 @@ const damageShip = (state: GameState, amount: number): void => {
   state.asteroids = state.asteroids.filter((asteroid) => !asteroid.bossType);
   state.bullets = state.bullets.filter((bullet) => bullet.owner !== 'boss');
   state.phase = 'respawning';
+};
+
+const absorbWraithPhaseHit = (state: GameState): boolean => {
+  if (getShipFrameWeaponIdentity(state.progression) !== 'phase' || state.ship.phaseShieldCooldown > 0) {
+    return false;
+  }
+
+  state.ship.phaseShieldCooldown = balance.ship.phaseShieldCooldownSeconds;
+  state.ship.phaseShieldFlashFor = balance.ship.phaseShieldFlashSeconds;
+  state.ship.invulnerableFor = Math.max(state.ship.invulnerableFor, balance.ship.phaseShieldInvulnerableSeconds);
+  emitAudio(state, { type: 'shipHit' });
+  burstParticles(state, state.ship.position, 18, balance.ship.phaseShieldParticleSpread);
+  return true;
 };
 
 const distanceSq = (a: Vec2, b: Vec2): number => {

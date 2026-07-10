@@ -69,6 +69,8 @@ export type ShipState = {
   fireCooldown: number;
   hyperspaceCooldown: number;
   turretAngle: number;
+  phaseShieldCooldown: number;
+  phaseShieldFlashFor: number;
 };
 
 export type ShieldBubbleState = {

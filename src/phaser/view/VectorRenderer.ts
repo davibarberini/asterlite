@@ -110,6 +110,7 @@ export class VectorRenderer {
 
     if (state.ship.alive) {
       this.drawShipAuraWeapon(state);
+      this.drawWraithPhaseShield(state);
       this.drawShip(state, state.ship, thrusting);
     }
   }
@@ -516,6 +517,41 @@ export class VectorRenderer {
     this.graphics.strokeCircle(x, y, radius * (0.92 + pulse * 0.06));
     this.graphics.lineStyle(1, 0xfff1a8, 0.1 + pulse * 0.12);
     this.graphics.strokeCircle(x, y, radius * 0.58);
+  }
+
+  private drawWraithPhaseShield(state: GameState): void {
+    if (getShipFrameWeaponIdentity(state.progression) !== 'phase') {
+      return;
+    }
+
+    const ship = state.ship;
+    const flash = Math.max(0, Math.min(1, ship.phaseShieldFlashFor / balance.ship.phaseShieldFlashSeconds));
+    const ready = ship.phaseShieldCooldown <= 0;
+    if (!ready && flash <= 0) {
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, ship.position.x);
+    const y = this.toScreenY(state, ship.position.y);
+    const radius = balance.ship.phaseShieldRadius * viewScale;
+    const pulse = 0.5 + Math.sin(this.scene.time.now * 0.0056) * 0.5;
+
+    if (ready) {
+      this.graphics.lineStyle(1, 0xbba4ff, 0.16 + pulse * 0.14);
+      this.graphics.strokeCircle(x, y, radius * (0.92 + pulse * 0.05));
+      this.graphics.lineStyle(1, 0xf2fbff, 0.08 + pulse * 0.08);
+      this.drawArcSegments(x, y, radius * 0.72, -Math.PI * 0.7 + pulse * 0.2, Math.PI * 1.1, 7);
+    }
+
+    if (flash > 0) {
+      this.graphics.fillStyle(0x8c6dff, 0.04 * flash);
+      this.graphics.fillCircle(x, y, radius * (1.15 + (1 - flash) * 0.38));
+      this.graphics.lineStyle(3, 0xf2fbff, 0.72 * flash);
+      this.graphics.strokeCircle(x, y, radius * (1.05 + (1 - flash) * 0.34));
+      this.graphics.lineStyle(1, 0xc9fff2, 0.42 * flash);
+      this.drawArcSegments(x, y, radius * (0.82 + (1 - flash) * 0.22), -Math.PI * 0.95, Math.PI * 1.9, 9);
+    }
   }
 
   private drawNivitronHand(state: GameState, ship: ShipState, viewScale: number): void {

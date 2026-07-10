@@ -9,11 +9,10 @@ import {
   syncAchievements
 } from './achievements';
 import { createBossRewardState, normalizeBossRewardState } from './bossRewards';
-import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS, getRefineryIncomeMultiplier } from './talentTree';
+import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS } from './talentTree';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, normalizeShipFrameIds } from './shipFrames';
 import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
-import { getPrestigeMoneyMultiplier } from './prestige';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
@@ -21,6 +20,7 @@ import { captureActiveShipRun } from './shipRuns';
 import { createRareSpawnState } from '../simulation/systems/rareSpawns';
 import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/systems/survival';
 import { createShipUnlockProgress, normalizeShipUnlockProgress } from './shipUnlocks';
+import { getOfflineIncomeRate } from './offlineIncome';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
@@ -43,6 +43,8 @@ type SavedGameV1 = {
     hp: number;
     alive: boolean;
     respawnFor: number;
+    phaseShieldCooldown?: number;
+    phaseShieldFlashFor?: number;
   };
   shieldBubble: ShieldBubbleState;
   bossRewards?: BossRewardState;
@@ -550,7 +552,9 @@ const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => 
       position: readVec2(ship.position, { x: 0, y: 0 }),
       hp: Math.min(progression.maxHp, readNonNegativeNumber(ship.hp, progression.maxHp)),
       alive: ship.alive === true,
-      respawnFor: readNonNegativeNumber(ship.respawnFor, 0)
+      respawnFor: readNonNegativeNumber(ship.respawnFor, 0),
+      phaseShieldCooldown: readNonNegativeNumber(ship.phaseShieldCooldown, 0),
+      phaseShieldFlashFor: readNonNegativeNumber(ship.phaseShieldFlashFor, 0)
     },
     shieldBubble: readShieldBubble(value.shieldBubble, progression),
     bossRewards: readBossRewards(value.bossRewards),
@@ -602,13 +606,7 @@ export const loadGameState = (width: number, height: number): GameState => {
   const state = createGameState(width, height, saved.progression, saved.money);
   state.crystals = saved.crystals;
   const offlineSeconds = Math.min(balance.economy.maxOfflineSeconds, Math.max(0, (Date.now() - saved.lastSeenAt) / 1000));
-  const offlineEarnings = Math.floor(
-    offlineSeconds *
-      saved.progression.passiveIncomeLevel *
-      balance.economy.passiveIncomePerLevel *
-      getPrestigeMoneyMultiplier(saved.progression) *
-      getRefineryIncomeMultiplier(saved.progression)
-  );
+  const offlineEarnings = Math.floor(offlineSeconds * getOfflineIncomeRate(saved.progression));
   state.money += offlineEarnings;
   recordMoneyEarned(state.progression, offlineEarnings);
   state.lastOfflineEarnings = offlineEarnings;
@@ -619,6 +617,8 @@ export const loadGameState = (width: number, height: number): GameState => {
   state.ship.hp = Math.min(saved.ship.hp, state.ship.maxHp);
   state.ship.alive = saved.ship.alive && saved.ship.hp > 0;
   state.ship.respawnFor = saved.ship.respawnFor;
+  state.ship.phaseShieldCooldown = saved.ship.phaseShieldCooldown ?? 0;
+  state.ship.phaseShieldFlashFor = saved.ship.phaseShieldFlashFor ?? 0;
   state.phase = state.ship.alive ? 'playing' : 'respawning';
   state.shieldBubble = { ...saved.shieldBubble };
   state.bossRewards = normalizeBossRewardState(saved.bossRewards ?? createBossRewardState());
@@ -657,7 +657,9 @@ export const saveGameState = (state: GameState): void => {
       position: { ...state.ship.position },
       hp: Math.max(0, Math.min(state.ship.hp, state.ship.maxHp)),
       alive: state.ship.alive,
-      respawnFor: Math.max(0, state.ship.respawnFor)
+      respawnFor: Math.max(0, state.ship.respawnFor),
+      phaseShieldCooldown: Math.max(0, state.ship.phaseShieldCooldown),
+      phaseShieldFlashFor: Math.max(0, state.ship.phaseShieldFlashFor)
     },
     shieldBubble: { ...state.shieldBubble },
     bossRewards: {

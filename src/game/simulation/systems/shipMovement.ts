@@ -83,6 +83,8 @@ export const updateShipMovement = (state: GameState, input: InputActions, dt: nu
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
   ship.hyperspaceCooldown = Math.max(0, ship.hyperspaceCooldown - dt);
   ship.invulnerableFor = Math.max(0, ship.invulnerableFor - dt);
+  ship.phaseShieldCooldown = Math.max(0, ship.phaseShieldCooldown - dt);
+  ship.phaseShieldFlashFor = Math.max(0, ship.phaseShieldFlashFor - dt);
 
   const shouldAutoFire = state.progression.activeShipFrameId === 'nivitron';
   if ((input.fire || shouldAutoFire) && ship.fireCooldown === 0) {

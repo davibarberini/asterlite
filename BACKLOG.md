@@ -6,21 +6,24 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ### Ship Build Identity Expansion
 
-Expanded ship combat identities for Ember, Kestrel, and Bulwark.
+Expanded ship combat identities for Ember, Kestrel, Bulwark, and Wraith.
 
 Notes:
 - Added a new serializable-free `aura` ship weapon identity.
 - Added a new serializable-free `velocity` ship weapon identity.
 - Added a new serializable-free `ram` ship weapon identity.
+- Added a new `phase` ship identity with serializable cooldown/flash state.
 - Ember now uses the aura identity instead of the standard cannon.
 - The Ember aura deals continuous nearby damage to asteroids and survival hazards.
 - Aura damage scales with ship damage, ship frame damage bonuses, achievement damage, fire-rate upgrades, and rapid-fire boss rewards.
 - Pressing fire on Ember no longer creates standard cannon bullets.
 - Kestrel now gains shot damage and reduced shot cooldown from current movement speed.
 - Bulwark now damages asteroids by ramming, destroys weak asteroids on impact, reduces contact damage, and applies stronger impact knockback.
+- Wraith now absorbs the first real HP hit while its phase shield is ready, gains brief invulnerability, and then waits for the phase shield cooldown.
 - The vector renderer shows Ember's active aura as a subtle orange field around the ship.
-- The Hangar now labels aura, velocity, and ram ships clearly in their weapon identity text.
-- Added tests for Ember's no-bullet aura behavior, attack-speed-scaled aura damage, Kestrel speed scaling, and Bulwark ram collision behavior.
+- The vector renderer shows Wraith's phase shield readiness and absorption pulse as a subtle ghost ring.
+- The Hangar now labels aura, velocity, ram, and phase ships clearly in their weapon identity text.
+- Added tests for Ember's no-bullet aura behavior, attack-speed-scaled aura damage, Kestrel speed scaling, Bulwark ram collision behavior, and Wraith phase shield absorption.
 
 ### Global Core Reset Progression
 

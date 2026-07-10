@@ -12,22 +12,14 @@ import { updateSurvivalTimedEvents } from './survivalEvents';
 import { updateSurvivalHazards } from './survivalHazards';
 import { updateBullets } from './weapons';
 import { emitAudio, emitReward } from '../events';
-import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
-import { getRefineryMilestoneMultiplier } from '../../progression/idleBonuses';
 import { WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getWarpUnlockNodeState } from '../../progression/warpUnlocks';
 import {
   getAchievementMultiplier,
   getEffectiveMaxHp,
-  recordMoneyEarned,
   syncAchievements,
   ACHIEVEMENT_BONUS_LABELS
 } from '../../progression/achievements';
-import {
-  getDeathPenaltyMultiplier,
-  getRefineryIncomeMultiplier
-} from '../../progression/talentTree';
 import { syncGuidedMissions } from '../../progression/guidedMissions';
-import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 import { emitShipUnlock, updateShipUnlockProgress } from '../../progression/shipUnlocks';
 import { balance } from '../../balance';
 import { hasShieldBubbleUnlocked } from '../state';
@@ -40,7 +32,6 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
 
   updateShipMovement(state, input, dt);
   updateCamera(state, dt);
-  updateIdleIncome(state, dt);
   updateDrones(state, dt);
   updateBullets(state, dt);
   updatePendingBoss(state, dt);
@@ -150,27 +141,6 @@ const updateShieldBubble = (state: GameState, dt: number): void => {
     state.shieldBubble.active = true;
     state.shieldBubble.broken = false;
   }
-};
-
-const updateIdleIncome = (state: GameState, dt: number): void => {
-  if (!state.ship.alive) {
-    return;
-  }
-
-  const deathPenaltyMultiplier = state.deathPenaltyFor > 0 ? balance.economy.deathIncomeMultiplier * getDeathPenaltyMultiplier(state.progression) : 1;
-  const income =
-    state.progression.passiveIncomeLevel *
-    balance.economy.passiveIncomePerLevel *
-    getRefineryMilestoneMultiplier(state.progression.passiveIncomeLevel) *
-    getRefineryIncomeMultiplier(state.progression) *
-    getPrestigeMoneyMultiplier(state.progression) *
-    getShipFrameBonusMultiplier(state.progression, 'incomeMultiplier') *
-    getAchievementMultiplier(state.progression, 'passive') *
-    getAchievementMultiplier(state.progression, 'money') *
-    deathPenaltyMultiplier *
-    dt;
-  state.money += income;
-  recordMoneyEarned(state.progression, income);
 };
 
 const updateAsteroids = (state: GameState, dt: number): void => {

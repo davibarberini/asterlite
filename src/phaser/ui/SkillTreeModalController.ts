@@ -30,12 +30,12 @@ const droneLabels: Record<DroneType, string> = {
 };
 
 const talentPtBr: Partial<Record<TalentId, { name: string; summary: string }>> = {
-  refineryYield: { name: 'Rendimento da Refinaria', summary: '+10% de renda passiva da refinaria por nível.' },
+  refineryYield: { name: 'Relé Offline', summary: '+10% de créditos offline por nível.' },
   combatBounty: { name: 'Bônus de Combate', summary: '+12% de créditos de asteroides por nível.' },
   crystalSeam: { name: 'Veio de Cristal', summary: '+20% de cristais de asteroides de cristal por nível.' },
   propulsionTuning: { name: 'Ajuste de Propulsão', summary: '+6% de propulsão e velocidade máxima da nave por nível.' },
   vectorNozzles: { name: 'Bocais Vetoriais', summary: '+8% de propulsão e velocidade máxima da nave por nível.' },
-  salvageLoop: { name: 'Ciclo de Salvamento', summary: 'A penalidade da refinaria após morte dura 25% menos.' },
+  salvageLoop: { name: 'Ciclo de Salvamento', summary: '+25% de créditos offline.' },
   semiAutoOptics: { name: 'Óptica de Mira', summary: 'Desbloqueia o ramo semi-auto e adiciona +50 de alcance de mira.' },
   semiAutoRange: { name: 'Lente Longa', summary: '+40 de alcance para semi-auto por nível.' },
   semiAutoPierce: { name: 'Perfuração Linear', summary: '+1 perfuração de asteroide por nível. Semi-auto começa com 1 perfuração.' },

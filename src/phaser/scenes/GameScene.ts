@@ -7,12 +7,12 @@ import { emitReward } from '../../game/simulation/events';
 import { createGameState, syncActiveDrones, syncShieldBubbleState } from '../../game/simulation/state';
 import { createAsteroidField, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
 import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, ShipFrameId, TalentId, Vec2, WarpUnlockId } from '../../game/simulation/types';
-import { getCoreUpgradeCap, getFireRateMultiplier, getPlayerFireInterval, getRefineryMilestoneMultiplier } from '../../game/progression/idleBonuses';
+import { getCoreUpgradeCap, getFireRateMultiplier } from '../../game/progression/idleBonuses';
 import {
   TALENT_DEFINITIONS,
   canBuyTalentRank,
   countUnlockedTalentRanks,
-  getRefineryIncomeMultiplier,
+  getOfflineIncomeTalentMultiplier,
   getSemiAutoPierceLeft,
   getTalentRank,
 } from '../../game/progression/talentTree';
@@ -39,14 +39,16 @@ import { InfoModalController, type ModalContent } from '../ui/InfoModalControlle
 import { HangarController } from '../ui/HangarController';
 import { RewardFeedController } from '../ui/RewardFeedController';
 import { SkillTreeModalController } from '../ui/SkillTreeModalController';
+import { TutorialGuideController, type TutorialFlow, type TutorialTargetId } from '../ui/TutorialGuideController';
 import { WarpCoreTreeController } from '../ui/WarpCoreTreeController';
 import { ZoneMapController } from '../ui/ZoneMapController';
 import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
 import { balance } from '../../game/balance';
 import { WARP_UNLOCK_BY_ID, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
-import { getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
+import { getActiveShipFrame, getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
 import { createShipFrameSwitchState } from '../../game/progression/shipRuns';
+import { getOfflineIncomeRate } from '../../game/progression/offlineIncome';
 import { formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
 
 type ShopTab = 'upgrades' | 'warp' | 'hangar' | 'drones' | 'skills' | 'achievements';
@@ -64,6 +66,7 @@ type ShopAction = {
   info?: () => ModalContent;
   className?: string;
   controlNode?: () => Element;
+  tutorialTarget?: TutorialTargetId;
 };
 
 type PriorityPopupContent = {
@@ -79,9 +82,17 @@ const SLINGSHOT_MAX_DRAG_DESKTOP = 172;
 const SLINGSHOT_DEADZONE_MOBILE = 58;
 const SLINGSHOT_DEADZONE_DESKTOP = 24;
 const ZONE_TRAVEL_DURATION = 1.6;
-const INTRO_WARP_DURATION = 1.45;
+const INTRO_WARP_DURATION = 2.05;
 const SUBMENU_TIME_SCALE = 0.28;
 const TIME_SCALE_RECOVERY_SECONDS = 1;
+const FIRST_UPGRADE_TUTORIAL: TutorialFlow = {
+  id: 'first-upgrade',
+  steps: [
+    { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10 },
+    { id: 'open-upgrades', targetId: 'nav-upgrades', padding: 9 },
+    { id: 'buy-upgrade', targetId: 'upgrade-affordable', padding: 12 }
+  ]
+};
 
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
@@ -96,6 +107,7 @@ export class GameScene extends Phaser.Scene {
   private infoModal!: InfoModalController;
   private hangar!: HangarController;
   private skillTreeModal!: SkillTreeModalController;
+  private tutorialGuide!: TutorialGuideController;
   private warpCoreTree!: WarpCoreTreeController;
   private zoneMap!: ZoneMapController;
   private appEl!: HTMLElement;
@@ -166,11 +178,13 @@ export class GameScene extends Phaser.Scene {
   private shopSignature = '';
   private saveElapsed = 0;
   private offlineStatusFor = 0;
+  private offlinePopupQueued = false;
   private gameplayTimeScale = 1;
   private hasSavedLanguage = getSavedLanguage() !== null;
   private language: LanguageCode = getSavedLanguage() ?? getBrowserLanguage();
   private gameStarted = false;
-  private introWarp: { elapsed: number; duration: number; direction: Vec2 } | null = null;
+  private introWarp: { elapsed: number; duration: number; direction: Vec2; impactTriggered: boolean } | null = null;
+  private introGraphics!: Phaser.GameObjects.Graphics;
   private zoneTravel: { toIndex: number; elapsed: number; duration: number; direction: Vec2 } | null = null;
   private readonly saveBeforeUnload = (): void => {
     saveGameState(this.state);
@@ -225,6 +239,8 @@ export class GameScene extends Phaser.Scene {
     this.backgroundMusic = new BackgroundMusic(`${import.meta.env.BASE_URL}audio/zone-1.mp3`);
     this.vectorRenderer = new VectorRenderer(this);
     this.starfield = new Starfield(this);
+    this.introGraphics = this.add.graphics();
+    this.introGraphics.setDepth(4);
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,SPACE,SHIFT,H,R') as Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -269,6 +285,7 @@ export class GameScene extends Phaser.Scene {
     this.infoModal = new InfoModalController();
     this.hangar = new HangarController();
     this.skillTreeModal = new SkillTreeModalController();
+    this.tutorialGuide = new TutorialGuideController(this.appEl);
     this.warpCoreTree = new WarpCoreTreeController();
     this.zoneMap = new ZoneMapController();
     this.mapToggleEl = document.getElementById('map-toggle') as HTMLButtonElement;
@@ -318,7 +335,9 @@ export class GameScene extends Phaser.Scene {
       document.removeEventListener('pointercancel', this.handleDocumentPointerUp);
       window.removeEventListener('beforeunload', this.saveBeforeUnload);
       this.audioSettings.destroy();
+      this.tutorialGuide.destroy();
       this.backgroundMusic.destroy();
+      this.introGraphics.destroy();
     });
     this.updateHud();
   }
@@ -341,21 +360,27 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    updateGame(this.state, this.inputState, dt);
-    this.playAudioEvents();
-    this.queuePriorityPopups(this.state.rewardEvents);
-    this.rewardFeed.showEvents(this.state.rewardEvents);
-    this.syncBossRewardChoiceModal();
-    this.offlineStatusFor = Math.max(0, this.offlineStatusFor - dt);
-    this.saveElapsed += dt;
-    if (this.saveElapsed >= 1) {
-      saveGameState(this.state);
-      this.saveElapsed = 0;
+    const tutorialPaused = this.tutorialGuide.isActive();
+    if (!tutorialPaused) {
+      updateGame(this.state, this.inputState, dt);
+      this.playAudioEvents();
+      this.queuePriorityPopups(this.state.rewardEvents);
+      this.rewardFeed.showEvents(this.state.rewardEvents);
+      this.syncBossRewardChoiceModal();
+      this.offlineStatusFor = Math.max(0, this.offlineStatusFor - dt);
+      this.saveElapsed += dt;
+      if (this.saveElapsed >= 1) {
+        saveGameState(this.state);
+        this.saveElapsed = 0;
+      }
+    } else {
+      this.inputState = neutralInput();
     }
-    this.starfield.update(dt, this.state.ship.velocity);
+    this.starfield.update(tutorialPaused ? 0 : dt, this.state.ship.velocity);
     const slingPower = this.inputState.slingshotVector ? Math.hypot(this.inputState.slingshotVector.x, this.inputState.slingshotVector.y) : 0;
     this.vectorRenderer.render(this.state, (this.inputState.thrust || slingPower > 0.08) && this.state.ship.alive, this.getSlingshotIndicator());
     this.updateHud();
+    this.maybeStartTutorialGuide();
     this.updateDeathFade();
   }
 
@@ -463,7 +488,7 @@ export class GameScene extends Phaser.Scene {
 
   private isUiPointerEvent(event: PointerEvent): boolean {
     const target = event.target;
-    return target instanceof Element && target.closest('#main-menu, #idle-dock, #ui-modal, #priority-popup, .hud-right-cluster') !== null;
+    return target instanceof Element && target.closest('#main-menu, #idle-dock, #ui-modal, #priority-popup, .hud-right-cluster, .tutorial-guide') !== null;
   }
 
   private bindMainMenuUi(): void {
@@ -477,6 +502,8 @@ export class GameScene extends Phaser.Scene {
         this.hasSavedLanguage = true;
         saveLanguage(this.language);
         this.applyLanguage();
+        this.mainMenuStartEl.disabled = false;
+        this.mainMenuStartEl.focus({ preventScroll: true });
         this.shopSignature = '';
         this.updateHud();
       });
@@ -487,14 +514,15 @@ export class GameScene extends Phaser.Scene {
 
   private showMainMenu(): void {
     this.appEl.classList.add('is-menu-open');
-    this.mainMenuEl.classList.remove('is-hidden', 'is-warping');
+    this.mainMenuEl.classList.remove('is-hidden', 'is-warping', 'is-impact');
+    this.mainMenuEl.style.setProperty('--intro-flash-opacity', '0');
     this.mainMenuEl.setAttribute('aria-hidden', 'false');
-    this.mainMenuStartEl.disabled = false;
+    this.mainMenuStartEl.disabled = !this.hasSavedLanguage;
     this.mainMenuEl.classList.toggle('main-menu--language-saved', this.hasSavedLanguage);
   }
 
   private startIntroWarp(): void {
-    if (this.gameStarted || this.introWarp) {
+    if (this.gameStarted || this.introWarp || !this.hasSavedLanguage) {
       return;
     }
 
@@ -510,7 +538,8 @@ export class GameScene extends Phaser.Scene {
     this.introWarp = {
       elapsed: 0,
       duration: INTRO_WARP_DURATION,
-      direction: { x: 1, y: -0.18 }
+      direction: { x: 0, y: -1 },
+      impactTriggered: false
     };
   }
 
@@ -518,18 +547,32 @@ export class GameScene extends Phaser.Scene {
     if (!this.introWarp) {
       this.starfield.update(dt, { x: 14, y: -4 });
       this.vectorRenderer.clear();
+      this.introGraphics.clear();
+      this.mainMenuEl.style.setProperty('--intro-flash-opacity', '0');
       return;
     }
 
     this.introWarp.elapsed += dt;
     const progress = Math.min(1, this.introWarp.elapsed / this.introWarp.duration);
+    const launchProgress = this.easeInCubic(Math.min(1, progress / 0.72));
     const pulse = Math.sin(progress * Math.PI);
     const velocity = {
-      x: this.introWarp.direction.x * (1200 + pulse * 2600),
-      y: this.introWarp.direction.y * (1200 + pulse * 2600)
+      x: this.introWarp.direction.x * (240 + launchProgress * 520),
+      y: this.introWarp.direction.y * (700 + launchProgress * 4200 + pulse * 900)
     };
     this.starfield.update(dt, velocity, { progress, direction: this.introWarp.direction });
     this.vectorRenderer.clear();
+    this.drawIntroShip(progress);
+    const flashProgress = Math.min(1, Math.max(0, (progress - 0.78) / 0.22));
+    const flashAlpha = Math.sin(flashProgress * Math.PI) * 0.92;
+    this.mainMenuEl.style.setProperty('--intro-flash-opacity', flashAlpha.toFixed(3));
+
+    if (!this.introWarp.impactTriggered && progress >= 0.83) {
+      this.introWarp.impactTriggered = true;
+      this.cameras.main.shake(280, 0.009);
+      this.mainMenuEl.classList.add('is-impact');
+      window.setTimeout(() => this.mainMenuEl.classList.remove('is-impact'), 300);
+    }
 
     if (progress < 1) {
       return;
@@ -543,16 +586,87 @@ export class GameScene extends Phaser.Scene {
     this.gameStarted = true;
     this.appEl.classList.remove('is-menu-open');
     this.mainMenuEl.classList.add('is-hidden');
+    this.mainMenuEl.classList.remove('is-warping', 'is-impact');
+    this.mainMenuEl.style.setProperty('--intro-flash-opacity', '0');
     this.mainMenuEl.setAttribute('aria-hidden', 'true');
     this.mainMenuStartEl.disabled = false;
+    this.introGraphics.clear();
     this.updateHud();
+    this.queueOfflineEarningsPopup();
+  }
+
+  private drawIntroShip(progress: number): void {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const launchProgress = Math.min(1, progress / 0.72);
+    const settleProgress = Math.min(1, Math.max(0, (progress - 0.72) / 0.18));
+    const launchY = this.lerp(height + 80, height * 0.32, this.easeInCubic(launchProgress));
+    const y = progress < 0.72
+      ? launchY
+      : this.lerp(height * 0.32, height * 0.5, this.easeOutCubic(settleProgress));
+    const drift = Math.sin(progress * Math.PI * 3) * 14 * Math.max(0, 1 - progress);
+    const x = width * 0.5 + drift;
+    const shipScale = this.getViewScale();
+    const rotation = this.lerp(-Math.PI / 2, this.state.ship.rotation, this.easeOutCubic(settleProgress));
+    const points = getActiveShipFrame(this.state.progression).shape.map((point) =>
+      this.rotateScreenPoint(point.x * shipScale, point.y * shipScale, rotation, x, y)
+    );
+    const thrust = Math.min(1, Math.max(0, (progress - 0.06) / 0.58));
+    const trailLength = this.lerp(28, Math.min(height * 0.72, 340), thrust);
+    const trailAlpha = 0.18 + thrust * 0.56;
+
+    this.introGraphics.clear();
+    for (let index = 0; index < 5; index += 1) {
+      const offset = (index - 2) * 8 * shipScale;
+      const jitter = Math.sin((progress * 28) + index) * 5;
+      this.introGraphics.lineStyle(Math.max(1, (3 - Math.abs(index - 2)) * 1.4), index === 2 ? 0xffffff : 0x9fdcff, trailAlpha * (index === 2 ? 0.9 : 0.52));
+      this.introGraphics.beginPath();
+      this.introGraphics.moveTo(x + offset * 0.28, y + 14 * shipScale);
+      this.introGraphics.lineTo(x + offset + jitter, y + 14 * shipScale + trailLength);
+      this.introGraphics.strokePath();
+    }
+
+    this.introGraphics.lineStyle(8, 0x83ffdc, 0.12 + thrust * 0.16);
+    this.introGraphics.beginPath();
+    this.introGraphics.moveTo(points[0].x, points[0].y);
+    points.slice(1).forEach((point) => this.introGraphics.lineTo(point.x, point.y));
+    this.introGraphics.closePath();
+    this.introGraphics.strokePath();
+
+    this.introGraphics.lineStyle(2, 0xf2fbff, 0.96);
+    this.introGraphics.beginPath();
+    this.introGraphics.moveTo(points[0].x, points[0].y);
+    points.slice(1).forEach((point) => this.introGraphics.lineTo(point.x, point.y));
+    this.introGraphics.closePath();
+    this.introGraphics.strokePath();
+  }
+
+  private rotateScreenPoint(x: number, y: number, rotation: number, originX: number, originY: number): Vec2 {
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    return {
+      x: originX + x * cos - y * sin,
+      y: originY + x * sin + y * cos
+    };
+  }
+
+  private lerp(from: number, to: number, progress: number): number {
+    return from + (to - from) * progress;
+  }
+
+  private easeInCubic(progress: number): number {
+    return progress * progress * progress;
+  }
+
+  private easeOutCubic(progress: number): number {
+    return 1 - Math.pow(1 - progress, 3);
   }
 
   private applyLanguage(): void {
     document.documentElement.lang = this.language;
     this.mainMenuSubtitleEl.textContent = translate(this.language, this.hasSavedLanguage ? 'menu.subtitleSaved' : 'menu.subtitle');
     this.mainMenuLanguageLabelEl.textContent = translate(this.language, 'menu.language');
-    this.mainMenuStartEl.textContent = translate(this.language, this.hasExistingSave() ? 'menu.continue' : 'menu.start');
+    this.mainMenuStartEl.textContent = translate(this.language, 'menu.start');
     this.mainMenuEl.classList.toggle('main-menu--language-saved', this.hasSavedLanguage);
     this.languageButtons.forEach((button) => {
       const buttonLanguage = button.dataset.language as LanguageCode | undefined;
@@ -577,22 +691,18 @@ export class GameScene extends Phaser.Scene {
     this.mapToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openZoneMap'));
     this.mapToggleEl.title = translate(this.language, 'hud.openZoneMap');
     this.menuToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openUpgrades'));
+    this.menuToggleEl.dataset.tutorialTarget = 'submenu-toggle';
     this.bottomNavEl.setAttribute('aria-label', translate(this.language, 'hud.shopTabs'));
+    this.navButtons.forEach((button) => {
+      if (button.dataset.tab === 'upgrades') {
+        button.dataset.tutorialTarget = 'nav-upgrades';
+      }
+    });
     document.getElementById('idle-dock')?.setAttribute('aria-label', translate(this.language, 'hud.idleSystems'));
     this.shopDrawerBackdropEl.setAttribute('aria-label', translate(this.language, 'hud.closeShop'));
     this.shopDrawerHandleEl.setAttribute('aria-label', translate(this.language, 'hud.closeShop'));
     document.getElementById('shop-close')?.setAttribute('aria-label', translate(this.language, 'hud.closeShop'));
     document.getElementById('settings-toggle')?.setAttribute('aria-label', translate(this.language, 'hud.openSettings'));
-  }
-
-  private hasExistingSave(): boolean {
-    return (
-      this.state.money > 0 ||
-      this.state.crystals > 0 ||
-      this.state.progression.achievementStats.asteroidsDestroyed > 0 ||
-      this.state.progression.prestigeCores > 0 ||
-      this.state.progression.ownedWarpUnlockIds.length > 0
-    );
   }
 
   private closeSubmenuFromOutsidePointer(event: PointerEvent): void {
@@ -624,6 +734,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getUiTimeScaleTarget(): number {
+    if (this.tutorialGuide.isActive()) {
+      return 0;
+    }
+
     if (this.isBlockingDrawerOpen()) {
       return 0;
     }
@@ -939,8 +1053,6 @@ export class GameScene extends Phaser.Scene {
       this.setText(this.statusEl, translate(this.language, 'status.destroyed', { amount: this.formatMoney(this.state.lastRepairCost), seconds: Math.ceil(this.state.ship.respawnFor) }));
     } else if (this.state.droneRebootFor > 0) {
       this.setText(this.statusEl, translate(this.language, 'status.droneReboot', { seconds: Math.ceil(this.state.droneRebootFor) }));
-    } else if (this.state.deathPenaltyFor > 0) {
-      this.setText(this.statusEl, translate(this.language, 'status.refineryReduced', { seconds: Math.ceil(this.state.deathPenaltyFor) }));
     } else if (this.state.ship.invulnerableFor > 0) {
       this.setText(this.statusEl, translate(this.language, 'status.shieldActive'));
     } else if (hasWarpUnlock(this.state.progression, 'shieldBubble') && this.state.shieldBubble.broken) {
@@ -1195,6 +1307,24 @@ export class GameScene extends Phaser.Scene {
     this.showNextPriorityPopup();
   }
 
+  private queueOfflineEarningsPopup(): void {
+    if (this.offlinePopupQueued || this.state.lastOfflineEarnings <= 0) {
+      return;
+    }
+
+    this.offlinePopupQueued = true;
+    this.priorityPopupQueue.push({
+      key: `offline-${Math.floor(this.state.lastOfflineEarnings)}`,
+      kicker: this.language === 'pt-BR' ? 'Ganhos offline' : 'Offline gains',
+      title: this.formatMoney(this.state.lastOfflineEarnings),
+      copy: this.language === 'pt-BR'
+        ? 'Sua nave gerou créditos enquanto você estava fora.'
+        : 'Your ship generated credits while you were away.',
+      okLabel: 'OK'
+    });
+    this.showNextPriorityPopup();
+  }
+
   private createPriorityPopupForReward(event: GameRewardEvent): PriorityPopupContent | null {
     if (event.kind !== 'unlock') {
       return null;
@@ -1446,7 +1576,7 @@ export class GameScene extends Phaser.Scene {
       const hpLevel = this.getHpUpgradeLevel();
       const damageLevel = this.getDamageUpgradeLevel();
       return [
-        `passive:${this.state.progression.passiveIncomeLevel < cap}:${this.state.money >= this.getPassiveIncomeCost()}`,
+        `offline:${this.state.progression.passiveIncomeLevel < cap}:${this.state.money >= this.getOfflineIncomeCost()}`,
         `damage:${damageLevel < cap}:${this.state.money >= this.getDamageCost()}`,
         `fire:${this.state.progression.shipFireRateLevel < cap}:${this.state.money >= this.getFireRateCost()}`,
         `hp:${hpLevel < cap}:${this.state.money >= this.getHpCost()}`
@@ -1486,55 +1616,91 @@ export class GameScene extends Phaser.Scene {
     return '';
   }
 
+  private maybeStartTutorialGuide(): void {
+    if (
+      this.tutorialGuide.isActive() ||
+      this.tutorialGuide.hasCompleted('first-upgrade') ||
+      !this.gameStarted ||
+      this.zoneTravel ||
+      this.introWarp ||
+      !this.isQuickMenuCollapsed() ||
+      this.isBlockingDrawerOpen() ||
+      !this.hasAffordableCoreUpgrade()
+    ) {
+      return;
+    }
+
+    this.activeGameplayPointerId = null;
+    this.gameplayPointerStartScreen = null;
+    this.gameplayPointerScreen = null;
+    this.tutorialGuide.start(FIRST_UPGRADE_TUTORIAL);
+  }
+
+  private hasAffordableCoreUpgrade(): boolean {
+    const cap = this.getCoreUpgradeCap();
+    return (
+      (this.getDamageUpgradeLevel() < cap && this.state.money >= this.getDamageCost()) ||
+      (this.state.progression.shipFireRateLevel < cap && this.state.money >= this.getFireRateCost()) ||
+      (this.getHpUpgradeLevel() < cap && this.state.money >= this.getHpCost()) ||
+      (this.state.progression.passiveIncomeLevel < cap && this.state.money >= this.getOfflineIncomeCost())
+    );
+  }
+
   private renderUpgradesTab(): void {
     const cap = this.getCoreUpgradeCap();
     const damageLevel = this.getDamageUpgradeLevel();
     const hpLevel = this.getHpUpgradeLevel();
-    const incomeLevel = this.state.progression.passiveIncomeLevel;
+    const offlineIncomeLevel = this.state.progression.passiveIncomeLevel;
     const fireRateLevel = this.state.progression.shipFireRateLevel;
+    const actions: ShopAction[] = [
+      {
+        icon: 'DMG',
+        title: translate(this.language, 'shop.shotDamage'),
+        meta: `${translate(this.language, 'shop.level', { level: damageLevel, cap })} · ${translate(this.language, 'shop.damage', { value: this.formatStatNumber(this.getPlayerShotDamage()) })}`,
+        label: damageLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getDamageCost()),
+        disabled: damageLevel >= cap || this.state.money < this.getDamageCost(),
+        onClick: () => this.buyDamage(this.getDamageCost()),
+        repeatable: true
+      },
+      {
+        icon: 'FR',
+        title: translate(this.language, 'shop.fireRate'),
+        meta: `${translate(this.language, 'shop.level', { level: fireRateLevel, cap })} · x${getFireRateMultiplier(this.state.progression).toFixed(2)}`,
+        label: fireRateLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getFireRateCost()),
+        disabled: fireRateLevel >= cap || this.state.money < this.getFireRateCost(),
+        onClick: () => this.buyFireRate(this.getFireRateCost()),
+        repeatable: true
+      },
+      {
+        icon: 'HP',
+        title: translate(this.language, 'shop.hull'),
+        meta: `${translate(this.language, 'shop.level', { level: hpLevel, cap })} · ${this.state.ship.maxHp} HP`,
+        label: hpLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getHpCost()),
+        disabled: hpLevel >= cap || this.state.money < this.getHpCost(),
+        onClick: () => this.buyHp(this.getHpCost()),
+        repeatable: true
+      },
+      {
+        icon: 'OFF',
+        title: translate(this.language, 'shop.income'),
+        meta: `${translate(this.language, 'shop.level', { level: offlineIncomeLevel, cap })} · ${translate(this.language, 'shop.perHour', { value: this.formatMoney(this.getOfflineIncomePerHour()) })}`,
+        label: offlineIncomeLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getOfflineIncomeCost()),
+        disabled: offlineIncomeLevel >= cap || this.state.money < this.getOfflineIncomeCost(),
+        onClick: () => this.buyOfflineIncome(this.getOfflineIncomeCost()),
+        repeatable: true
+      }
+    ];
+    const firstAffordableAction = actions.find((action) => !action.disabled);
+    if (firstAffordableAction) {
+      firstAffordableAction.tutorialTarget = 'upgrade-affordable';
+    }
+
     this.setShopContent(
       translate(this.language, 'shop.upgradesKicker'),
       translate(this.language, 'shop.shipCore'),
       '',
       [],
-      [
-        {
-          icon: 'DMG',
-          title: translate(this.language, 'shop.shotDamage'),
-          meta: `${translate(this.language, 'shop.level', { level: damageLevel, cap })} · ${translate(this.language, 'shop.damage', { value: this.formatStatNumber(this.getPlayerShotDamage()) })}`,
-          label: damageLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getDamageCost()),
-          disabled: damageLevel >= cap || this.state.money < this.getDamageCost(),
-          onClick: () => this.buyDamage(this.getDamageCost()),
-          repeatable: true
-        },
-        {
-          icon: 'FR',
-          title: translate(this.language, 'shop.fireRate'),
-          meta: `${translate(this.language, 'shop.level', { level: fireRateLevel, cap })} · x${getFireRateMultiplier(this.state.progression).toFixed(2)}`,
-          label: fireRateLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getFireRateCost()),
-          disabled: fireRateLevel >= cap || this.state.money < this.getFireRateCost(),
-          onClick: () => this.buyFireRate(this.getFireRateCost()),
-          repeatable: true
-        },
-        {
-          icon: 'HP',
-          title: translate(this.language, 'shop.hull'),
-          meta: `${translate(this.language, 'shop.level', { level: hpLevel, cap })} · ${this.state.ship.maxHp} HP`,
-          label: hpLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getHpCost()),
-          disabled: hpLevel >= cap || this.state.money < this.getHpCost(),
-          onClick: () => this.buyHp(this.getHpCost()),
-          repeatable: true
-        },
-        {
-          icon: '$/s',
-          title: translate(this.language, 'shop.income'),
-          meta: `${translate(this.language, 'shop.level', { level: incomeLevel, cap })} · ${translate(this.language, 'shop.perSecond', { value: this.getPassiveIncomeRate().toFixed(1) })}`,
-          label: incomeLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getPassiveIncomeCost()),
-          disabled: incomeLevel >= cap || this.state.money < this.getPassiveIncomeCost(),
-          onClick: () => this.buyPassiveIncome(this.getPassiveIncomeCost()),
-          repeatable: true
-        }
-      ]
+      actions
     );
   }
 
@@ -1698,7 +1864,7 @@ export class GameScene extends Phaser.Scene {
         [translate(this.language, 'shop.skillsStatCrystals'), this.getCrystalBalance().toString()],
         [translate(this.language, 'shop.skillsStatTalents'), talentCount.toString()],
         [translate(this.language, 'shop.skillsStatSemiPierce'), getSemiAutoPierceLeft(this.state.progression).toString()],
-        [translate(this.language, 'shop.skillsStatRefinery'), `x${getRefineryIncomeMultiplier(this.state.progression).toFixed(2)}`]
+        [translate(this.language, 'shop.skillsStatRefinery'), `x${getOfflineIncomeTalentMultiplier(this.state.progression).toFixed(2)}`]
       ],
       [
         {
@@ -1927,6 +2093,9 @@ export class GameScene extends Phaser.Scene {
     }
     button.type = 'button';
     button.disabled = action.disabled;
+    if (action.tutorialTarget) {
+      button.dataset.tutorialTarget = action.tutorialTarget;
+    }
 
     if (action.title) {
       const icon = document.createElement('span');
@@ -2379,9 +2548,8 @@ export class GameScene extends Phaser.Scene {
     return Math.max(0, Math.floor((this.state.progression.maxHp - 100) / balance.shop.ship.hp.gain));
   }
 
-  private getPassiveIncomeRate(): number {
-    const level = this.state.progression.passiveIncomeLevel;
-    return level * balance.economy.passiveIncomePerLevel * getRefineryMilestoneMultiplier(level);
+  private getOfflineIncomePerHour(): number {
+    return getOfflineIncomeRate(this.state.progression) * 60 * 60;
   }
 
   private getPlayerShotDamage(): number {
@@ -2390,8 +2558,8 @@ export class GameScene extends Phaser.Scene {
       getShipFrameBonusMultiplier(this.state.progression, 'damageMultiplier');
   }
 
-  private getPassiveIncomeCost(): number {
-    return this.scaledCost(balance.economy.passiveCost.base, this.state.progression.passiveIncomeLevel, balance.economy.passiveCost.scale);
+  private getOfflineIncomeCost(): number {
+    return this.scaledCost(balance.economy.offlineIncome.baseCost, this.state.progression.passiveIncomeLevel, balance.economy.offlineIncome.scale);
   }
 
   private getDamageCost(): number {
@@ -2516,7 +2684,7 @@ export class GameScene extends Phaser.Scene {
     this.updateHud();
   }
 
-  private buyPassiveIncome(cost: number): boolean {
+  private buyOfflineIncome(cost: number): boolean {
     if (this.state.progression.passiveIncomeLevel >= this.getCoreUpgradeCap() || !this.spend(cost)) {
       return false;
     }

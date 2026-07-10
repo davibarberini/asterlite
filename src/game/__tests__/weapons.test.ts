@@ -123,6 +123,37 @@ describe('ship weapons and drone damage', () => {
     expect(state.ship.hp).toBe(state.ship.maxHp);
   });
 
+  it('lets Wraith phase shield absorb the first real hit before entering cooldown', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'wraith';
+    state.progression.shipUnlockProgress.wraithNoDamageSeconds = 42;
+    state.ship.invulnerableFor = 0;
+    state.shieldBubble.active = false;
+    state.shieldBubble.broken = false;
+    state.asteroids = [
+      createAsteroid(state, 'small', { ...state.ship.position }, { x: 0, y: 0 }, 'common')
+    ];
+
+    resolveCollisions(state);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('phase');
+    expect(state.ship.hp).toBe(state.ship.maxHp);
+    expect(state.ship.phaseShieldCooldown).toBeCloseTo(balance.ship.phaseShieldCooldownSeconds);
+    expect(state.ship.phaseShieldFlashFor).toBeCloseTo(balance.ship.phaseShieldFlashSeconds);
+    expect(state.ship.invulnerableFor).toBeCloseTo(balance.ship.phaseShieldInvulnerableSeconds);
+    expect(state.progression.shipUnlockProgress.wraithNoDamageSeconds).toBe(42);
+
+    state.ship.invulnerableFor = 0;
+    state.asteroids = [
+      createAsteroid(state, 'small', { ...state.ship.position }, { x: 0, y: 0 }, 'common')
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.ship.hp).toBeLessThan(state.ship.maxHp);
+    expect(state.progression.shipUnlockProgress.wraithNoDamageSeconds).toBe(0);
+  });
+
   it('uses Ember as a continuous aura ship instead of firing cannon bullets', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'ember';

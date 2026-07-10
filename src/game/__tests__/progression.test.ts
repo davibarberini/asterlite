@@ -4,9 +4,9 @@ import { getCrystalBalance, purchaseTalentRank, spendCrystals } from '../progres
 import { createProgression } from '../simulation/state';
 import {
   getFireRateMultiplier,
-  getPlayerFireInterval,
-  getRefineryMilestoneMultiplier
+  getPlayerFireInterval
 } from '../progression/idleBonuses';
+import { getOfflineIncomeRate } from '../progression/offlineIncome';
 import { createCoreResetState, crystalsPerPrestigeCore, getPrestigeCoreGain, minimumCoreResetThreatLevel } from '../progression/prestige';
 import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES } from '../progression/saveData';
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
@@ -696,23 +696,38 @@ describe('crystal spending and talents', () => {
 });
 
 describe('core ship upgrades', () => {
-  it('keeps core credit upgrade curves cheap early and multi-hour near the level cap', () => {
+  it('keeps core credit upgrade curves cheap early and scales offline income from the current build', () => {
     const tracks = [
-      { baseCost: balance.economy.passiveCost.base, scale: balance.economy.passiveCost.scale },
+      { baseCost: balance.economy.offlineIncome.baseCost, scale: balance.economy.offlineIncome.scale },
       { baseCost: balance.shop.ship.damage.baseCost, scale: balance.shop.ship.damage.scale },
       { baseCost: balance.shop.ship.fireRate.baseCost, scale: balance.shop.ship.fireRate.scale },
       { baseCost: balance.shop.ship.hp.baseCost, scale: balance.shop.ship.hp.scale }
     ];
-    const lateIncomePerSecond =
-      balance.shop.upgradeBaseCap *
-      balance.economy.passiveIncomePerLevel *
-      getRefineryMilestoneMultiplier(balance.shop.upgradeBaseCap);
 
     tracks.forEach(({ baseCost, scale }) => {
       expect(scaledCost(baseCost, 0, scale)).toBeLessThanOrEqual(70);
       expect(scaledCost(baseCost, 25, scale)).toBeLessThanOrEqual(160);
-      expect(scaledCost(baseCost, balance.shop.upgradeBaseCap - 1, scale) / lateIncomePerSecond).toBeGreaterThanOrEqual(8 * 60 * 60);
     });
+
+    const earlyProgression = createProgression();
+    earlyProgression.passiveIncomeLevel = 1;
+    const builtProgression = createProgression();
+    builtProgression.passiveIncomeLevel = 1;
+    builtProgression.shipDamageLevel = 10;
+    builtProgression.shipFireRateLevel = 6;
+
+    expect(getOfflineIncomeRate(createProgression())).toBe(0);
+    expect(getOfflineIncomeRate(earlyProgression)).toBeGreaterThan(0);
+    expect(getOfflineIncomeRate(builtProgression)).toBeGreaterThan(getOfflineIncomeRate(earlyProgression));
+  });
+
+  it('does not award offline income levels as live credits during gameplay', () => {
+    const state = createGameState(800, 600);
+    state.progression.passiveIncomeLevel = 20;
+
+    updateGame(state, neutralInput(), 10);
+
+    expect(state.money).toBe(0);
   });
 
   it('keeps capped fire-rate purchases effective through the current upgrade cap', () => {

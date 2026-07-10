@@ -3,6 +3,7 @@ import type { GameAudioEvent } from '../../game/simulation/types';
 type Wave = OscillatorType;
 
 export class RetroSound {
+  private static readonly outputGain = 2;
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private volume = 0.75;
@@ -104,7 +105,7 @@ export class RetroSound {
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(this.maxVolume, volume));
     if (this.master) {
-      this.master.gain.value = this.volume;
+      this.master.gain.value = this.getEffectiveVolume();
     }
   }
 
@@ -124,9 +125,13 @@ export class RetroSound {
 
     this.context = new AudioContextClass();
     this.master = this.context.createGain();
-    this.master.gain.value = this.volume;
+    this.master.gain.value = this.getEffectiveVolume();
     this.master.connect(this.context.destination);
     return this.context;
+  }
+
+  private getEffectiveVolume(): number {
+    return this.volume * RetroSound.outputGain;
   }
 
   private canPlayDroneShot(now: number): boolean {

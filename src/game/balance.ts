@@ -2,10 +2,13 @@ import type { AsteroidSize, AsteroidVariant, BossType, DroneType } from './simul
 
 export const balance = {
   economy: {
-    passiveIncomePerLevel: 1.25,
-    passiveCost: { base: 45, scale: 1.035 },
+    offlineIncome: {
+      baseCost: 45,
+      scale: 1.035,
+      buildEfficiency: 0.001,
+      levelBonus: 0.08
+    },
     mapUnlockCost: 260,
-    deathIncomeMultiplier: 0.35,
     maxOfflineSeconds: 8 * 60 * 60,
     prestige: {
       crystalsPerCore: 12,
@@ -47,7 +50,12 @@ export const balance = {
     shieldBubbleRechargeSeconds: 9,
     shieldBubbleHitFlashSeconds: 0.32,
     shieldBubbleGraceSeconds: 0.22,
-    shieldBubbleRadius: 34
+    shieldBubbleRadius: 34,
+    phaseShieldCooldownSeconds: 8,
+    phaseShieldInvulnerableSeconds: 1.35,
+    phaseShieldFlashSeconds: 0.48,
+    phaseShieldRadius: 42,
+    phaseShieldParticleSpread: 150
   },
   survival: {
     threatLevelSeconds: 30,

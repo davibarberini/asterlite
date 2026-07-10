@@ -68,11 +68,19 @@ canvas {
   place-items: center;
   padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(131, 255, 220, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.72));
+  background: rgba(0, 0, 0, 0.28);
   color: rgba(245, 253, 255, 0.96);
   transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.main-menu::after {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  content: "";
+  background: #fff;
+  opacity: var(--intro-flash-opacity, 0);
+  pointer-events: none;
 }
 
 .main-menu.is-hidden {
@@ -84,13 +92,9 @@ canvas {
 .main-menu__panel {
   position: relative;
   z-index: 2;
-  width: min(420px, 100%);
-  padding: 20px;
-  border: 1px solid rgba(216, 255, 245, 0.22);
-  border-radius: 8px;
-  background: rgba(3, 8, 12, 0.68);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
+  display: grid;
+  justify-items: center;
+  width: min(320px, 100%);
 }
 
 .main-menu__kicker {
@@ -102,33 +106,38 @@ canvas {
   text-transform: uppercase;
 }
 
-.main-menu h1 {
-  margin: 0;
-  color: #f8fffd;
-  font-size: clamp(42px, 12vw, 72px);
-  line-height: 0.92;
-  letter-spacing: 0;
-  text-shadow: 0 0 26px rgba(131, 255, 220, 0.28);
-}
-
 .main-menu__subtitle {
   max-width: 28rem;
-  margin: 14px 0 18px;
+  margin: 0 0 18px;
   color: rgba(210, 229, 239, 0.82);
   font-size: 14px;
   line-height: 1.45;
+}
+
+.main-menu__kicker,
+.main-menu__subtitle {
+  display: none;
 }
 
 .main-menu__languages {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin-bottom: 12px;
+  width: min(320px, 100%);
+  padding: 14px;
+  border: 1px solid rgba(216, 255, 245, 0.18);
+  border-radius: 8px;
+  background: rgba(3, 8, 12, 0.74);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(10px);
+  transition: opacity 220ms ease, transform 220ms ease, visibility 220ms ease;
 }
 
-.main-menu--language-saved .main-menu__kicker,
 .main-menu--language-saved .main-menu__languages {
-  display: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-12px) scale(0.98);
 }
 
 .main-menu__language,
@@ -151,14 +160,41 @@ canvas {
 }
 
 .main-menu__start {
-  width: 100%;
-  background: rgba(216, 255, 245, 0.9);
-  color: rgba(4, 14, 18, 0.94);
-  box-shadow: 0 0 28px rgba(131, 255, 220, 0.2);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(260px, calc(100vw - 48px));
+  border-color: transparent;
+  background: transparent;
+  color: rgba(245, 253, 255, 0.94);
+  font-size: 16px;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  text-shadow: 0 0 18px rgba(216, 255, 245, 0.35);
+  box-shadow: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.main-menu--language-saved .main-menu__start {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.main-menu--language-saved .main-menu__start:not(:disabled) {
+  animation: menu-tap-pulse 1600ms ease-in-out infinite;
+}
+
+.main-menu__start:hover,
+.main-menu__start:focus-visible {
+  transform: translate(-50%, -50%) scale(1.05);
 }
 
 .main-menu__start:disabled {
-  opacity: 0.8;
+  opacity: 0.38;
+  pointer-events: none;
 }
 
 .main-menu__warp {
@@ -188,11 +224,19 @@ canvas {
 .main-menu__warp span:nth-child(6) { top: 12%; transform: translateX(-50%) rotate(222deg); }
 
 .main-menu.is-warping .main-menu__panel {
-  animation: menu-panel-warp 900ms ease forwards;
+  animation: menu-panel-warp 520ms ease forwards;
 }
 
 .main-menu.is-warping .main-menu__warp {
   animation: menu-warp-streaks 1400ms ease forwards;
+}
+
+.main-menu.is-warping {
+  background: transparent;
+}
+
+.main-menu.is-impact {
+  animation: menu-impact-shake 260ms ease-out;
 }
 
 #app.is-menu-open #hud,
@@ -213,6 +257,16 @@ canvas {
   }
 }
 
+@keyframes menu-tap-pulse {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @keyframes menu-warp-streaks {
   0% {
     opacity: 0;
@@ -224,6 +278,25 @@ canvas {
   100% {
     opacity: 0;
     transform: rotate(-8deg) scale(2.8);
+  }
+}
+
+@keyframes menu-impact-shake {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  18% {
+    transform: translate3d(-8px, 5px, 0);
+  }
+  36% {
+    transform: translate3d(7px, -5px, 0);
+  }
+  54% {
+    transform: translate3d(-5px, -3px, 0);
+  }
+  72% {
+    transform: translate3d(4px, 3px, 0);
   }
 }
 
@@ -248,6 +321,62 @@ canvas {
   backdrop-filter: grayscale(0.95) saturate(0.45) contrast(0.9);
   opacity: 0;
   transition: opacity 220ms ease;
+}
+
+.tutorial-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 180ms ease;
+}
+
+.tutorial-guide.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tutorial-guide__shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tutorial-guide__pulse {
+  position: absolute;
+  border: 2px solid rgba(131, 255, 220, 0.86);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(216, 255, 245, 0.22),
+    0 0 22px rgba(131, 255, 220, 0.36);
+  transform-origin: center;
+  animation: tutorial-pulse 950ms ease-in-out infinite;
+  pointer-events: none;
+}
+
+.tutorial-guide.is-waiting .tutorial-guide__pulse {
+  opacity: 0;
+}
+
+@keyframes tutorial-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-guide__pulse {
+    animation: none;
+  }
 }
 
 .boss-health {
@@ -1335,6 +1464,84 @@ canvas {
   line-height: 1.3;
 }
 
+.ship-frame-lock-detail {
+  display: none;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid rgba(216, 255, 245, 0.14);
+  border-radius: 6px;
+  background: rgba(216, 255, 245, 0.045);
+}
+
+.ship-frame-lock-detail.is-visible {
+  display: grid;
+}
+
+.ship-frame-lock-detail__header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ship-frame-lock-detail__kicker,
+.ship-frame-lock-detail__progress-row span {
+  display: block;
+  color: rgba(156, 198, 224, 0.82);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.ship-frame-lock-detail__header strong {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: rgba(245, 253, 255, 0.96);
+  font-size: 13px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ship-frame-lock-detail__objective {
+  margin: 0;
+  color: rgba(198, 222, 238, 0.78);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ship-frame-lock-detail__progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ship-frame-lock-detail__progress-row strong {
+  color: rgba(216, 255, 245, 0.9);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.ship-frame-lock-detail__bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(167, 211, 255, 0.12);
+}
+
+.ship-frame-lock-detail__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(131, 255, 220, 0.72), rgba(255, 241, 168, 0.88));
+}
+
 .ship-frame-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1365,8 +1572,8 @@ canvas {
     rgba(131, 255, 220, 0.06);
 }
 
-.ship-frame-item:not(.is-active):not(.is-locked):hover,
-.ship-frame-item:not(.is-active):not(.is-locked):focus-visible {
+.ship-frame-item:not(.is-active):hover,
+.ship-frame-item:not(.is-active):focus-visible {
   border-color: rgba(216, 255, 245, 0.32);
   background: rgba(216, 255, 245, 0.075);
 }
@@ -1377,6 +1584,12 @@ canvas {
 
 .ship-frame-item.is-locked {
   opacity: 0.48;
+}
+
+.ship-frame-item.is-locked.is-selected {
+  border-color: rgba(255, 220, 138, 0.42);
+  background: rgba(255, 220, 138, 0.075);
+  opacity: 0.86;
 }
 
 .ship-frame-preview {

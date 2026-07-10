@@ -34,7 +34,6 @@ type TranslationKey =
   | 'status.offline'
   | 'status.destroyed'
   | 'status.droneReboot'
-  | 'status.refineryReduced'
   | 'status.shieldActive'
   | 'status.shieldRecharge'
   | 'status.shieldReady'
@@ -70,7 +69,7 @@ type TranslationKey =
   | 'shop.level'
   | 'shop.max'
   | 'shop.damage'
-  | 'shop.perSecond'
+  | 'shop.perHour'
   | 'shop.warpReset'
   | 'shop.gainCores'
   | 'shop.resetRun'
@@ -101,9 +100,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'menu.language': 'Language',
     'menu.portuguese': 'Portuguese',
     'menu.english': 'English',
-    'menu.start': 'Start Run',
+    'menu.start': 'Tap to start',
     'menu.continue': 'Continue',
-    'menu.warping': 'Warping...',
+    'menu.warping': 'Launching...',
     'hud.money': 'Money',
     'hud.next': 'Next',
     'hud.shipHull': 'Ship hull',
@@ -124,10 +123,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'unit.crystals': 'crystals',
     'unit.ranks': 'ranks',
     'unit.semiPierce': 'semi pierce',
-    'status.offline': 'Offline refinery payout: {amount}.',
+    'status.offline': 'Offline payout: {amount}.',
     'status.destroyed': 'Ship destroyed. Repair {amount}. Respawning in {seconds}.',
     'status.droneReboot': 'Drone wing rebooting: {seconds} sec.',
-    'status.refineryReduced': 'Refinery output reduced: {seconds} sec.',
     'status.shieldActive': 'Temporary shield active.',
     'status.shieldRecharge': 'Shield bubble recharging: {seconds} sec.',
     'status.shieldReady': 'Shield bubble armed: next hit absorbed.',
@@ -150,20 +148,20 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.shotDamage': 'Shot Damage',
     'shop.fireRate': 'Fire Rate',
     'shop.hull': 'Hull',
-    'shop.income': 'Income',
+    'shop.income': 'Offline',
     'shop.skillsTitle': 'Talent Tree',
     'shop.skillsCopy': 'Spend crystals on connected nodes. Branches unlock after buying the matching drone type.',
     'shop.skillsStatCrystals': 'Crystals',
     'shop.skillsStatTalents': 'Talents',
     'shop.skillsStatSemiPierce': 'Semi pierce',
-    'shop.skillsStatRefinery': 'Refinery',
+    'shop.skillsStatRefinery': 'Offline',
     'shop.skillsActionTitle': 'Talent Constellation',
     'shop.skillsActionMeta': '{count} ranks unlocked',
     'shop.skillsActionLabel': 'Open Talent Tree',
     'shop.level': 'Lv {level}/{cap}',
     'shop.max': 'MAX',
     'shop.damage': '{value} dmg',
-    'shop.perSecond': '{value} / sec',
+    'shop.perHour': '{value} / h',
     'shop.warpReset': 'Core Reset',
     'shop.gainCores': 'Gain {count} {unit}',
     'shop.resetRun': 'Core Reset',
@@ -193,9 +191,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'menu.language': 'Idioma',
     'menu.portuguese': 'Português',
     'menu.english': 'Inglês',
-    'menu.start': 'Iniciar',
+    'menu.start': 'Toque para começar',
     'menu.continue': 'Continuar',
-    'menu.warping': 'Viajando...',
+    'menu.warping': 'Decolando...',
     'hud.money': 'Dinheiro',
     'hud.next': 'Próximo',
     'hud.shipHull': 'Casco da nave',
@@ -216,10 +214,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'unit.crystals': 'cristais',
     'unit.ranks': 'níveis',
     'unit.semiPierce': 'perfuração semi-auto',
-    'status.offline': 'Refinaria offline gerou: {amount}.',
+    'status.offline': 'Ganhos offline: {amount}.',
     'status.destroyed': 'Nave destruída. Reparo {amount}. Reaparece em {seconds}.',
     'status.droneReboot': 'Drones reiniciando: {seconds} s.',
-    'status.refineryReduced': 'Refinaria reduzida: {seconds} s.',
     'status.shieldActive': 'Escudo temporário ativo.',
     'status.shieldRecharge': 'Bolha de escudo recarregando: {seconds} s.',
     'status.shieldReady': 'Bolha de escudo pronta: o próximo hit será absorvido.',
@@ -242,20 +239,20 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.shotDamage': 'Dano do Tiro',
     'shop.fireRate': 'Velocidade de Ataque',
     'shop.hull': 'Vida',
-    'shop.income': 'Dinheiro/s',
+    'shop.income': 'Offline',
     'shop.skillsTitle': 'Árvore de Habilidades',
     'shop.skillsCopy': 'Gaste cristais em nós conectados. Alguns ramos abrem depois de comprar o tipo de drone correspondente.',
     'shop.skillsStatCrystals': 'Cristais',
     'shop.skillsStatTalents': 'Habilidades',
     'shop.skillsStatSemiPierce': 'Perfuração',
-    'shop.skillsStatRefinery': 'Refinaria',
+    'shop.skillsStatRefinery': 'Offline',
     'shop.skillsActionTitle': 'Constelação de Habilidades',
     'shop.skillsActionMeta': '{count} níveis desbloqueados',
     'shop.skillsActionLabel': 'Abrir árvore',
     'shop.level': 'Nv {level}/{cap}',
     'shop.max': 'MAX',
     'shop.damage': '{value} dano',
-    'shop.perSecond': '{value} / s',
+    'shop.perHour': '{value} / h',
     'shop.warpReset': 'Core Reset',
     'shop.gainCores': 'Ganhar {count} {unit}',
     'shop.resetRun': 'Core Reset',
