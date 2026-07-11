@@ -16,6 +16,8 @@ import {
   getSemiAutoPierceLeft,
   getTalentRank,
 } from '../../game/progression/talentTree';
+import { getAvailableShipSkillPoints, getShipXpForNextLevel, maxShipLevel } from '../../game/progression/shipLevel';
+import { formatCompactNumber, formatMoney as formatCompactMoney } from '../../game/numberFormat';
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { isSurvivalZone } from '../../game/simulation/systems/survival';
 import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, maxTravelLevel, zones } from '../../game/simulation/zones';
@@ -1251,7 +1253,7 @@ export class GameScene extends Phaser.Scene {
 
     const crystals = this.getCrystalBalance();
     this.setText(this.moneyEl, this.formatMoney(this.state.money));
-    this.setText(this.crystalsEl, `${crystals} ${formatCrystalUnit(this.language, crystals)}`);
+    this.setText(this.crystalsEl, `${formatCompactNumber(crystals)} ${formatCrystalUnit(this.language, crystals)}`);
     this.setText(this.sectorEl, this.formatSector());
     this.updateRouteToggle();
     this.mapToggleEl.disabled = !this.state.progression.mapUnlocked;
@@ -1259,7 +1261,7 @@ export class GameScene extends Phaser.Scene {
     const hpPercent = Math.max(0, Math.min(1, this.state.ship.hp / Math.max(1, this.state.ship.maxHp)));
     this.hpMeterEl.style.setProperty('--hp-fill', `${Math.round(hpPercent * 100)}%`);
     this.updateLowHpVeil(hpPercent);
-    this.setText(this.hpEl, `${Math.ceil(this.state.ship.hp)} / ${this.state.ship.maxHp}`);
+    this.setText(this.hpEl, `${formatCompactNumber(Math.ceil(this.state.ship.hp))} / ${formatCompactNumber(this.state.ship.maxHp)}`);
 
     if (this.offlineStatusFor > 0) {
       this.setText(this.statusEl, translate(this.language, 'status.offline', { amount: this.formatMoney(this.state.lastOfflineEarnings) }));
@@ -1872,8 +1874,8 @@ export class GameScene extends Phaser.Scene {
     if (this.activeTab === 'skills') {
       return TALENT_DEFINITIONS.map((talent) => {
         const rank = getTalentRank(this.state.progression, talent.id);
-        return `${talent.id}:${rank}:${canBuyTalentRank(this.state.progression, this.getCrystalBalance(), talent.id)}`;
-      }).join(',');
+        return `${talent.id}:${rank}:${canBuyTalentRank(this.state.progression, talent.id)}`;
+      }).join(',') + `:points:${getAvailableShipSkillPoints(this.state.progression)}:level:${this.state.progression.shipLevel}:xp:${Math.floor(this.state.progression.shipXp)}`;
     }
 
     return '';
@@ -2092,13 +2094,19 @@ export class GameScene extends Phaser.Scene {
 
   private renderSkillsTab(): void {
     const talentCount = countUnlockedTalentRanks(this.state.progression);
+    const availablePoints = getAvailableShipSkillPoints(this.state.progression);
+    const nextLevelXp = this.state.progression.shipLevel >= maxShipLevel
+      ? this.language === 'pt-BR' ? 'MAX' : 'MAX'
+      : `${Math.floor(this.state.progression.shipXp)}/${getShipXpForNextLevel(this.state.progression.shipLevel)}`;
     this.setShopContent(
       translate(this.language, 'nav.skills'),
       translate(this.language, 'shop.skillsTitle'),
       translate(this.language, 'shop.skillsCopy'),
       [
-        [translate(this.language, 'shop.skillsStatCrystals'), this.getCrystalBalance().toString()],
-        [translate(this.language, 'shop.skillsStatTalents'), talentCount.toString()],
+        [this.language === 'pt-BR' ? 'Nível' : 'Level', this.state.progression.shipLevel.toString()],
+        [this.language === 'pt-BR' ? 'XP' : 'XP', nextLevelXp],
+        [this.language === 'pt-BR' ? 'Pontos' : 'Points', availablePoints.toString()],
+        [translate(this.language, 'shop.skillsStatTalents'), `${talentCount}/${this.state.progression.shipSkillPoints}`],
         [translate(this.language, 'shop.skillsStatSemiPierce'), getSemiAutoPierceLeft(this.state.progression).toString()],
         [translate(this.language, 'shop.skillsStatRefinery'), `x${getOfflineIncomeTalentMultiplier(this.state.progression).toFixed(2)}`]
       ],
@@ -2889,18 +2897,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderSkillTreeModal(): void {
+    const availablePoints = getAvailableShipSkillPoints(this.state.progression);
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
     this.modalPanelEl.classList.remove('ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.modalPanelEl.classList.add('ui-modal__panel--skills');
     this.modalKickerEl.textContent = translate(this.language, 'nav.skills');
     this.modalTitleEl.textContent = translate(this.language, 'shop.skillsActionTitle');
-    this.modalCopyEl.textContent = `${this.getCrystalBalance()} ${translate(this.language, 'unit.crystals')} · ${countUnlockedTalentRanks(this.state.progression)} ${translate(this.language, 'unit.ranks')} · ${getSemiAutoPierceLeft(this.state.progression)} ${translate(this.language, 'unit.semiPierce')}`;
+    this.modalCopyEl.textContent = this.language === 'pt-BR'
+      ? `${availablePoints} pontos disponíveis · nível ${this.state.progression.shipLevel} · ${countUnlockedTalentRanks(this.state.progression)} ${translate(this.language, 'unit.ranks')}`
+      : `${availablePoints} points available · level ${this.state.progression.shipLevel} · ${countUnlockedTalentRanks(this.state.progression)} ${translate(this.language, 'unit.ranks')}`;
     this.modalCopyEl.classList.remove('is-hidden');
 
     this.modalBodyEl.replaceChildren(this.skillTreeModal.render({
       progression: this.state.progression,
-      crystals: this.getCrystalBalance(),
       language: this.language,
       selectedTalentId: this.activeTalentTooltipId,
       onSelectTalent: (id) => this.selectSkillTreeTalent(id),
@@ -2912,7 +2922,6 @@ export class GameScene extends Phaser.Scene {
     this.activeTalentTooltipId = id;
     const updated = this.skillTreeModal.selectTalent({
       progression: this.state.progression,
-      crystals: this.getCrystalBalance(),
       language: this.language,
       selectedTalentId: this.activeTalentTooltipId,
       onSelectTalent: (nextId) => this.selectSkillTreeTalent(nextId),
@@ -3528,7 +3537,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private formatMoney(value: number): string {
-    return `$${Math.floor(value).toLocaleString('en-US')}`;
+    return formatCompactMoney(value);
   }
 
   private formatDuration(seconds: number): string {

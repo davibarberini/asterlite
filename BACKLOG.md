@@ -4,6 +4,19 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Ship Skill Tree Rebuild
+
+Reworked crystal-purchased ship skills into limited build choices driven by ship level and skill points.
+
+Notes:
+- Added serializable per-ship level, XP, total skill points, and spent skill points.
+- Ships now gain XP from destroyed asteroids and bosses, with level-ups granting finite skill points.
+- Talent ranks now cost skill points instead of crystals, so crystals no longer gate the skill tree.
+- Existing saves with already-purchased talent ranks migrate with enough level/points to preserve those ranks.
+- Ship level and skill point state are captured per ship run and restored when switching ships.
+- The skill UI now shows level, XP, available points, and spent ranks instead of treating crystals as the purchase currency.
+- Added tests for point-based talent buying, ship XP/level-up, finite point cap, save persistence, and ship switching.
+
 ### Remove Ship Reset Loop
 
 Removed ship/core reset as a primary progression mechanic.
@@ -498,23 +511,19 @@ Notes:
 
 ## Ready
 
-### Ship Skill Tree Rebuild
+### Ship Skill Respec and Crystal Role
 
-Rework crystal-purchased ship skills into limited build choices driven by ship level and skill points.
+Give the new point-based skill tree a clean rebuild path and decide how crystals support it.
 
 Design:
-- Replace direct crystal spending on unlimited skills with ship XP/level and a finite skill point budget.
-- Each ship earns skill points through play; points are spent in a broader skill tree.
-- The tree can allow access to the whole layout, but the point cap prevents filling everything.
-- Support respec or rebuild testing later so players can experiment with different builds per ship.
-- Keep crystals relevant only if they serve the new model cleanly, such as XP boosts, respec cost, or non-skill upgrades.
+- Add a respec option so players can test different skill builds per ship.
+- Consider using crystals for respec, XP boosts, or another non-mandatory support role.
+- Avoid making crystals another required cost for every skill rank.
 
 Acceptance:
-- Ships gain levels and skill points through serializable progression.
-- Skill purchases spend points instead of only spending crystals.
-- A maximum point budget prevents completing the entire tree.
-- Existing skill data migrates into a reasonable starting level/point state or is reset with clear compensation.
-- UI communicates available points, spent points, and locked choices clearly on mobile.
+- Players can reset spent skill points on the active ship without losing ship level.
+- Respec cost/copy is clear and does not confuse points with crystals.
+- Tests cover refunding points and preserving per-ship level/XP.
 
 ### Survival Run Modifiers
 

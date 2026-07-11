@@ -78,6 +78,10 @@ export const createProgression = (): ProgressionState => ({
     breaker: 0
   },
   talentRanks: createTalentRanks(),
+  shipXp: 0,
+  shipLevel: 1,
+  shipSkillPoints: 0,
+  spentShipSkillPoints: 0,
   weaponMode: 'cannon',
   spreadUnlocked: false,
   piercingUnlocked: false,

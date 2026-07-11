@@ -10,6 +10,7 @@ import {
 } from './achievements';
 import { createBossRewardState, normalizeBossRewardState } from './bossRewards';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS } from './talentTree';
+import { maxShipLevel } from './shipLevel';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, normalizeShipFrameIds } from './shipFrames';
 import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
@@ -136,6 +137,27 @@ const readTalentRanks = (value: unknown, legacySkills: { sentryRange: number; ra
   return migrateLegacyDroneSkills(legacySkills);
 };
 
+const countTalentRanks = (ranks: TalentRanks): number =>
+  TALENT_DEFINITIONS.reduce((total, talent) => total + Math.max(0, Math.floor(ranks[talent.id] ?? 0)), 0);
+
+const readShipLevelProgress = (
+  value: Record<string, unknown>,
+  talentRanks: TalentRanks
+): { shipXp: number; shipLevel: number; shipSkillPoints: number; spentShipSkillPoints: number } => {
+  const spentShipSkillPoints = Math.max(countTalentRanks(talentRanks), Math.floor(readNumber(value.spentShipSkillPoints, 0)));
+  const shipSkillPoints = Math.max(spentShipSkillPoints, Math.floor(readNumber(value.shipSkillPoints, spentShipSkillPoints)));
+  const shipLevel = Math.max(
+    1,
+    Math.min(maxShipLevel, Math.floor(readNumber(value.shipLevel, Math.min(maxShipLevel, shipSkillPoints + 1))))
+  );
+  return {
+    shipXp: readNonNegativeNumber(value.shipXp, 0),
+    shipLevel,
+    shipSkillPoints: Math.min(shipSkillPoints, maxShipLevel - 1),
+    spentShipSkillPoints: Math.min(spentShipSkillPoints, maxShipLevel - 1)
+  };
+};
+
 const readWeaponMode = (value: unknown, spreadUnlocked: boolean, piercingUnlocked: boolean): WeaponMode => {
   if (value === 'spread' && spreadUnlocked) {
     return 'spread';
@@ -254,6 +276,10 @@ const createShipRunFromProgression = (progression: ProgressionState, money: numb
   droneCounts: { ...progression.droneCounts },
   activeDroneCounts: { ...progression.activeDroneCounts },
   talentRanks: { ...progression.talentRanks },
+  shipXp: progression.shipXp,
+  shipLevel: progression.shipLevel,
+  shipSkillPoints: progression.shipSkillPoints,
+  spentShipSkillPoints: progression.spentShipSkillPoints,
   weaponMode: progression.weaponMode,
   mapUnlocked: progression.mapUnlocked,
   travelLevel: progression.travelLevel,
@@ -278,6 +304,8 @@ const readShipRun = (value: unknown): ShipRunState | null => {
   const spreadUnlocked = value.spreadUnlocked === true;
   const piercingUnlocked = value.piercingUnlocked === true;
   const legacySkills = readLegacyDroneSkillLevels(value.droneSkillLevels);
+  const talentRanks = readTalentRanks(value.talentRanks, legacySkills);
+  const shipLevelProgress = readShipLevelProgress(value, talentRanks);
   const legacyTravelLevel = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.travelLevel, 0))));
   const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
 
@@ -293,7 +321,8 @@ const readShipRun = (value: unknown): ShipRunState | null => {
     droneFireRateLevel: Math.max(0, Math.floor(readNumber(value.droneFireRateLevel, 0))),
     droneCounts,
     activeDroneCounts,
-    talentRanks: readTalentRanks(value.talentRanks, legacySkills),
+    talentRanks,
+    ...shipLevelProgress,
     weaponMode: readWeaponMode(value.weaponMode, spreadUnlocked, piercingUnlocked),
     mapUnlocked: value.mapUnlocked === true || unlockedZoneIndex > 0,
     travelLevel: unlockedZoneIndex,
@@ -454,6 +483,8 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const deflectorLevel = Math.max(0, Math.floor(readNumber(value.deflectorLevel, 0)));
   const armor = Math.max(0, Math.floor(readNumber(value.armor, 0)));
   const legacySkills = readLegacyDroneSkillLevels(value.droneSkillLevels);
+  const talentRanks = readTalentRanks(value.talentRanks, legacySkills);
+  const shipLevelProgress = readShipLevelProgress(value, talentRanks);
   const legacyTravelLevel = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.travelLevel, 0))));
   const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
   const currentZoneIndex = Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex))));
@@ -498,7 +529,8 @@ const readProgression = (value: unknown): ProgressionState | null => {
     droneFireRateLevel: Math.max(0, Math.floor(readNumber(value.droneFireRateLevel, 0))),
     droneCounts,
     activeDroneCounts,
-    talentRanks: readTalentRanks(value.talentRanks, legacySkills),
+    talentRanks,
+    ...shipLevelProgress,
     weaponMode: readWeaponMode(value.weaponMode, spreadUnlocked, piercingUnlocked),
     spreadUnlocked,
     piercingUnlocked,

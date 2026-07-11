@@ -366,6 +366,10 @@ export type ShipRunState = {
   droneCounts: Record<DroneType, number>;
   activeDroneCounts: Record<DroneType, number>;
   talentRanks: TalentRanks;
+  shipXp: number;
+  shipLevel: number;
+  shipSkillPoints: number;
+  spentShipSkillPoints: number;
   weaponMode: WeaponMode;
   mapUnlocked: boolean;
   travelLevel: number;
@@ -399,6 +403,10 @@ export type ProgressionState = {
   droneCounts: Record<DroneType, number>;
   activeDroneCounts: Record<DroneType, number>;
   talentRanks: TalentRanks;
+  shipXp: number;
+  shipLevel: number;
+  shipSkillPoints: number;
+  spentShipSkillPoints: number;
   weaponMode: WeaponMode;
   spreadUnlocked: boolean;
   piercingUnlocked: boolean;

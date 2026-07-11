@@ -603,10 +603,15 @@ canvas {
 }
 
 .route-toggle {
+  position: fixed;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 4;
   min-width: 126px;
   border-color: rgba(131, 255, 220, 0.46);
   background: rgba(131, 255, 220, 0.15);
   box-shadow: 0 0 18px rgba(131, 255, 220, 0.14);
+  pointer-events: auto;
 }
 
 .map-toggle.is-hidden,

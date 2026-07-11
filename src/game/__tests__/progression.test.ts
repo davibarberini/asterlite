@@ -12,6 +12,7 @@ import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
 import { createShipFrameSwitchState } from '../progression/shipRuns';
+import { getAvailableShipSkillPoints, getShipXpForNextLevel, getTotalShipSkillPointCap, maxShipLevel } from '../progression/shipLevel';
 import {
   recordPrismBossDefeatUnlockProgress,
   syncShipUnlocks
@@ -21,6 +22,8 @@ import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
 import { applyBossRewardChoice } from '../progression/bossRewards';
 import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
+import { TALENT_DEFINITIONS } from '../progression/talentTree';
+import { formatCompactNumber, formatMoney } from '../numberFormat';
 import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateBosses } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
@@ -73,6 +76,17 @@ beforeEach(() => {
   });
 });
 
+describe('number formatting', () => {
+  it('keeps money display compact with three significant digits and large suffixes', () => {
+    expect(formatMoney(745_932)).toBe('$745K');
+    expect(formatMoney(12_450_000)).toBe('$12.4M');
+    expect(formatMoney(999_500_000)).toBe('$999M');
+    expect(formatMoney(1_000_000_000)).toBe('$1B');
+    expect(formatCompactNumber(1e36)).toBe('1AA');
+    expect(formatCompactNumber(1e39)).toBe('1AB');
+  });
+});
+
 describe('save loading', () => {
   it('documents the current save version contents', () => {
     expect(SAVE_VERSION_NOTES[2]).toContain('progression');
@@ -85,6 +99,10 @@ describe('save loading', () => {
     savedState.crystals = 6;
     savedState.progression.shipDamageLevel = 3;
     savedState.progression.shipFireRateLevel = 4;
+    savedState.progression.shipLevel = 6;
+    savedState.progression.shipXp = 12;
+    savedState.progression.shipSkillPoints = 5;
+    savedState.progression.spentShipSkillPoints = 1;
     savedState.progression.bossDiscovery = {
       rareBossProgress: 12,
       rareBossesFound: 1
@@ -130,6 +148,10 @@ describe('save loading', () => {
     expect(loadedState.crystals).toBe(6);
     expect(loadedState.progression.shipDamageLevel).toBe(3);
     expect(loadedState.progression.shipFireRateLevel).toBe(4);
+    expect(loadedState.progression.shipLevel).toBe(6);
+    expect(loadedState.progression.shipXp).toBe(12);
+    expect(loadedState.progression.shipSkillPoints).toBe(5);
+    expect(loadedState.progression.spentShipSkillPoints).toBe(1);
     expect(loadedState.progression.bossDiscovery).toEqual({
       rareBossProgress: 12,
       rareBossesFound: 1
@@ -679,20 +701,80 @@ describe('crystal spending and talents', () => {
     expect(state.crystals).toBe(4);
   });
 
-  it('buys affordable talent ranks and refuses locked branches', () => {
+  it('buys talent ranks with ship skill points and refuses locked branches', () => {
     const state = createGameState(800, 600);
     state.crystals = 5;
+    state.progression.shipLevel = 3;
+    state.progression.shipSkillPoints = 2;
 
     expect(purchaseTalentRank(state, 'refineryYield')).toBe(true);
     expect(state.progression.talentRanks.refineryYield).toBe(1);
-    expect(state.crystals).toBe(3);
+    expect(state.crystals).toBe(5);
+    expect(getAvailableShipSkillPoints(state.progression)).toBe(1);
     expect(purchaseTalentRank(state, 'semiAutoOptics')).toBe(false);
     expect(state.progression.talentRanks.semiAutoOptics).toBe(0);
 
     state.progression.droneCounts.sentry = 1;
     expect(purchaseTalentRank(state, 'semiAutoOptics')).toBe(true);
     expect(state.progression.talentRanks.semiAutoOptics).toBe(1);
-    expect(state.crystals).toBe(0);
+    expect(state.crystals).toBe(5);
+    expect(getAvailableShipSkillPoints(state.progression)).toBe(0);
+  });
+
+  it('levels the active ship from asteroid destroys and grants finite skill points', () => {
+    const state = createGameState(800, 600);
+    const neededXp = getShipXpForNextLevel(state.progression.shipLevel);
+    state.asteroids = [
+      createAsteroid(state, 'large', { x: 100, y: 100 }, { x: 0, y: 0 }, 'common')
+    ];
+    state.bullets = [
+      {
+        id: 900,
+        owner: 'player',
+        position: { x: 100, y: 100 },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 6,
+        damage: state.asteroids[0].hp,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.progression.shipXp).toBeGreaterThan(0);
+    expect(state.progression.shipXp).toBeLessThan(neededXp);
+
+    state.progression.shipXp = neededXp - 1;
+    state.asteroids = [
+      createAsteroid(state, 'small', { x: 100, y: 100 }, { x: 0, y: 0 }, 'common')
+    ];
+    state.bullets = [
+      {
+        id: 901,
+        owner: 'player',
+        position: { x: 100, y: 100 },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 6,
+        damage: state.asteroids[0].hp,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.progression.shipLevel).toBe(2);
+    expect(state.progression.shipSkillPoints).toBe(1);
+    expect(state.rewardEvents.some((event) => event.text.includes('Ship level 2'))).toBe(true);
+    expect(getTotalShipSkillPointCap()).toBe(maxShipLevel - 1);
+    expect(getTotalShipSkillPointCap()).toBeLessThan(TALENT_DEFINITIONS.reduce((total, talent) => total + talent.maxRank, 0));
   });
 });
 
@@ -1194,6 +1276,9 @@ describe('boss gates and global progression', () => {
     state.crystals = 9;
     state.progression.shipDamageLevel = 12;
     state.progression.passiveIncomeLevel = 7;
+    state.progression.shipLevel = 4;
+    state.progression.shipSkillPoints = 3;
+    state.progression.spentShipSkillPoints = 1;
     state.progression.prestigeCores = 5;
     state.progression.ownedWarpUnlockIds = ['droneSystems'];
     state.progression.unlockedShipFrameIds = ['vector', 'kestrel'];
@@ -1205,6 +1290,8 @@ describe('boss gates and global progression', () => {
     expect(kestrelState.crystals).toBe(0);
     expect(kestrelState.progression.shipDamageLevel).toBe(1);
     expect(kestrelState.progression.passiveIncomeLevel).toBe(0);
+    expect(kestrelState.progression.shipLevel).toBe(1);
+    expect(kestrelState.progression.shipSkillPoints).toBe(0);
     expect(kestrelState.progression.prestigeCores).toBe(5);
     expect(kestrelState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
 
@@ -1219,6 +1306,9 @@ describe('boss gates and global progression', () => {
     expect(vectorState.crystals).toBe(9);
     expect(vectorState.progression.shipDamageLevel).toBe(12);
     expect(vectorState.progression.passiveIncomeLevel).toBe(7);
+    expect(vectorState.progression.shipLevel).toBe(4);
+    expect(vectorState.progression.shipSkillPoints).toBe(3);
+    expect(vectorState.progression.spentShipSkillPoints).toBe(1);
 
     const restoredKestrel = createShipFrameSwitchState(vectorState, 800, 600, 'kestrel');
 

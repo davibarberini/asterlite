@@ -2,6 +2,8 @@ import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } 
 import { getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getFireRateMultiplier } from '../../progression/idleBonuses';
 import { grantNovaCrownBossCoreReward } from '../../progression/novaCrownRewards';
+import { getAsteroidShipXpReward, grantShipXp } from '../../progression/shipLevel';
+import { formatMoney } from '../../numberFormat';
 import {
   emitShipUnlock,
   recordAsteroidBurstUnlockProgress,
@@ -644,6 +646,7 @@ const destroyAsteroid = (
   recordMoneyEarned(state.progression, reward.money);
   recordCrystalsCollected(state.progression, reward.crystals);
   state.progression.achievementStats.asteroidsDestroyed += 1;
+  grantShipXp(state, getAsteroidShipXpReward(asteroid));
   if (!asteroid.bossType && state.progression.unlockedZoneIndex === 0) {
     state.progression.firstGateAsteroidsDestroyed += 1;
   }
@@ -668,7 +671,7 @@ const destroyAsteroid = (
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');
     state.bullets = state.bullets.filter((bullet) => bullet.owner !== 'boss');
   }
-  emitReward(state, reward.crystals > 0 ? `+${reward.money} credits  +${reward.crystals} crystals` : `+${reward.money} credits`, 'payout');
+  emitReward(state, reward.crystals > 0 ? `+${formatMoney(reward.money)} credits  +${reward.crystals} crystals` : `+${formatMoney(reward.money)} credits`, 'payout');
   emitAudio(state, { type: 'asteroidDestroyed', size: asteroid.size });
   burstParticles(state, asteroid.position, asteroid.size === 'large' ? 22 : 13, asteroid.radius * 4);
   nextAsteroids.push(...splitAsteroid(state, asteroid));

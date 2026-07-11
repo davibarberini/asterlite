@@ -1,4 +1,5 @@
 import type { AsteroidVariant, DroneType, ProgressionState, TalentId, TalentRanks } from '../simulation/types';
+import { getAvailableShipSkillPoints, getTalentPointCost } from './shipLevel';
 
 export type TalentBranch = 'economy' | 'semiAuto' | 'shotgun' | 'missile';
 
@@ -319,14 +320,14 @@ export const meetsTalentRequirements = (progression: ProgressionState, id: Talen
   return talent.requires.every((requirement) => getTalentRank(progression, requirement.id) >= requirement.rank);
 };
 
-export const canBuyTalentRank = (progression: ProgressionState, crystals: number, id: TalentId): boolean => {
+export const canBuyTalentRank = (progression: ProgressionState, id: TalentId): boolean => {
   const talent = TALENT_BY_ID[id];
   const currentRank = getTalentRank(progression, id);
   if (currentRank >= talent.maxRank || !meetsTalentRequirements(progression, id)) {
     return false;
   }
 
-  return crystals >= getTalentCost(id, currentRank);
+  return getAvailableShipSkillPoints(progression) >= getTalentPointCost();
 };
 
 export type TalentNodeState = 'locked' | 'available' | 'partial' | 'maxed';

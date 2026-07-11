@@ -1,5 +1,6 @@
 import type { GameState, TalentId } from '../simulation/types';
-import { canBuyTalentRank, getTalentCost, getTalentRank } from './talentTree';
+import { canBuyTalentRank } from './talentTree';
+import { getTalentPointCost } from './shipLevel';
 
 export const getCrystalBalance = (state: GameState): number => {
   const balance = Math.max(0, Math.floor(state.crystals));
@@ -21,11 +22,12 @@ export const spendCrystals = (state: GameState, cost: number): boolean => {
 };
 
 export const purchaseTalentRank = (state: GameState, id: TalentId): boolean => {
-  const cost = getTalentCost(id, getTalentRank(state.progression, id));
-  if (!canBuyTalentRank(state.progression, getCrystalBalance(state), id) || !spendCrystals(state, cost)) {
+  const cost = getTalentPointCost();
+  if (!canBuyTalentRank(state.progression, id)) {
     return false;
   }
 
   state.progression.talentRanks[id] += 1;
+  state.progression.spentShipSkillPoints += cost;
   return true;
 };

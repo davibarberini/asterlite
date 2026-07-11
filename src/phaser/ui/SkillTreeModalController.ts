@@ -4,17 +4,16 @@ import {
   TALENT_GRID_COLUMNS,
   TALENT_GRID_ROWS,
   canBuyTalentRank,
-  getTalentCost,
   getTalentNodeState,
   getTalentRank,
   getTalentRankLabel
 } from '../../game/progression/talentTree';
+import { getTalentPointCost } from '../../game/progression/shipLevel';
 import type { LanguageCode } from '../../game/i18n';
 import type { DroneType, ProgressionState, TalentId } from '../../game/simulation/types';
 
 type SkillTreeRenderState = {
   progression: ProgressionState;
-  crystals: number;
   language: LanguageCode;
   selectedTalentId: TalentId | null;
   onSelectTalent: (id: TalentId | null) => void;
@@ -62,8 +61,8 @@ const getTalentText = (id: TalentId, language: LanguageCode): { name: string; su
   return { name: talent.name, summary: talent.summary };
 };
 
-const formatCrystalCost = (language: LanguageCode, cost: number): string =>
-  language === 'pt-BR' ? `${cost} cristais` : `${cost} crystals`;
+const formatSkillPointCost = (language: LanguageCode, cost: number): string =>
+  language === 'pt-BR' ? `${cost} ponto` : `${cost} point`;
 
 const formatRankLabel = (language: LanguageCode, progression: ProgressionState, id: TalentId): string => {
   const rankLabel = getTalentRankLabel(progression, id);
@@ -240,8 +239,8 @@ export class SkillTreeModalController {
     const text = getTalentText(id, state.language);
     const rank = getTalentRank(state.progression, id);
     const nodeState = getTalentNodeState(state.progression, id);
-    const nextCost = getTalentCost(id, rank);
-    const canBuy = canBuyTalentRank(state.progression, state.crystals, id);
+    const nextCost = getTalentPointCost();
+    const canBuy = canBuyTalentRank(state.progression, id);
 
     const panel = document.createElement('section');
     this.positionTalentTooltip(panel, talent.grid.col, talent.grid.row);
@@ -272,9 +271,9 @@ export class SkillTreeModalController {
     } else if (nodeState === 'locked') {
       meta.textContent = state.language === 'pt-BR' ? 'Bloqueado' : 'Locked';
     } else if (!canBuy) {
-      meta.textContent = formatCrystalCost(state.language, nextCost);
+      meta.textContent = state.language === 'pt-BR' ? 'Sem pontos disponíveis' : 'No points available';
     } else {
-      meta.textContent = state.language === 'pt-BR' ? `Pronto · ${formatCrystalCost(state.language, nextCost)}` : `Ready · ${formatCrystalCost(state.language, nextCost)}`;
+      meta.textContent = state.language === 'pt-BR' ? `Pronto · ${formatSkillPointCost(state.language, nextCost)}` : `Ready · ${formatSkillPointCost(state.language, nextCost)}`;
     }
 
     const buyButton = document.createElement('button');
@@ -283,7 +282,7 @@ export class SkillTreeModalController {
     buyButton.disabled = !canBuy;
     buyButton.textContent = nodeState === 'maxed'
       ? (state.language === 'pt-BR' ? 'Máximo' : 'Maxed')
-      : (state.language === 'pt-BR' ? `Comprar ${formatCrystalCost(state.language, nextCost)}` : `Buy ${formatCrystalCost(state.language, nextCost)}`);
+      : (state.language === 'pt-BR' ? `Comprar ${formatSkillPointCost(state.language, nextCost)}` : `Buy ${formatSkillPointCost(state.language, nextCost)}`);
     buyButton.addEventListener('click', () => state.onBuyTalent(id));
 
     panel.append(heading, summary, meta, buyButton);
