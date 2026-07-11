@@ -1,5 +1,5 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
-import { getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
+import { getBossRewardPlayerDamageMultiplier, getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getPlayerFireInterval } from '../../progression/idleBonuses';
 import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
 import { getMissileTurnRateMultiplier } from '../../progression/talentTree';
@@ -71,7 +71,8 @@ export const firePlayerWeapon = (state: GameState): void => {
     state.progression.shipDamageLevel *
       balance.weapons.playerDamageMultiplier *
       damageMultiplier *
-      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
+      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier') *
+      getBossRewardPlayerDamageMultiplier(state)
   );
 
   if (shipWeaponIdentity === 'aura') {

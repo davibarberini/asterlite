@@ -4,6 +4,18 @@ Completed backlog and technical debt items moved out for the 1.0 release snapsho
 
 ## Backlog Completed
 
+### Survival Run Modifiers
+
+Expanded Nova Crown threat rewards into more run-defining survival choices.
+
+Notes:
+- Added new serializable run modifiers for ship damage, drone damage, incoming damage reduction, and a ship-damage tradeoff.
+- Glass Reactor adds a stronger ship damage/fire cadence boost while increasing incoming damage.
+- Existing threat milestone rewards now rotate available choices so later milestones surface different modifier types instead of always showing the same first three.
+- Player weapon damage, Ember aura damage, drone damage, drone cooldown, credit payout, and incoming damage now read from the active run modifier state.
+- The survival HUD now shows compact active modifier chips only while Nova Crown survival is active.
+- Added tests for later milestone choice rotation, ship/drone modifier effects, incoming damage modifiers, and existing run reset behavior.
+
 ### Ship Skill Respec and Crystal Role
 
 Added a crystal-paid rebuild path for the point-based ship skill tree.

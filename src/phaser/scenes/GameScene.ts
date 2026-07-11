@@ -158,6 +158,8 @@ export class GameScene extends Phaser.Scene {
   private survivalThreatEl!: HTMLElement;
   private survivalThreatFillEl!: HTMLElement;
   private survivalBestEl!: HTMLElement;
+  private runModifiersEl!: HTMLElement;
+  private runModifiersSignature = '';
   private firstWarpGoalEl!: HTMLElement;
   private firstWarpGoalTitleEl!: HTMLElement;
   private firstWarpGoalProgressEl!: HTMLElement;
@@ -298,6 +300,7 @@ export class GameScene extends Phaser.Scene {
     this.survivalThreatEl = document.getElementById('survival-threat')!;
     this.survivalThreatFillEl = document.getElementById('survival-threat-fill')!;
     this.survivalBestEl = document.getElementById('survival-best')!;
+    this.runModifiersEl = document.getElementById('run-modifiers')!;
     this.firstWarpGoalEl = document.getElementById('first-warp-goal')!;
     this.firstWarpGoalTitleEl = document.getElementById('first-warp-goal-title')!;
     this.firstWarpGoalProgressEl = document.getElementById('first-warp-goal-progress')!;
@@ -1254,6 +1257,7 @@ export class GameScene extends Phaser.Scene {
       );
       this.setText(this.survivalBestEl, `D${this.state.survival.difficulty} · ${this.formatDuration(difficultyBest)}`);
     }
+    this.updateRunModifiersHud(survivalHudActive);
 
     const crystals = this.getCrystalBalance();
     this.setText(this.moneyEl, this.formatMoney(this.state.money));
@@ -1322,6 +1326,26 @@ export class GameScene extends Phaser.Scene {
     const label = this.language === 'pt-BR' ? `Viajar para ${zone.name}` : `Travel to ${zone.name}`;
     this.routeToggleEl.setAttribute('aria-label', label);
     this.routeToggleEl.title = label;
+  }
+
+  private updateRunModifiersHud(visible: boolean): void {
+    const activeIds = this.state.bossRewards.activeIds;
+    this.runModifiersEl.classList.toggle('is-hidden', !visible || activeIds.length <= 0);
+    const signature = visible ? activeIds.join(',') : '';
+    if (signature === this.runModifiersSignature) {
+      return;
+    }
+
+    this.runModifiersSignature = signature;
+    this.runModifiersEl.replaceChildren(...activeIds.map((id) => {
+      const definition = BOSS_REWARD_BY_ID[id];
+      const chip = document.createElement('span');
+      chip.className = 'run-modifier-chip';
+      chip.classList.toggle('run-modifier-chip--tradeoff', Boolean(definition.tradeoff));
+      chip.textContent = definition.icon;
+      chip.title = `${definition.title}: ${definition.effectLabel}`;
+      return chip;
+    }));
   }
 
   private getNextUnlockedTravelZoneIndex(): number | null {
@@ -2616,7 +2640,7 @@ export class GameScene extends Phaser.Scene {
 
       const icon = document.createElement('span');
       icon.className = 'shop-action-icon';
-      icon.textContent = id === 'rapidFire' ? 'RF' : id === 'droneOverdrive' ? 'DR' : '$';
+      icon.textContent = definition.icon;
 
       const body = document.createElement('span');
       body.className = 'shop-action-body';

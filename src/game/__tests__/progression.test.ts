@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { neutralInput } from '../input/actions';
 import { getCrystalBalance, getTalentRespecCost, purchaseTalentRank, respecTalentRanks, spendCrystals } from '../progression/currency';
-import { createProgression } from '../simulation/state';
+import { createProgression, syncActiveDrones } from '../simulation/state';
 import {
   getFireRateMultiplier,
   getPlayerFireInterval
@@ -26,6 +26,7 @@ import { TALENT_DEFINITIONS } from '../progression/talentTree';
 import { formatCompactNumber, formatMoney } from '../numberFormat';
 import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateBosses } from '../simulation/systems/enemies';
+import { updateDrones } from '../simulation/systems/drones';
 import { updateGame } from '../simulation/systems/gameLoop';
 import { firePlayerWeapon } from '../simulation/systems/weapons';
 import { zones } from '../simulation/zones';
@@ -983,6 +984,70 @@ describe('boss gates and global progression', () => {
     const asteroid = createAsteroid(baseState, 'large', { x: 0, y: 0 }, { x: 0, y: 0 }, 'common');
 
     expect(getAsteroidReward(boostedState, asteroid).money).toBeGreaterThan(getAsteroidReward(baseState, asteroid).money);
+  });
+
+  it('applies new ship damage run modifiers to player shots', () => {
+    const baseState = createGameState(800, 600);
+    const boostedState = createGameState(800, 600);
+    boostedState.bossRewards.activeIds = ['overchargedCannons', 'glassReactor'];
+
+    firePlayerWeapon(baseState);
+    firePlayerWeapon(boostedState);
+
+    expect(boostedState.bullets[0].damage).toBeCloseTo(baseState.bullets[0].damage * 1.35 * 1.55);
+    expect(boostedState.ship.fireCooldown).toBeCloseTo(baseState.ship.fireCooldown * 0.9);
+  });
+
+  it('applies drone command run modifier to drone shot damage', () => {
+    const baseState = createGameState(800, 600);
+    const boostedState = createGameState(800, 600);
+    [baseState, boostedState].forEach((state) => {
+      state.progression.droneCounts.sentry = 1;
+      state.progression.activeDroneCounts.sentry = 1;
+      state.asteroids = [
+        createAsteroid(state, 'large', { x: state.ship.position.x + 80, y: state.ship.position.y }, { x: 0, y: 0 }, 'common')
+      ];
+      syncActiveDrones(state);
+      state.drones[0].fireCooldown = 0;
+    });
+    boostedState.bossRewards.activeIds = ['droneCommand'];
+
+    updateDrones(baseState, 0.016);
+    updateDrones(boostedState, 0.016);
+
+    expect(boostedState.bullets[0].damage).toBeCloseTo(baseState.bullets[0].damage * 1.3);
+  });
+
+  it('applies defensive and tradeoff run modifiers to incoming damage', () => {
+    const protectedState = createGameState(800, 600);
+    const glassState = createGameState(800, 600);
+    protectedState.bossRewards.activeIds = ['ablativePlating'];
+    glassState.bossRewards.activeIds = ['glassReactor'];
+    [protectedState, glassState].forEach((state) => {
+      state.ship.hp = 100;
+      state.ship.invulnerableFor = 0;
+      state.bullets = [
+        {
+          id: 901,
+          owner: 'saucer',
+          position: { ...state.ship.position },
+          velocity: { x: 0, y: 0 },
+          age: 0,
+          radius: 6,
+          damage: 10,
+          pierceLeft: 0,
+          ricochetLeft: 0,
+          kind: 'standard',
+          homingTargetId: null
+        }
+      ];
+    });
+
+    resolveCollisions(protectedState);
+    resolveCollisions(glassState);
+
+    expect(protectedState.ship.hp).toBeCloseTo(100 - 10 * 0.82);
+    expect(glassState.ship.hp).toBeCloseTo(100 - 10 * 1.35);
   });
 
   it('fires prism boss shots as limited ricochet projectiles', () => {

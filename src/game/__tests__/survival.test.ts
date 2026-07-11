@@ -18,6 +18,7 @@ import {
   novaCrownClearThreatLevel
 } from '../progression/novaCrownDifficulty';
 import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
+import { queueThreatMilestoneRewardChoice } from '../progression/bossRewards';
 
 const createLocalStorage = (): Storage => {
   const store = new Map<string, string>();
@@ -189,6 +190,19 @@ describe('nova crown survival', () => {
 
     expect(loaded.survival.nextRewardThreatLevel).toBe(20);
     expect(loaded.bossRewards.pendingChoiceIds).toEqual(['rapidFire', 'droneOverdrive', 'salvageSurge']);
+  });
+
+  it('rotates later threat reward choices into new modifiers and tradeoffs', () => {
+    const state = createGameState(800, 600);
+    state.survival.active = true;
+    state.survival.threatLevel = 20;
+    state.survival.nextRewardThreatLevel = 20;
+    state.bossRewards.activeIds = ['rapidFire'];
+
+    expect(queueThreatMilestoneRewardChoice(state)).toBe(true);
+
+    expect(state.bossRewards.pendingChoiceIds).toEqual(['salvageSurge', 'glassReactor', 'overchargedCannons']);
+    expect(state.survival.nextRewardThreatLevel).toBe(30);
   });
 
   it('spawns proximity mines only after survival threat reaches the mine threshold', () => {

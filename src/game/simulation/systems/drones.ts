@@ -1,5 +1,5 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
-import { getBossRewardDroneFireIntervalMultiplier } from '../../progression/bossRewards';
+import { getBossRewardDroneDamageMultiplier, getBossRewardDroneFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 import {
   getMissileDamage,
@@ -68,7 +68,8 @@ export const updateDrones = (state: GameState, dt: number): void => {
 };
 
 const getDroneDamageMultiplier = (state: GameState): number =>
-  getAchievementMultiplier(state.progression, 'droneDamage');
+  getAchievementMultiplier(state.progression, 'droneDamage') *
+  getBossRewardDroneDamageMultiplier(state);
 
 const getShipDamage = (state: GameState): number =>
   Math.max(

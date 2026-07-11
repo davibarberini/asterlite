@@ -8,7 +8,7 @@ import {
   recordMoneyEarned,
   syncAchievements
 } from './achievements';
-import { createBossRewardState, normalizeBossRewardState } from './bossRewards';
+import { createBossRewardState, isBossRewardId, normalizeBossRewardState } from './bossRewards';
 import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS } from './talentTree';
 import { maxShipLevel } from './shipLevel';
 import { createGuidedMissionState } from './guidedMissions';
@@ -213,7 +213,7 @@ const readBossRewardIds = (value: unknown): BossRewardId[] => {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter((id): id is BossRewardId => id === 'rapidFire' || id === 'droneOverdrive' || id === 'salvageSurge');
+  return value.filter(isBossRewardId);
 };
 
 const readBossRewards = (value: unknown): BossRewardState => {

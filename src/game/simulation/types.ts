@@ -243,7 +243,11 @@ export type GameRewardEvent = {
 export type BossRewardId =
   | 'rapidFire'
   | 'droneOverdrive'
-  | 'salvageSurge';
+  | 'salvageSurge'
+  | 'glassReactor'
+  | 'overchargedCannons'
+  | 'droneCommand'
+  | 'ablativePlating';
 
 export type BossRewardState = {
   pendingChoiceIds: BossRewardId[];

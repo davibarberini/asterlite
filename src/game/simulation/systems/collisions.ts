@@ -1,5 +1,5 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
-import { getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
+import { getBossRewardIncomingDamageMultiplier, getBossRewardPlayerDamageMultiplier, getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getFireRateMultiplier } from '../../progression/idleBonuses';
 import { grantNovaCrownBossCoreReward } from '../../progression/novaCrownRewards';
 import { getAsteroidShipXpReward, grantShipXp } from '../../progression/shipLevel';
@@ -288,7 +288,8 @@ const getShipAuraDamagePerSecond = (state: GameState): number => {
     state.progression.shipDamageLevel *
       balance.weapons.playerDamageMultiplier *
       getAchievementMultiplier(state.progression, 'damage') *
-      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
+      getShipFrameBonusMultiplier(state.progression, 'damageMultiplier') *
+      getBossRewardPlayerDamageMultiplier(state)
   );
   return baseDamage *
     balance.weapons.auraDamagePerSecondMultiplier *
@@ -679,7 +680,7 @@ const destroyAsteroid = (
 
 const damageShip = (state: GameState, amount: number): void => {
   const effectiveArmor = state.ship.armor * getAchievementMultiplier(state.progression, 'armor');
-  const damage = Math.max(0, amount - effectiveArmor);
+  const damage = Math.max(0, amount * getBossRewardIncomingDamageMultiplier(state) - effectiveArmor);
   if (damage <= 0) {
     state.ship.invulnerableFor = 0.35;
     emitAudio(state, { type: 'shipHit' });

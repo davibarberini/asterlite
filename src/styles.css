@@ -856,6 +856,47 @@ canvas {
   align-self: end;
 }
 
+.run-modifiers {
+  position: fixed;
+  top: calc(max(12px, env(safe-area-inset-top)) + 52px);
+  right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  max-width: 154px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.run-modifiers.is-hidden {
+  display: none;
+}
+
+.run-modifier-chip {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid rgba(131, 255, 220, 0.28);
+  border-radius: 999px;
+  background: rgba(131, 255, 220, 0.1);
+  color: rgba(216, 255, 245, 0.94);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(131, 255, 220, 0.28);
+}
+
+.run-modifier-chip--tradeoff {
+  border-color: rgba(255, 241, 168, 0.42);
+  background: rgba(255, 241, 168, 0.1);
+  color: rgba(255, 241, 168, 0.94);
+}
+
 .hud-panel,
 .first-warp-goal,
 .map-toggle,
@@ -881,7 +922,8 @@ canvas {
 }
 
 #app.is-survival-hud .survival-timer,
-#app.is-survival-hud .survival-threat {
+#app.is-survival-hud .survival-threat,
+#app.is-survival-hud .run-modifiers {
   opacity: 1;
 }
 
@@ -891,6 +933,10 @@ canvas {
 
 #app.is-survival-hud .survival-threat {
   transform: translate(0, -50%);
+}
+
+#app.is-survival-hud .run-modifiers {
+  transform: translateY(0);
 }
 
 .first-warp-goal {

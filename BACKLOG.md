@@ -4,22 +4,6 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Survival Run Modifiers
-
-Expand boss rewards into run-defining survival choices with tradeoffs.
-
-Priority order:
-- Add more positive run modifiers for ship weapons, drones, economy, and defense.
-- Add optional tradeoff modifiers such as more damage with less hull.
-- Show active run modifiers compactly in the HUD or relevant tab.
-- Tie some modifier choices to survival milestones or mini-bosses.
-
-Acceptance:
-- New modifiers are serializable and reset with the run.
-- At least one modifier has a meaningful tradeoff.
-- UI communicates active modifiers without adding a large permanent panel.
-- Tests cover modifier application and reset behavior.
-
 ### Space Masters Naming Pass
 
 Evaluate whether the project should move from Asteridle toward a broader survival-build identity such as `Space Masters`.
