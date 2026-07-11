@@ -11,20 +11,6 @@ Current engineering shape:
 
 ## Ready
 
-### Extract GameScene Skills Modal Presenter
-
-Move the Skills tab/modal DOM orchestration out of `GameScene.ts`.
-
-Context:
-- `GameScene.ts` is over 3,600 lines and now owns skill level HUD copy, respec action wiring, skill tree modal rendering, active tooltip state, and purchase callbacks.
-- `SkillTreeModalController` already owns the tree surface; a small presenter/controller can own the surrounding modal setup and reduce `GameScene` churn.
-
-Acceptance:
-- Create a focused UI controller/presenter for the Skills tab/modal shell around `SkillTreeModalController`.
-- Keep progression mutations and save calls in `GameScene` or explicit callbacks, not hidden inside the presenter.
-- Preserve current skill tree, respec, tooltip, and available-points behavior.
-- Run `pnpm test` and `pnpm run build`.
-
 ### Extract Survival Event Renderer
 
 Keep the vector renderer from absorbing every Nova Crown visual rule.

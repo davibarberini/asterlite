@@ -995,6 +995,17 @@ Notes:
 
 ## Technical Debt Completed
 
+### Extract GameScene Skills Modal Presenter
+
+Moved Skills tab and skill tree modal presentation out of `GameScene.ts`.
+
+Notes:
+- Added `SkillsModalController` to build Skills tab stats/actions and own skill tree modal chrome.
+- `SkillsModalController` composes `SkillTreeModalController` and now owns selected talent tooltip state.
+- `GameScene` keeps progression mutations, purchase/respec callbacks, audio, save, and HUD refresh behavior.
+- Preserved current skill tree selection, purchase, respec, available points, level, XP, and modal copy behavior.
+- Validated with `pnpm test` and `pnpm run build`.
+
 ### Rename Legacy Warp Reset UI Classes
 
 Removed stale reset-era naming from current action panel DOM/CSS surfaces.

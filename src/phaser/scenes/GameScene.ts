@@ -12,8 +12,6 @@ import {
   TALENT_DEFINITIONS,
   canBuyTalentRank,
   countUnlockedTalentRanks,
-  getOfflineIncomeTalentMultiplier,
-  getSemiAutoPierceLeft,
   getTalentRank,
 } from '../../game/progression/talentTree';
 import { getAvailableShipSkillPoints, getShipXpForNextLevel, maxShipLevel } from '../../game/progression/shipLevel';
@@ -45,7 +43,7 @@ import { AudioSettingsController } from '../ui/AudioSettingsController';
 import { InfoModalController, type ModalContent } from '../ui/InfoModalController';
 import { HangarController } from '../ui/HangarController';
 import { RewardFeedController } from '../ui/RewardFeedController';
-import { SkillTreeModalController } from '../ui/SkillTreeModalController';
+import { SkillsModalController } from '../ui/SkillsModalController';
 import { TutorialGuideController, type TutorialFlow, type TutorialTargetId } from '../ui/TutorialGuideController';
 import { WarpCoreTreeController } from '../ui/WarpCoreTreeController';
 import { ZoneMapController } from '../ui/ZoneMapController';
@@ -132,7 +130,7 @@ export class GameScene extends Phaser.Scene {
   private audioSettings!: AudioSettingsController;
   private infoModal!: InfoModalController;
   private hangar!: HangarController;
-  private skillTreeModal!: SkillTreeModalController;
+  private skillsModal!: SkillsModalController;
   private tutorialGuide!: TutorialGuideController;
   private warpCoreTree!: WarpCoreTreeController;
   private zoneMap!: ZoneMapController;
@@ -203,7 +201,6 @@ export class GameScene extends Phaser.Scene {
   private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | 'bossReward' | 'novaCrownDifficulty' | null = null;
   private activeModalInfo: ModalContent | null = null;
   private novaCrownDifficultySelection = 1;
-  private activeTalentTooltipId: TalentId | null = null;
   private activeWarpUnlockId: WarpUnlockId | null = null;
   private activeGameplayPointerId: number | null = null;
   private gameplayPointerStartScreen: Vec2 | null = null;
@@ -321,7 +318,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.infoModal = new InfoModalController();
     this.hangar = new HangarController();
-    this.skillTreeModal = new SkillTreeModalController();
+    this.skillsModal = new SkillsModalController();
     this.tutorialGuide = new TutorialGuideController(this.appEl);
     this.warpCoreTree = new WarpCoreTreeController();
     this.zoneMap = new ZoneMapController();
@@ -1069,7 +1066,7 @@ export class GameScene extends Phaser.Scene {
         this.closeModal();
       }
       this.activeTab = 'upgrades';
-      this.activeTalentTooltipId = null;
+      this.skillsModal.clearSelection();
       this.activeWarpUnlockId = null;
     }
 
@@ -2127,42 +2124,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderSkillsTab(): void {
-    const talentCount = countUnlockedTalentRanks(this.state.progression);
-    const availablePoints = getAvailableShipSkillPoints(this.state.progression);
-    const respecCost = getTalentRespecCost(this.state);
-    const nextLevelXp = this.state.progression.shipLevel >= maxShipLevel
-      ? this.language === 'pt-BR' ? 'MAX' : 'MAX'
-      : `${Math.floor(this.state.progression.shipXp)}/${getShipXpForNextLevel(this.state.progression.shipLevel)}`;
+    const content = this.skillsModal.createShopContent({
+      state: this.state,
+      language: this.language,
+      onOpenTree: () => this.openSkillTreeModal(),
+      onRespec: () => this.respecSkills()
+    });
+
     this.setShopContent(
-      translate(this.language, 'nav.skills'),
-      translate(this.language, 'shop.skillsTitle'),
-      translate(this.language, 'shop.skillsCopy'),
-      [
-        [this.language === 'pt-BR' ? 'Nível' : 'Level', this.state.progression.shipLevel.toString()],
-        [this.language === 'pt-BR' ? 'XP' : 'XP', nextLevelXp],
-        [this.language === 'pt-BR' ? 'Pontos' : 'Points', availablePoints.toString()],
-        [translate(this.language, 'shop.skillsStatTalents'), `${talentCount}/${this.state.progression.shipSkillPoints}`],
-        [translate(this.language, 'shop.skillsStatSemiPierce'), getSemiAutoPierceLeft(this.state.progression).toString()],
-        [translate(this.language, 'shop.skillsStatRefinery'), `x${getOfflineIncomeTalentMultiplier(this.state.progression).toFixed(2)}`]
-      ],
-      [
-        {
-          icon: 'TREE',
-          title: translate(this.language, 'shop.skillsActionTitle'),
-          meta: translate(this.language, 'shop.skillsActionMeta', { count: talentCount }),
-          label: translate(this.language, 'shop.skillsActionLabel'),
-          disabled: false,
-          onClick: () => this.openSkillTreeModal()
-        },
-        {
-          icon: '↺',
-          title: translate(this.language, 'shop.skillsRespecTitle'),
-          meta: translate(this.language, 'shop.skillsRespecMeta'),
-          label: translate(this.language, 'shop.skillsRespecLabel', { cost: formatCompactNumber(respecCost) }),
-          disabled: respecCost <= 0 || this.getCrystalBalance() < respecCost,
-          onClick: () => this.respecSkills()
-        }
-      ]
+      content.kicker,
+      content.title,
+      content.copy,
+      content.stats,
+      content.actions
     );
 
     if (this.activeModal === 'skills') {
@@ -2529,7 +2503,7 @@ export class GameScene extends Phaser.Scene {
   private openInfoModal(info: ModalContent): void {
     this.activeModal = 'info';
     this.activeModalInfo = info;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.renderInfoModal();
@@ -2538,7 +2512,7 @@ export class GameScene extends Phaser.Scene {
   private openSkillTreeModal(): void {
     this.activeModal = 'skills';
     this.activeModalInfo = null;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.renderSkillTreeModal();
   }
@@ -2546,7 +2520,7 @@ export class GameScene extends Phaser.Scene {
   private openWarpCoreTreeModal(): void {
     this.activeModal = 'warpCores';
     this.activeModalInfo = null;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.renderWarpCoreTreeModal();
   }
@@ -2554,7 +2528,7 @@ export class GameScene extends Phaser.Scene {
   private openZoneMapModal(): void {
     this.activeModal = 'zones';
     this.activeModalInfo = null;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.renderZoneMapModal();
   }
@@ -2562,7 +2536,7 @@ export class GameScene extends Phaser.Scene {
   private openNovaCrownDifficultyModal(): void {
     this.activeModal = 'novaCrownDifficulty';
     this.activeModalInfo = null;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.novaCrownDifficultySelection = Math.min(
       normalizeNovaCrownDifficulty(this.state.progression.novaCrownSelectedDifficulty),
@@ -2574,7 +2548,7 @@ export class GameScene extends Phaser.Scene {
   private openSettingsModal(): void {
     this.activeModal = 'settings';
     this.activeModalInfo = null;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.audioSettings.setExpanded(true);
     this.renderSettingsModal();
@@ -2592,7 +2566,7 @@ export class GameScene extends Phaser.Scene {
 
     this.activeModal = 'bossReward';
     this.activeModalInfo = null;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.renderBossRewardChoiceModal();
   }
@@ -2601,7 +2575,7 @@ export class GameScene extends Phaser.Scene {
     const wasSkillTree = this.activeModal === 'skills';
     this.activeModal = null;
     this.activeModalInfo = null;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.audioSettings.setExpanded(false);
     this.modalEl.classList.add('is-hidden');
@@ -2781,7 +2755,7 @@ export class GameScene extends Phaser.Scene {
     this.saveElapsed = 0;
     this.shopSignature = '';
     this.activeTab = 'upgrades';
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.zoneTravel = null;
     this.appEl.classList.remove('is-zone-travel', 'is-impact');
@@ -2940,40 +2914,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderSkillTreeModal(): void {
-    const availablePoints = getAvailableShipSkillPoints(this.state.progression);
-    this.modalEl.classList.remove('is-hidden');
-    this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
-    this.modalPanelEl.classList.add('ui-modal__panel--skills');
-    this.modalKickerEl.textContent = translate(this.language, 'nav.skills');
-    this.modalTitleEl.textContent = translate(this.language, 'shop.skillsActionTitle');
-    this.modalCopyEl.textContent = this.language === 'pt-BR'
-      ? `${availablePoints} pontos disponíveis · nível ${this.state.progression.shipLevel} · ${countUnlockedTalentRanks(this.state.progression)} ${translate(this.language, 'unit.ranks')}`
-      : `${availablePoints} points available · level ${this.state.progression.shipLevel} · ${countUnlockedTalentRanks(this.state.progression)} ${translate(this.language, 'unit.ranks')}`;
-    this.modalCopyEl.classList.remove('is-hidden');
-
-    this.modalBodyEl.replaceChildren(this.skillTreeModal.render({
-      progression: this.state.progression,
+    this.skillsModal.renderTreeModal({
+      state: this.state,
       language: this.language,
-      selectedTalentId: this.activeTalentTooltipId,
-      onSelectTalent: (id) => this.selectSkillTreeTalent(id),
+      elements: {
+        modalEl: this.modalEl,
+        panelEl: this.modalPanelEl,
+        kickerEl: this.modalKickerEl,
+        titleEl: this.modalTitleEl,
+        copyEl: this.modalCopyEl,
+        bodyEl: this.modalBodyEl
+      },
       onBuyTalent: (id) => this.buyTalent(id)
-    }));
-  }
-
-  private selectSkillTreeTalent(id: TalentId | null): void {
-    this.activeTalentTooltipId = id;
-    const updated = this.skillTreeModal.selectTalent({
-      progression: this.state.progression,
-      language: this.language,
-      selectedTalentId: this.activeTalentTooltipId,
-      onSelectTalent: (nextId) => this.selectSkillTreeTalent(nextId),
-      onBuyTalent: (talentId) => this.buyTalent(talentId)
     });
-
-    if (!updated && this.activeModal === 'skills') {
-      this.renderSkillTreeModal();
-    }
   }
 
   private renderWarpCoreTreeModal(): void {
@@ -3330,7 +3283,7 @@ export class GameScene extends Phaser.Scene {
 
     this.state = createShipFrameSwitchState(this.state, this.scale.width, this.scale.height, id);
     this.offlineStatusFor = 0;
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.shopSignature = '';
     this.retroSound.play({ type: 'warpReset' });
@@ -3367,7 +3320,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.activeTalentTooltipId = null;
+    this.skillsModal.clearSelection();
     this.shopSignature = '';
     this.retroSound.play({ type: 'purchase' });
     saveGameState(this.state);
