@@ -36,6 +36,9 @@ export class ZoneMapController {
 
     const nodes = document.createElement('div');
     nodes.className = 'zone-map-nodes';
+    const tutorialZoneIndex = state.unlockedZoneIndex > state.currentZoneIndex
+      ? state.currentZoneIndex + 1
+      : null;
     mapPoints.forEach(({ zone, x, y }) => {
       const unlocked = zone.index <= state.unlockedZoneIndex;
       const node = document.createElement('button');
@@ -48,8 +51,22 @@ export class ZoneMapController {
       node.style.top = `${y}%`;
       node.style.setProperty('--zone-accent', zone.identity.accent);
       node.disabled = !unlocked;
-      node.addEventListener('click', () => state.onTravel(zone.index));
+      let travelRequested = false;
+      const requestTravel = (event: Event): void => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!unlocked || zone.index === state.currentZoneIndex || travelRequested) {
+          return;
+        }
+        travelRequested = true;
+        state.onTravel(zone.index);
+      };
+      node.addEventListener('click', requestTravel);
+      node.addEventListener('pointerup', requestTravel);
       node.setAttribute('aria-label', unlocked ? `Travel to ${zone.name}` : `${zone.name} locked`);
+      if (zone.index === tutorialZoneIndex) {
+        node.dataset.tutorialTarget = 'zone-node-unlocked';
+      }
 
       const icon = document.createElement('span');
       icon.className = 'zone-node__icon';

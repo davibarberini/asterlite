@@ -77,20 +77,38 @@ type PriorityPopupContent = {
   okLabel: string;
 };
 
+type MenuBackdropAsteroid = {
+  x: number;
+  y: number;
+  radius: number;
+  rotation: number;
+  spin: number;
+  velocity: Vec2;
+  sides: number;
+  seed: number;
+};
+
 const SLINGSHOT_MAX_DRAG_MOBILE = 150;
 const SLINGSHOT_MAX_DRAG_DESKTOP = 172;
 const SLINGSHOT_DEADZONE_MOBILE = 58;
 const SLINGSHOT_DEADZONE_DESKTOP = 24;
-const ZONE_TRAVEL_DURATION = 1.6;
 const INTRO_WARP_DURATION = 2.05;
 const SUBMENU_TIME_SCALE = 0.28;
 const TIME_SCALE_RECOVERY_SECONDS = 1;
 const FIRST_UPGRADE_TUTORIAL: TutorialFlow = {
   id: 'first-upgrade',
   steps: [
-    { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10 },
-    { id: 'open-upgrades', targetId: 'nav-upgrades', padding: 9 },
-    { id: 'buy-upgrade', targetId: 'upgrade-affordable', padding: 12 }
+    { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
+    { id: 'open-upgrades', targetId: 'nav-upgrades', padding: 9, shape: 'rect' },
+    { id: 'buy-upgrade', targetId: 'upgrade-affordable', padding: 10, shape: 'rect' }
+  ]
+};
+const ZONE_TRAVEL_TUTORIAL: TutorialFlow = {
+  id: 'zone-travel',
+  steps: [
+    { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
+    { id: 'open-zone-map', targetId: 'nav-map', padding: 9, shape: 'rect' },
+    { id: 'choose-zone', targetId: 'zone-node-unlocked', padding: 8, shape: 'rect' }
   ]
 };
 
@@ -185,7 +203,8 @@ export class GameScene extends Phaser.Scene {
   private gameStarted = false;
   private introWarp: { elapsed: number; duration: number; direction: Vec2; impactTriggered: boolean } | null = null;
   private introGraphics!: Phaser.GameObjects.Graphics;
-  private zoneTravel: { toIndex: number; elapsed: number; duration: number; direction: Vec2 } | null = null;
+  private menuBackdropAsteroids: MenuBackdropAsteroid[] = [];
+  private zoneTravel: { toIndex: number; elapsed: number; duration: number; direction: Vec2; impactTriggered: boolean; destinationApplied: boolean } | null = null;
   private readonly saveBeforeUnload = (): void => {
     saveGameState(this.state);
   };
@@ -515,7 +534,8 @@ export class GameScene extends Phaser.Scene {
   private showMainMenu(): void {
     this.appEl.classList.add('is-menu-open');
     this.mainMenuEl.classList.remove('is-hidden', 'is-warping', 'is-impact');
-    this.mainMenuEl.style.setProperty('--intro-flash-opacity', '0');
+    this.appEl.classList.remove('is-zone-travel', 'is-impact');
+    this.setScreenFlash(0);
     this.mainMenuEl.setAttribute('aria-hidden', 'false');
     this.mainMenuStartEl.disabled = !this.hasSavedLanguage;
     this.mainMenuEl.classList.toggle('main-menu--language-saved', this.hasSavedLanguage);
@@ -547,8 +567,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.introWarp) {
       this.starfield.update(dt, { x: 14, y: -4 });
       this.vectorRenderer.clear();
-      this.introGraphics.clear();
-      this.mainMenuEl.style.setProperty('--intro-flash-opacity', '0');
+      this.updateMenuBackdrop(dt);
+      this.setScreenFlash(0);
       return;
     }
 
@@ -565,7 +585,7 @@ export class GameScene extends Phaser.Scene {
     this.drawIntroShip(progress);
     const flashProgress = Math.min(1, Math.max(0, (progress - 0.78) / 0.22));
     const flashAlpha = Math.sin(flashProgress * Math.PI) * 0.92;
-    this.mainMenuEl.style.setProperty('--intro-flash-opacity', flashAlpha.toFixed(3));
+    this.setScreenFlash(flashAlpha);
 
     if (!this.introWarp.impactTriggered && progress >= 0.83) {
       this.introWarp.impactTriggered = true;
@@ -587,12 +607,92 @@ export class GameScene extends Phaser.Scene {
     this.appEl.classList.remove('is-menu-open');
     this.mainMenuEl.classList.add('is-hidden');
     this.mainMenuEl.classList.remove('is-warping', 'is-impact');
-    this.mainMenuEl.style.setProperty('--intro-flash-opacity', '0');
+    this.setScreenFlash(0);
     this.mainMenuEl.setAttribute('aria-hidden', 'true');
     this.mainMenuStartEl.disabled = false;
     this.introGraphics.clear();
     this.updateHud();
     this.queueOfflineEarningsPopup();
+  }
+
+  private updateMenuBackdrop(dt: number): void {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const targetCount = Phaser.Math.Clamp(Math.floor((width * height) / 85000), 7, 14);
+    while (this.menuBackdropAsteroids.length < targetCount) {
+      this.menuBackdropAsteroids.push(this.createMenuBackdropAsteroid(true));
+    }
+    if (this.menuBackdropAsteroids.length > targetCount) {
+      this.menuBackdropAsteroids.length = targetCount;
+    }
+
+    this.introGraphics.clear();
+    this.menuBackdropAsteroids.forEach((asteroid, index) => {
+      asteroid.x += asteroid.velocity.x * dt;
+      asteroid.y += asteroid.velocity.y * dt;
+      asteroid.rotation += asteroid.spin * dt;
+      if (asteroid.x < -asteroid.radius - 80 || asteroid.y > height + asteroid.radius + 80) {
+        this.menuBackdropAsteroids[index] = this.createMenuBackdropAsteroid(false);
+        return;
+      }
+
+      this.drawMenuBackdropAsteroid(asteroid);
+    });
+  }
+
+  private createMenuBackdropAsteroid(initial: boolean): MenuBackdropAsteroid {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const radius = Phaser.Math.FloatBetween(18, width <= 720 ? 42 : 58);
+    return {
+      x: initial ? Phaser.Math.FloatBetween(-radius, width + radius) : width + radius + Phaser.Math.FloatBetween(20, 180),
+      y: initial ? Phaser.Math.FloatBetween(-radius, height + radius) : Phaser.Math.FloatBetween(-radius, height * 0.72),
+      radius,
+      rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+      spin: Phaser.Math.FloatBetween(-0.55, 0.55),
+      velocity: {
+        x: -Phaser.Math.FloatBetween(28, 72),
+        y: Phaser.Math.FloatBetween(12, 42)
+      },
+      sides: Phaser.Math.Between(7, 11),
+      seed: Phaser.Math.FloatBetween(0, Math.PI * 2)
+    };
+  }
+
+  private drawMenuBackdropAsteroid(asteroid: MenuBackdropAsteroid): void {
+    const points = Array.from({ length: asteroid.sides }, (_, index) => {
+      const angle = asteroid.rotation + (index / asteroid.sides) * Math.PI * 2;
+      const radius = asteroid.radius * (0.76 + Math.sin(asteroid.seed + index * 1.73) * 0.16);
+      return {
+        x: asteroid.x + Math.cos(angle) * radius,
+        y: asteroid.y + Math.sin(angle) * radius
+      };
+    });
+
+    this.introGraphics.fillStyle(0x9fb4ba, 0.045);
+    this.introGraphics.beginPath();
+    this.introGraphics.moveTo(points[0].x, points[0].y);
+    points.slice(1).forEach((point) => this.introGraphics.lineTo(point.x, point.y));
+    this.introGraphics.closePath();
+    this.introGraphics.fillPath();
+
+    this.introGraphics.lineStyle(2, 0xb9d0d8, 0.32);
+    this.introGraphics.beginPath();
+    this.introGraphics.moveTo(points[0].x, points[0].y);
+    points.slice(1).forEach((point) => this.introGraphics.lineTo(point.x, point.y));
+    this.introGraphics.closePath();
+    this.introGraphics.strokePath();
+
+    this.introGraphics.lineStyle(1, 0xd8e8ee, 0.12);
+    for (let index = 0; index < points.length; index += 3) {
+      const point = points[index];
+      this.introGraphics.lineBetween(
+        asteroid.x + (point.x - asteroid.x) * 0.35,
+        asteroid.y + (point.y - asteroid.y) * 0.35,
+        point.x,
+        point.y
+      );
+    }
   }
 
   private drawIntroShip(progress: number): void {
@@ -612,21 +712,25 @@ export class GameScene extends Phaser.Scene {
       this.rotateScreenPoint(point.x * shipScale, point.y * shipScale, rotation, x, y)
     );
     const thrust = Math.min(1, Math.max(0, (progress - 0.06) / 0.58));
-    const trailLength = this.lerp(28, Math.min(height * 0.72, 340), thrust);
-    const trailAlpha = 0.18 + thrust * 0.56;
+    const trailFade = progress < 0.7 ? 1 : 1 - this.easeOutCubic(Math.min(1, Math.max(0, (progress - 0.7) / 0.26)));
+    const trailPower = thrust * trailFade;
+    const trailLength = this.lerp(10, Math.min(height * 0.72, 340), trailPower);
+    const trailAlpha = (0.18 + thrust * 0.56) * trailPower;
 
     this.introGraphics.clear();
-    for (let index = 0; index < 5; index += 1) {
-      const offset = (index - 2) * 8 * shipScale;
-      const jitter = Math.sin((progress * 28) + index) * 5;
-      this.introGraphics.lineStyle(Math.max(1, (3 - Math.abs(index - 2)) * 1.4), index === 2 ? 0xffffff : 0x9fdcff, trailAlpha * (index === 2 ? 0.9 : 0.52));
-      this.introGraphics.beginPath();
-      this.introGraphics.moveTo(x + offset * 0.28, y + 14 * shipScale);
-      this.introGraphics.lineTo(x + offset + jitter, y + 14 * shipScale + trailLength);
-      this.introGraphics.strokePath();
+    if (trailPower > 0.03) {
+      for (let index = 0; index < 5; index += 1) {
+        const offset = (index - 2) * 8 * shipScale;
+        const jitter = Math.sin((progress * 28) + index) * 5 * trailPower;
+        this.introGraphics.lineStyle(Math.max(1, (3 - Math.abs(index - 2)) * 1.4), index === 2 ? 0xffffff : 0x9fdcff, trailAlpha * (index === 2 ? 0.9 : 0.52));
+        this.introGraphics.beginPath();
+        this.introGraphics.moveTo(x + offset * 0.28, y + 14 * shipScale);
+        this.introGraphics.lineTo(x + offset + jitter, y + 14 * shipScale + trailLength);
+        this.introGraphics.strokePath();
+      }
     }
 
-    this.introGraphics.lineStyle(8, 0x83ffdc, 0.12 + thrust * 0.16);
+    this.introGraphics.lineStyle(8, 0x83ffdc, 0.12 + trailPower * 0.16);
     this.introGraphics.beginPath();
     this.introGraphics.moveTo(points[0].x, points[0].y);
     points.slice(1).forEach((point) => this.introGraphics.lineTo(point.x, point.y));
@@ -660,6 +764,10 @@ export class GameScene extends Phaser.Scene {
 
   private easeOutCubic(progress: number): number {
     return 1 - Math.pow(1 - progress, 3);
+  }
+
+  private setScreenFlash(alpha: number): void {
+    this.appEl.style.setProperty('--screen-flash-opacity', Phaser.Math.Clamp(alpha, 0, 1).toFixed(3));
   }
 
   private applyLanguage(): void {
@@ -696,6 +804,8 @@ export class GameScene extends Phaser.Scene {
     this.navButtons.forEach((button) => {
       if (button.dataset.tab === 'upgrades') {
         button.dataset.tutorialTarget = 'nav-upgrades';
+      } else if (button.dataset.tab === 'map') {
+        button.dataset.tutorialTarget = 'nav-map';
       }
     });
     document.getElementById('idle-dock')?.setAttribute('aria-label', translate(this.language, 'hud.idleSystems'));
@@ -1201,6 +1311,7 @@ export class GameScene extends Phaser.Scene {
     this.state.width = gameSize.width;
     this.state.height = gameSize.height;
     this.starfield.reset(gameSize.width, gameSize.height);
+    this.menuBackdropAsteroids = [];
   }
 
   private bindShopUi(): void {
@@ -1617,23 +1728,41 @@ export class GameScene extends Phaser.Scene {
   }
 
   private maybeStartTutorialGuide(): void {
-    if (
-      this.tutorialGuide.isActive() ||
-      this.tutorialGuide.hasCompleted('first-upgrade') ||
-      !this.gameStarted ||
-      this.zoneTravel ||
-      this.introWarp ||
-      !this.isQuickMenuCollapsed() ||
-      this.isBlockingDrawerOpen() ||
-      !this.hasAffordableCoreUpgrade()
-    ) {
+    if (this.shouldDeferTutorialGuide()) {
       return;
     }
 
+    if (!this.tutorialGuide.hasCompleted('zone-travel') && this.hasUnlockedZoneToTravel()) {
+      this.startTutorialGuide(ZONE_TRAVEL_TUTORIAL);
+      return;
+    }
+
+    if (this.tutorialGuide.hasCompleted('first-upgrade') || !this.hasAffordableCoreUpgrade()) {
+      return;
+    }
+
+    this.startTutorialGuide(FIRST_UPGRADE_TUTORIAL);
+  }
+
+  private shouldDeferTutorialGuide(): boolean {
+    return this.tutorialGuide.isActive() ||
+      !this.gameStarted ||
+      this.zoneTravel !== null ||
+      this.introWarp !== null ||
+      !this.isQuickMenuCollapsed() ||
+      this.isBlockingDrawerOpen();
+  }
+
+  private startTutorialGuide(flow: TutorialFlow): void {
     this.activeGameplayPointerId = null;
     this.gameplayPointerStartScreen = null;
     this.gameplayPointerScreen = null;
-    this.tutorialGuide.start(FIRST_UPGRADE_TUTORIAL);
+    this.tutorialGuide.start(flow);
+  }
+
+  private hasUnlockedZoneToTravel(): boolean {
+    return this.state.progression.mapUnlocked &&
+      this.state.progression.unlockedZoneIndex > this.state.progression.currentZoneIndex;
   }
 
   private hasAffordableCoreUpgrade(): boolean {
@@ -2427,6 +2556,8 @@ export class GameScene extends Phaser.Scene {
     this.activeTalentTooltipId = null;
     this.activeWarpUnlockId = null;
     this.zoneTravel = null;
+    this.appEl.classList.remove('is-zone-travel', 'is-impact');
+    this.setScreenFlash(0);
     this.audioSettings.resetToDefaults();
     saveGameState(this.state);
     this.closeModal();
@@ -2719,16 +2850,33 @@ export class GameScene extends Phaser.Scene {
     this.state.particles = [];
     this.state.saucer = null;
     this.state.pendingBoss = null;
+    this.appEl.classList.add('is-zone-travel');
     this.zoneTravel = {
       toIndex: index,
       elapsed: 0,
-      duration: ZONE_TRAVEL_DURATION,
-      direction: this.getZoneTravelDirection(index)
+      duration: INTRO_WARP_DURATION,
+      direction: this.getZoneTravelDirection(index),
+      impactTriggered: false,
+      destinationApplied: false
     };
     this.retroSound.play({ type: 'spaceTravel' });
   }
 
   private finishZoneTravel(index: number): void {
+    this.applyZoneTravelDestination(index);
+    this.retroSound.play({ type: 'zoneUnlocked' });
+    this.appEl.classList.remove('is-zone-travel', 'is-impact');
+    this.setScreenFlash(0);
+    this.introGraphics.clear();
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
+  private applyZoneTravelDestination(index: number): void {
+    if (this.state.progression.currentZoneIndex === index) {
+      return;
+    }
+
     this.state.progression.currentZoneIndex = index;
     this.state.progression.travelLevel = this.state.progression.unlockedZoneIndex;
     this.state.ship.position = { x: this.state.width / 2, y: this.state.height / 2 };
@@ -2743,9 +2891,6 @@ export class GameScene extends Phaser.Scene {
     this.state.bullets = [];
     this.state.particles = [];
     this.state.saucer = null;
-    this.retroSound.play({ type: 'zoneUnlocked' });
-    saveGameState(this.state);
-    this.updateHud();
   }
 
   private updateZoneTravel(dt: number): void {
@@ -2756,16 +2901,32 @@ export class GameScene extends Phaser.Scene {
 
     travel.elapsed += dt;
     const progress = Math.min(1, travel.elapsed / travel.duration);
+    const launchProgress = this.easeInCubic(Math.min(1, progress / 0.72));
     const pulse = Math.sin(progress * Math.PI);
     const travelVelocity = {
-      x: travel.direction.x * (1100 + pulse * 2200),
-      y: travel.direction.y * (1100 + pulse * 2200)
+      x: travel.direction.x * (700 + launchProgress * 4200 + pulse * 900),
+      y: travel.direction.y * (700 + launchProgress * 4200 + pulse * 900)
     };
 
     this.state.width = this.scale.width;
     this.state.height = this.scale.height;
     this.starfield.update(dt, travelVelocity, { progress, direction: travel.direction });
     this.vectorRenderer.clear();
+    this.drawIntroShip(progress);
+    const flashProgress = Math.min(1, Math.max(0, (progress - 0.78) / 0.22));
+    const flashAlpha = Math.sin(flashProgress * Math.PI) * 0.92;
+    this.setScreenFlash(flashAlpha);
+    if (!travel.destinationApplied && progress >= 0.86) {
+      travel.destinationApplied = true;
+      this.applyZoneTravelDestination(travel.toIndex);
+      saveGameState(this.state);
+    }
+    if (!travel.impactTriggered && progress >= 0.83) {
+      travel.impactTriggered = true;
+      this.cameras.main.shake(280, 0.009);
+      this.appEl.classList.add('is-impact');
+      window.setTimeout(() => this.appEl.classList.remove('is-impact'), 300);
+    }
     this.updateHud();
     this.updateDeathFade();
 

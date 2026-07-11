@@ -35,6 +35,20 @@ body {
   -webkit-user-select: none;
 }
 
+#app {
+  position: relative;
+}
+
+#app::after {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  content: "";
+  background: #fff;
+  opacity: var(--screen-flash-opacity, 0);
+  pointer-events: none;
+}
+
 button,
 input {
   touch-action: manipulation;
@@ -71,16 +85,6 @@ canvas {
   background: rgba(0, 0, 0, 0.28);
   color: rgba(245, 253, 255, 0.96);
   transition: opacity 260ms ease, transform 260ms ease;
-}
-
-.main-menu::after {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  content: "";
-  background: #fff;
-  opacity: var(--intro-flash-opacity, 0);
-  pointer-events: none;
 }
 
 .main-menu.is-hidden {
@@ -169,17 +173,18 @@ canvas {
   color: rgba(245, 253, 255, 0.94);
   font-size: 16px;
   letter-spacing: 0;
-  text-transform: lowercase;
   text-shadow: 0 0 18px rgba(216, 255, 245, 0.35);
   box-shadow: none;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  transition: opacity 260ms ease, transform 260ms ease;
+  transition: opacity 260ms ease, transform 260ms ease, visibility 260ms ease;
 }
 
 .main-menu--language-saved .main-menu__start {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
 
@@ -239,9 +244,17 @@ canvas {
   animation: menu-impact-shake 260ms ease-out;
 }
 
+#app.is-impact {
+  animation: menu-impact-shake 260ms ease-out;
+}
+
 #app.is-menu-open #hud,
 #app.is-menu-open #idle-dock,
-#app.is-menu-open #reward-feed {
+#app.is-menu-open #reward-feed,
+#app.is-zone-travel #hud,
+#app.is-zone-travel #idle-dock,
+#app.is-zone-travel #reward-feed,
+#app.is-zone-travel .boss-health {
   opacity: 0;
   pointer-events: none;
 }
@@ -354,6 +367,10 @@ canvas {
   transform-origin: center;
   animation: tutorial-pulse 950ms ease-in-out infinite;
   pointer-events: none;
+}
+
+.tutorial-guide__pulse--rect {
+  border-radius: 8px;
 }
 
 .tutorial-guide.is-waiting .tutorial-guide__pulse {

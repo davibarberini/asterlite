@@ -1,14 +1,17 @@
 export type TutorialTargetId =
   | 'submenu-toggle'
   | 'nav-upgrades'
-  | 'upgrade-affordable';
+  | 'upgrade-affordable'
+  | 'nav-map'
+  | 'zone-node-unlocked';
 
-export type TutorialFlowId = 'first-upgrade';
+export type TutorialFlowId = 'first-upgrade' | 'zone-travel';
 
 export type TutorialStep = {
   id: string;
   targetId: TutorialTargetId;
   padding: number;
+  shape?: 'circle' | 'rect';
 };
 
 export type TutorialFlow = {
@@ -24,12 +27,15 @@ export class TutorialGuideController {
   private readonly svg: SVGSVGElement;
   private readonly maskRect: SVGRectElement;
   private readonly shadeRect: SVGRectElement;
-  private readonly hole: SVGCircleElement;
+  private readonly circleHole: SVGCircleElement;
+  private readonly rectHole: SVGRectElement;
   private readonly pulse: HTMLDivElement;
   private activeFlow: TutorialFlow | null = null;
   private activeStepIndex = 0;
   private animationFrame: number | null = null;
   private target: HTMLElement | null = null;
+  private targetSelector: string | null = null;
+  private missingTargetSince: number | null = null;
 
   constructor(private readonly mountRoot: HTMLElement = document.body) {
     this.root = document.createElement('div');
@@ -47,9 +53,12 @@ export class TutorialGuideController {
 
     this.maskRect = document.createElementNS(svgNamespace, 'rect');
     this.maskRect.setAttribute('fill', 'white');
-    this.hole = document.createElementNS(svgNamespace, 'circle');
-    this.hole.setAttribute('fill', 'black');
-    mask.append(this.maskRect, this.hole);
+    this.circleHole = document.createElementNS(svgNamespace, 'circle');
+    this.circleHole.setAttribute('fill', 'black');
+    this.rectHole = document.createElementNS(svgNamespace, 'rect');
+    this.rectHole.setAttribute('fill', 'black');
+    this.rectHole.setAttribute('rx', '8');
+    mask.append(this.maskRect, this.circleHole, this.rectHole);
     defs.append(mask);
 
     this.shadeRect = document.createElementNS(svgNamespace, 'rect');
@@ -85,6 +94,7 @@ export class TutorialGuideController {
 
     this.activeFlow = flow;
     this.activeStepIndex = 0;
+    this.missingTargetSince = null;
     this.root.classList.remove('is-hidden');
     this.root.setAttribute('aria-hidden', 'false');
     this.trackTarget();
@@ -102,8 +112,9 @@ export class TutorialGuideController {
     }
 
     const target = this.target;
+    const targetSelector = this.targetSelector;
     this.advance();
-    target.click();
+    this.clickTargetAfterOverlayUpdate(target, targetSelector);
   };
 
   private advance(): void {
@@ -112,6 +123,8 @@ export class TutorialGuideController {
     }
 
     this.activeStepIndex += 1;
+    this.missingTargetSince = null;
+    this.targetSelector = null;
     if (this.activeStepIndex < this.activeFlow.steps.length) {
       this.target = null;
       return;
@@ -120,6 +133,8 @@ export class TutorialGuideController {
     const completedFlowId = this.activeFlow.id;
     this.activeFlow = null;
     this.target = null;
+    this.missingTargetSince = null;
+    this.targetSelector = null;
     this.root.classList.add('is-hidden');
     this.root.setAttribute('aria-hidden', 'true');
     this.saveCompletedFlow(completedFlowId);
@@ -161,18 +176,42 @@ export class TutorialGuideController {
     this.target = this.findTarget(step.targetId);
     if (!this.target) {
       this.root.classList.add('is-waiting');
+      this.circleHole.style.display = 'none';
+      this.rectHole.style.display = 'none';
+      this.missingTargetSince ??= performance.now();
+      if (performance.now() - this.missingTargetSince > 1400) {
+        this.cancelActiveFlow();
+      }
       return;
     }
 
     this.root.classList.remove('is-waiting');
-    const circle = this.getTargetCircle(this.target, step.padding);
-    this.hole.setAttribute('cx', circle.x.toString());
-    this.hole.setAttribute('cy', circle.y.toString());
-    this.hole.setAttribute('r', circle.radius.toString());
-    this.pulse.style.left = `${circle.x - circle.radius}px`;
-    this.pulse.style.top = `${circle.y - circle.radius}px`;
-    this.pulse.style.width = `${circle.radius * 2}px`;
-    this.pulse.style.height = `${circle.radius * 2}px`;
+    this.missingTargetSince = null;
+    this.targetSelector = this.getTargetSelector(step.targetId);
+    const highlight = this.getTargetHighlight(this.target, step);
+    this.circleHole.style.display = highlight.shape === 'circle' ? '' : 'none';
+    this.rectHole.style.display = highlight.shape === 'rect' ? '' : 'none';
+    this.pulse.classList.toggle('tutorial-guide__pulse--rect', highlight.shape === 'rect');
+
+    if (highlight.shape === 'circle') {
+      this.circleHole.setAttribute('cx', highlight.x.toString());
+      this.circleHole.setAttribute('cy', highlight.y.toString());
+      this.circleHole.setAttribute('r', highlight.radius.toString());
+      this.pulse.style.left = `${highlight.x - highlight.radius}px`;
+      this.pulse.style.top = `${highlight.y - highlight.radius}px`;
+      this.pulse.style.width = `${highlight.radius * 2}px`;
+      this.pulse.style.height = `${highlight.radius * 2}px`;
+      return;
+    }
+
+    this.rectHole.setAttribute('x', highlight.x.toString());
+    this.rectHole.setAttribute('y', highlight.y.toString());
+    this.rectHole.setAttribute('width', highlight.width.toString());
+    this.rectHole.setAttribute('height', highlight.height.toString());
+    this.pulse.style.left = `${highlight.x}px`;
+    this.pulse.style.top = `${highlight.y}px`;
+    this.pulse.style.width = `${highlight.width}px`;
+    this.pulse.style.height = `${highlight.height}px`;
   }
 
   private getActiveStep(): TutorialStep | null {
@@ -180,7 +219,7 @@ export class TutorialGuideController {
   }
 
   private findTarget(targetId: TutorialTargetId): HTMLElement | null {
-    const element = document.querySelector<HTMLElement>(`[data-tutorial-target="${targetId}"]`);
+    const element = document.querySelector<HTMLElement>(this.getTargetSelector(targetId));
     if (!element || !this.isElementTargetable(element)) {
       return null;
     }
@@ -197,12 +236,26 @@ export class TutorialGuideController {
       style.pointerEvents !== 'none';
   }
 
-  private getTargetCircle(target: HTMLElement, padding: number): { x: number; y: number; radius: number } {
+  private getTargetHighlight(
+    target: HTMLElement,
+    step: TutorialStep
+  ): { shape: 'circle'; x: number; y: number; radius: number } | { shape: 'rect'; x: number; y: number; width: number; height: number } {
     const rect = target.getBoundingClientRect();
+    if (step.shape === 'rect') {
+      return {
+        shape: 'rect',
+        x: rect.left - step.padding,
+        y: rect.top - step.padding,
+        width: rect.width + step.padding * 2,
+        height: rect.height + step.padding * 2
+      };
+    }
+
     return {
+      shape: 'circle',
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
-      radius: Math.max(rect.width, rect.height) / 2 + padding
+      radius: Math.max(rect.width, rect.height) / 2 + step.padding
     };
   }
 
@@ -212,8 +265,15 @@ export class TutorialGuideController {
       return false;
     }
 
-    const circle = this.getTargetCircle(this.target, step.padding);
-    return Math.hypot(event.clientX - circle.x, event.clientY - circle.y) <= circle.radius;
+    const highlight = this.getTargetHighlight(this.target, step);
+    if (highlight.shape === 'circle') {
+      return Math.hypot(event.clientX - highlight.x, event.clientY - highlight.y) <= highlight.radius;
+    }
+
+    return event.clientX >= highlight.x &&
+      event.clientX <= highlight.x + highlight.width &&
+      event.clientY >= highlight.y &&
+      event.clientY <= highlight.y + highlight.height;
   }
 
   private getCompletedFlowIds(): TutorialFlowId[] {
@@ -222,7 +282,7 @@ export class TutorialGuideController {
       if (!Array.isArray(parsed)) {
         return [];
       }
-      return parsed.filter((id): id is TutorialFlowId => id === 'first-upgrade');
+      return parsed.filter((id): id is TutorialFlowId => id === 'first-upgrade' || id === 'zone-travel');
     } catch {
       return [];
     }
@@ -236,5 +296,32 @@ export class TutorialGuideController {
     } catch {
       // Tutorial completion is best-effort; gameplay should never depend on it.
     }
+  }
+
+  private cancelActiveFlow(): void {
+    this.activeFlow = null;
+    this.target = null;
+    this.missingTargetSince = null;
+    this.targetSelector = null;
+    this.root.classList.add('is-hidden');
+    this.root.setAttribute('aria-hidden', 'true');
+  }
+
+  private clickTargetAfterOverlayUpdate(target: HTMLElement, targetSelector: string | null): void {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const nextTarget = document.contains(target)
+          ? target
+          : (targetSelector ? document.querySelector<HTMLElement>(targetSelector) : null);
+        if (!nextTarget || nextTarget.getAttribute('aria-hidden') === 'true' || !this.isElementTargetable(nextTarget)) {
+          return;
+        }
+        nextTarget.click();
+      }, 0);
+    });
+  }
+
+  private getTargetSelector(targetId: TutorialTargetId): string {
+    return `[data-tutorial-target="${targetId}"]`;
   }
 }
