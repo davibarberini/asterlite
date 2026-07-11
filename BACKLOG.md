@@ -4,6 +4,86 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
+### Skill Tree Unique Node Model
+
+Rework the ship skill tree data model so it supports fewer, more meaningful build decisions.
+
+Design:
+- Reduce most skill nodes to one rank, with only a few minor nodes having two ranks.
+- Add explicit node types such as minor, notable, keystone, and locked-region entry.
+- Preserve current per-ship level, XP, skill point, spent point, and respec behavior.
+- Keep save state serializable and migrate/normalize old talent ranks into the new structure without crashing.
+
+Acceptance:
+- Talent definitions support unique/notable/keystone nodes with per-node point costs.
+- Existing save data with old ranks loads into a valid new tree state.
+- Skill purchasing and respec still work with the new model.
+- Tests cover old-rank normalization, point spending, and respec after the model change.
+
+### Skill Tree Impact and Speed Branches
+
+Replace the current incremental tree with a larger build-oriented tree split around distinct playstyles.
+
+Design:
+- Build a left-side impact/tank/area branch focused on hull, asteroid collision, shockwaves, AoE size, aura/explosion area, and reactive effects.
+- Build a right-side speed/attack branch focused on attack speed, movement speed, swipe/dash feel, cooldown bursts, and velocity-based damage.
+- Include stronger notables and keystones that meaningfully change build direction.
+- Avoid filling the tree with small repeated percentage-only nodes.
+
+Acceptance:
+- The tree has clear visual left/right identity for impact/tank and speed/attack builds.
+- At least two keystones add strong upside with a meaningful tradeoff.
+- New node effects are applied through simulation/progression helpers, not UI-only state.
+- Tests cover at least one impact/tank node, one speed/attack node, and one keystone tradeoff.
+
+### Skill Tree Draggable Canvas
+
+Make the skill tree modal behave like a large draggable ascension/tree map.
+
+Design:
+- Replace the fixed compact board with a draggable/pannable tree container for touch and mouse.
+- Keep node interactions reliable on mobile: drag pans, tap selects.
+- Add a simple recenter/start button if the tree can move far from the starting area.
+- Keep layout stable without zoom in the first pass unless it becomes necessary.
+
+Acceptance:
+- Players can pan around a larger skill tree on touch and mouse.
+- Tapping nodes still selects and purchases through the existing tooltip flow.
+- The starting area is easy to recover if the player pans away.
+- Build passes and tree UI remains usable on mobile viewport sizes.
+
+### Skill Tree Hidden Drone Region
+
+Add a drone-focused region that is hidden until drone systems are unlocked.
+
+Design:
+- Place drone nodes outside the initial visible tree path so the tree feels larger once drones unlock.
+- Hide or fog the drone region until the player owns/unlocks drone systems.
+- Add drone-focused nodes for sentry/semi-auto, ranger/shotgun, breaker/missile, and hybrid ship-drone builds.
+- Keep locked region copy compact and avoid spoiling every drone node too early.
+
+Acceptance:
+- Before drones, the drone region is visibly locked or hidden and cannot be purchased.
+- After drones unlock, the region becomes reachable/purchasable.
+- Drone node effects apply to the relevant drone mechanics.
+- Tests cover locked/unlocked drone region behavior and at least one drone node effect.
+
+### Skill Tree Level Cap and Balance Pass
+
+Balance the larger tree around finite points and future technology-based level cap increases.
+
+Design:
+- Set a clear base ship level cap target, likely 20.
+- Leave room for future global technologies to increase max ship level.
+- Tune point income and node costs so players cannot fill the entire tree at base cap.
+- Keep crystals as support/rebuild currency for now rather than mandatory node purchase currency.
+
+Acceptance:
+- Base skill point cap is lower than total available tree cost.
+- UI communicates level, XP, available points, spent points, and respec cost clearly.
+- Existing tests are updated for the new cap and point economy.
+- Add follow-up backlog notes for technology-based max level increases if not implemented in this slice.
+
 ### Space Masters Naming Pass
 
 Evaluate whether the project should move from Asteridle toward a broader survival-build identity such as `Space Masters`.
