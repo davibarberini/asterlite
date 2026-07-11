@@ -262,20 +262,6 @@ export const getActiveShipFrame = (progression: ProgressionState): ShipFrameDefi
 export const getShipFrameWeaponIdentity = (progression: ProgressionState): ShipWeaponIdentity =>
   getActiveShipFrame(progression).weaponIdentity;
 
-export const getUnlockedShipFrameIdsForExchangeCount = (_exchangeCount: number): ShipFrameId[] => ['vector'];
-
-export const getNextShipFrameId = (previousProgression: ProgressionState, nextExchangeCount: number): ShipFrameId => {
-  const currentUnlocked = normalizeShipFrameIds(previousProgression.unlockedShipFrameIds);
-  const nextUnlocked = getUnlockedShipFrameIdsForExchangeCount(nextExchangeCount);
-  const newlyUnlocked = nextUnlocked.find((id) => !currentUnlocked.includes(id));
-  if (newlyUnlocked) {
-    return newlyUnlocked;
-  }
-
-  const activeIndex = Math.max(0, nextUnlocked.indexOf(previousProgression.activeShipFrameId));
-  return nextUnlocked[(activeIndex + 1) % Math.max(1, nextUnlocked.length)] ?? 'vector';
-};
-
 export const getShipFrameBonusMultiplier = (
   progression: ProgressionState,
   bonus: keyof ShipFrameDefinition['bonuses']

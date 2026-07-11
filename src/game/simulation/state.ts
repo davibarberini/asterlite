@@ -102,7 +102,6 @@ export const createProgression = (): ProgressionState => ({
   unlockedShipFrameIds: ['vector'],
   shipUnlockProgress: createShipUnlockProgress(),
   shipRuns: {},
-  shipExchanges: 0,
   prestigeCores: 0,
   ownedWarpUnlockIds: [],
   announcedAffordableWarpUnlockIds: [],

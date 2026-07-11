@@ -329,7 +329,7 @@ const guidedMissionIds: GuidedMissionId[] = [
   'collectWarpCrystals',
   'openVegaRoute',
   'travelToVega',
-  'warpForFirstCore',
+  'earnFirstCore',
   'installDroneSystems',
   'openCygnusRoute',
   'travelToCygnus',
@@ -342,8 +342,17 @@ const guidedMissionIds: GuidedMissionId[] = [
   'defeatZoneBoss'
 ];
 
+const normalizeGuidedMissionId = (value: unknown): GuidedMissionId | null => {
+  if (value === 'warpForFirstCore') {
+    return 'earnFirstCore';
+  }
+  return typeof value === 'string' && guidedMissionIds.includes(value as GuidedMissionId)
+    ? value as GuidedMissionId
+    : null;
+};
+
 const isGuidedMissionId = (value: unknown): value is GuidedMissionId =>
-  typeof value === 'string' && guidedMissionIds.includes(value as GuidedMissionId);
+  normalizeGuidedMissionId(value) !== null;
 
 const isShipFrameId = (value: unknown): value is ShipFrameId =>
   typeof value === 'string' && value in SHIP_FRAME_BY_ID;
@@ -374,9 +383,9 @@ const readGuidedMissions = (value: unknown): GuidedMissionState => {
 
   const startedAt = isRecord(value.startedAt) ? value.startedAt : {};
   return {
-    activeMissionId: isGuidedMissionId(value.activeMissionId) ? value.activeMissionId : fallback.activeMissionId,
+    activeMissionId: normalizeGuidedMissionId(value.activeMissionId) ?? fallback.activeMissionId,
     completedMissionIds: Array.isArray(value.completedMissionIds)
-      ? Array.from(new Set(value.completedMissionIds.filter(isGuidedMissionId)))
+      ? Array.from(new Set(value.completedMissionIds.map((id) => normalizeGuidedMissionId(id)).filter((id): id is GuidedMissionId => id !== null)))
       : [],
     repeatCompletions: Math.max(0, Math.floor(readNumber(value.repeatCompletions, 0))),
     startedAt: {
@@ -449,7 +458,6 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const unlockedZoneIndex = Math.max(0, Math.min(maxTravelLevel, Math.floor(readNumber(value.unlockedZoneIndex, legacyTravelLevel))));
   const currentZoneIndex = Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex))));
   const ownedWarpUnlockIds = readWarpUnlockIds(value.ownedWarpUnlockIds);
-  const savedShipExchanges = Math.max(0, Math.floor(readNumber(value.shipExchanges, 0)));
   const unlockedShipFrameIds = normalizeShipFrameIds(value.unlockedShipFrameIds);
   const activeShipFrameId = isShipFrameId(value.activeShipFrameId) && unlockedShipFrameIds.includes(value.activeShipFrameId)
     ? value.activeShipFrameId
@@ -512,7 +520,6 @@ const readProgression = (value: unknown): ProgressionState | null => {
     unlockedShipFrameIds,
     shipUnlockProgress: readShipUnlockProgress(value.shipUnlockProgress),
     shipRuns: readShipRuns(value.shipRuns, unlockedShipFrameIds),
-    shipExchanges: savedShipExchanges,
     prestigeCores: Math.max(0, Math.floor(readNumber(value.prestigeCores, 0))),
     ownedWarpUnlockIds,
     announcedAffordableWarpUnlockIds: readWarpUnlockIds(value.announcedAffordableWarpUnlockIds),

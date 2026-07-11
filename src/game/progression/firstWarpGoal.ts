@@ -2,15 +2,14 @@ import { balance } from '../balance';
 import { hasActiveZoneBoss } from '../simulation/systems/asteroids';
 import type { GameState } from '../simulation/types';
 import { zones } from '../simulation/zones';
-import { crystalsPerPrestigeCore, getPrestigeCoreGain, minimumPrestigeTravelLevel } from './prestige';
+import { crystalsPerPrestigeCore, minimumPrestigeTravelLevel } from './prestige';
 import { WARP_UNLOCK_BY_ID, getAvailableWarpCores, hasWarpUnlock } from './warpUnlocks';
 
 export type FirstWarpGoal = {
-  type: 'installDroneSystems' | 'warpForFirstCore' | 'defeatGateBoss' | 'drawGateBoss' | 'collectWarpCrystals';
+  type: 'installDroneSystems' | 'defeatGateBoss' | 'drawGateBoss' | 'collectWarpCrystals';
   progress: number;
   availableCores?: number;
   firstTechnologyCost?: number;
-  coreGain?: number;
   destroyed?: number;
   asteroidTarget?: number;
   crystals?: number;
@@ -33,15 +32,6 @@ export const getFirstWarpGoal = (state: GameState): FirstWarpGoal | null => {
       progress: 1,
       availableCores,
       firstTechnologyCost
-    };
-  }
-
-  const coreGain = getPrestigeCoreGain(state);
-  if (coreGain > 0) {
-    return {
-      type: 'warpForFirstCore',
-      progress: 1,
-      coreGain
     };
   }
 

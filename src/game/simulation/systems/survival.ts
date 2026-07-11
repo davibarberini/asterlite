@@ -1,4 +1,5 @@
 import { balance } from '../../balance';
+import { createBossRewardState } from '../../progression/bossRewards';
 import {
   queueThreatMilestoneRewardChoice,
   getNextThreatRewardMilestone,
@@ -144,6 +145,7 @@ const resetCurrentSurvivalRun = (state: GameState): void => {
   state.survival.gravityPulseCooldown = 0;
   state.survival.damageFieldCooldown = 0;
   state.survivalEvents = [];
+  state.bossRewards = createBossRewardState();
 };
 
 const formatSurvivalSeconds = (seconds: number): string => {

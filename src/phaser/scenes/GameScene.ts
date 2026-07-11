@@ -19,7 +19,6 @@ import {
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { isSurvivalZone } from '../../game/simulation/systems/survival';
 import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, maxTravelLevel, zones } from '../../game/simulation/zones';
-import { createCoreResetState, getPrestigeCoreGain, minimumCoreResetThreatLevel } from '../../game/progression/prestige';
 import {
   getNovaCrownBestSeconds,
   getNovaCrownDifficultyConfig,
@@ -1024,7 +1023,6 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.prestigeCores > 0 ||
       getOwnedWarpUnlockCount(this.state.progression) > 0 ||
       getAvailableWarpCores(this.state.progression) > 0 ||
-      this.getPrestigeGain() > 0 ||
       (getNextZone(this.state) !== null && !hasActiveZoneBoss(this.state))
     );
   }
@@ -1037,7 +1035,6 @@ export class GameScene extends Phaser.Scene {
     return (
       this.shouldShowTechnologiesTab() ||
       this.getCrystalBalance() > 0 ||
-      this.getPrestigeGain() > 0 ||
       this.state.progression.unlockedShipFrameIds.length > 1 ||
       Object.keys(this.state.progression.shipRuns).length > 1
     );
@@ -1348,7 +1345,7 @@ export class GameScene extends Phaser.Scene {
       defeatGateBoss: this.language === 'pt-BR' ? 'Derrotar o boss' : 'Defeat the boss',
       travelToOrion: this.language === 'pt-BR' ? 'Viajar para Orion Forge' : 'Travel to Orion Forge',
       collectWarpCrystals: this.language === 'pt-BR' ? 'Coletar cristais' : 'Collect crystals',
-      warpForFirstCore: this.language === 'pt-BR' ? 'Fazer Core Reset' : 'Core Reset',
+      earnFirstCore: this.language === 'pt-BR' ? 'Ganhar primeiro núcleo' : 'Earn first core',
       installDroneSystems: this.language === 'pt-BR' ? 'Instalar sistemas de drones' : 'Install Drone Systems',
       openVegaRoute: this.language === 'pt-BR' ? 'Abrir rota para Vega Drift' : 'Open route to Vega Drift',
       travelToVega: this.language === 'pt-BR' ? 'Viajar para Vega Drift' : 'Travel to Vega Drift',
@@ -1379,7 +1376,7 @@ export class GameScene extends Phaser.Scene {
         : (this.language === 'pt-BR' ? 'Rota aberta' : 'Route open');
       return `${progress} · ${reward}`;
     }
-    if (goal.id === 'warpForFirstCore') {
+    if (goal.id === 'earnFirstCore') {
       const progress = goal.ready
         ? (this.language === 'pt-BR' ? 'Núcleo obtido' : 'Core earned')
         : `${goal.current}/${goal.target}`;
@@ -1778,7 +1775,6 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.deflectorLevel,
       this.state.progression.activeShipFrameId,
       this.state.progression.unlockedShipFrameIds.join(','),
-      this.state.progression.shipExchanges,
       this.state.progression.mapUnlocked,
       this.state.progression.travelLevel,
       this.state.progression.currentZoneIndex,
@@ -1789,7 +1785,6 @@ export class GameScene extends Phaser.Scene {
       this.state.pendingBoss?.spawnIn.toFixed(1) ?? 'none',
       this.state.progression.prestigeCores,
       this.state.survival.active ? this.state.survival.threatLevel : 0,
-      this.getPrestigeGain(),
       this.getCrystalBalance(),
       this.state.progression.dronesPurchased,
       this.state.progression.droneCounts.sentry,
@@ -1853,7 +1848,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.activeTab === 'warp') {
-      return `cores:${getAvailableWarpCores(this.state.progression)},reset:${this.getPrestigeGain()}:${this.state.survival.threatLevel}`;
+      return `cores:${getAvailableWarpCores(this.state.progression)}:${this.state.progression.prestigeCores}`;
     }
 
     if (this.activeTab === 'hangar') {
@@ -1864,8 +1859,7 @@ export class GameScene extends Phaser.Scene {
         `money:${Math.floor(this.state.money)}`,
         `crystals:${this.state.crystals}`,
         `damage:${this.state.progression.shipDamageLevel}`,
-        `fire:${this.state.progression.shipFireRateLevel}`,
-        `exchange:${this.getPrestigeGain() > 0}`
+        `fire:${this.state.progression.shipFireRateLevel}`
       ].join(',');
     }
 
@@ -2002,7 +1996,6 @@ export class GameScene extends Phaser.Scene {
     });
     coreTree.classList.add('warp-tree-board--inline');
     const panels: HTMLElement[] = [];
-    panels.push(this.createCoreResetPanel());
     if (this.shouldShowHangarTab()) {
       panels.push(this.createHangarShortcutPanel());
     }
@@ -2034,51 +2027,7 @@ export class GameScene extends Phaser.Scene {
     }));
   }
 
-  private createCoreResetPanel(): HTMLElement {
-    const coreGain = this.getPrestigeGain();
-    const ready = coreGain > 0;
-    const panel = document.createElement('section');
-    panel.className = 'warp-reset-panel';
-
-    const header = document.createElement('div');
-    header.className = 'warp-reset-panel__header';
-    const titleWrap = document.createElement('div');
-    const kicker = document.createElement('span');
-    kicker.className = 'warp-reset-panel__kicker';
-    kicker.textContent = this.language === 'pt-BR' ? 'Core Reset' : 'Core Reset';
-    const title = document.createElement('strong');
-    title.textContent = ready
-      ? (this.language === 'pt-BR' ? `Disponível · +${coreGain} ${coreGain === 1 ? 'core' : 'cores'}` : `Available · +${coreGain} ${coreGain === 1 ? 'core' : 'cores'}`)
-      : (this.language === 'pt-BR' ? `Requer Nova Crown threat ${minimumCoreResetThreatLevel}` : `Requires Nova Crown threat ${minimumCoreResetThreatLevel}`);
-    titleWrap.append(kicker, title);
-
-    const resetButton = document.createElement('button');
-    resetButton.className = 'shop-buy warp-reset-panel__button';
-    resetButton.type = 'button';
-    resetButton.disabled = !ready;
-    resetButton.textContent = ready ? (this.language === 'pt-BR' ? 'Resetar' : 'Reset') : translate(this.language, 'shop.notReady');
-    resetButton.addEventListener('click', () => this.coreReset(coreGain));
-    header.append(titleWrap, resetButton);
-
-    const stats = document.createElement('div');
-    stats.className = 'warp-reset-panel__stats';
-    stats.replaceChildren(
-      this.createWarpResetStat('Threat', this.state.survival.active ? this.state.survival.threatLevel.toString() : '0'),
-      this.createWarpResetStat(this.language === 'pt-BR' ? 'Guardados' : 'Banked', this.state.progression.prestigeCores.toString()),
-      this.createWarpResetStat(this.language === 'pt-BR' ? 'Disponíveis' : 'Available', getAvailableWarpCores(this.state.progression).toString())
-    );
-
-    const preview = document.createElement('p');
-    preview.className = 'warp-reset-panel__preview';
-    preview.textContent = this.language === 'pt-BR'
-      ? 'Reseta a run da nave atual e converte a pressão da Nova Crown em cores globais. Cores e tecnologias valem para todas as naves.'
-      : 'Resets the current ship run and converts Nova Crown pressure into global cores. Cores and technologies apply to every ship.';
-
-    panel.append(header, stats, preview);
-    return panel;
-  }
-
-  private createWarpResetStat(label: string, value: string): HTMLElement {
+  private createCompactPanelStat(label: string, value: string): HTMLElement {
     const stat = document.createElement('span');
     const labelEl = document.createElement('small');
     labelEl.textContent = label;
@@ -2122,8 +2071,8 @@ export class GameScene extends Phaser.Scene {
       const bossMoney = balance.bosses.reward.baseMoney + nextZone.index * balance.bosses.reward.moneyPerZone;
       const bossCrystals = balance.bosses.reward.baseCrystals + nextZone.index * balance.bosses.reward.crystalsPerZone;
       stats.replaceChildren(
-        this.createWarpResetStat('HP', bossHp.toString()),
-        this.createWarpResetStat(this.language === 'pt-BR' ? 'Base' : 'Base', `${this.formatMoney(bossMoney)} + ${bossCrystals} ${formatCrystalUnit(this.language, bossCrystals)}`)
+        this.createCompactPanelStat('HP', bossHp.toString()),
+        this.createCompactPanelStat(this.language === 'pt-BR' ? 'Base' : 'Base', `${this.formatMoney(bossMoney)} + ${bossCrystals} ${formatCrystalUnit(this.language, bossCrystals)}`)
       );
     }
 
@@ -2626,8 +2575,8 @@ export class GameScene extends Phaser.Scene {
     this.modalKickerEl.textContent = this.language === 'pt-BR' ? 'Recompensa de Threat' : 'Threat Reward';
     this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha um bônus da run' : 'Choose a run bonus';
     this.modalCopyEl.textContent = this.language === 'pt-BR'
-      ? 'Este bônus vem da pressão da Nova Crown e dura até o próximo Core Reset da nave atual.'
-      : 'This bonus comes from Nova Crown pressure and lasts until the next Core Reset for the current ship.';
+      ? 'Este bônus vem da pressão da Nova Crown e dura até esta tentativa de sobrevivência terminar.'
+      : 'This bonus comes from Nova Crown pressure and lasts until this survival attempt ends.';
     this.modalCopyEl.classList.remove('is-hidden');
 
     const actions = document.createElement('div');
@@ -3320,21 +3269,6 @@ export class GameScene extends Phaser.Scene {
     this.updateHud();
   }
 
-  private coreReset(coreGain: number): void {
-    if (this.getPrestigeGain() <= 0 || coreGain <= 0) {
-      return;
-    }
-
-    this.state = createCoreResetState(this.state, this.scale.width, this.scale.height, coreGain);
-    this.offlineStatusFor = 0;
-    this.activeTalentTooltipId = null;
-    this.activeWarpUnlockId = null;
-    this.shopSignature = '';
-    this.retroSound.play({ type: 'warpReset' });
-    saveGameState(this.state);
-    this.updateHud();
-  }
-
   private switchShipFrame(id: ShipFrameId): void {
     if (id === this.state.progression.activeShipFrameId || !this.state.progression.unlockedShipFrameIds.includes(id)) {
       return;
@@ -3591,10 +3525,6 @@ export class GameScene extends Phaser.Scene {
       return 'Prism Warden';
     }
     return 'Gravity Crusher';
-  }
-
-  private getPrestigeGain(): number {
-    return getPrestigeCoreGain(this.state);
   }
 
   private formatMoney(value: number): string {

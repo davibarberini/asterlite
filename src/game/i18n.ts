@@ -42,7 +42,7 @@ type TranslationKey =
   | 'status.firstBossDetected'
   | 'status.default'
   | 'goal.installDroneSystems'
-  | 'goal.warpForFirstCore'
+  | 'goal.earnFirstCore'
   | 'goal.defeatGateBoss'
   | 'goal.drawGateBoss'
   | 'goal.collectWarpCrystals'
@@ -70,18 +70,14 @@ type TranslationKey =
   | 'shop.max'
   | 'shop.damage'
   | 'shop.perHour'
-  | 'shop.warpReset'
   | 'shop.gainCores'
-  | 'shop.resetRun'
   | 'shop.notReady'
   | 'shop.crystals'
   | 'shop.availableAfter'
   | 'shop.route'
   | 'shop.owned'
-  | 'shop.nextCore'
   | 'shop.reachZone'
   | 'shop.unlockNext'
-  | 'shop.bankCores'
   | 'shop.defeatBosses'
   | 'shop.collectCrystals'
   | 'settings.audio'
@@ -134,7 +130,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'status.firstBossDetected': 'First gate boss detected.',
     'status.default': 'Drag and release to boost. Touch/hold to fire. WASD also flies.',
     'goal.installDroneSystems': 'Install Drone Systems',
-    'goal.warpForFirstCore': 'Reach Nova Crown threat 10 for your first core',
+    'goal.earnFirstCore': 'Earn your first Nova Crown core',
     'goal.defeatGateBoss': 'Defeat the gate boss',
     'goal.drawGateBoss': 'Draw out the gate boss',
     'goal.collectWarpCrystals': 'Collect crystals',
@@ -162,18 +158,14 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.max': 'MAX',
     'shop.damage': '{value} dmg',
     'shop.perHour': '{value} / h',
-    'shop.warpReset': 'Core Reset',
     'shop.gainCores': 'Gain {count} {unit}',
-    'shop.resetRun': 'Core Reset',
     'shop.notReady': 'Not Ready',
     'shop.crystals': 'Crystals',
     'shop.availableAfter': 'After reset',
     'shop.route': 'Route',
     'shop.owned': '{count} owned',
-    'shop.nextCore': 'Reach Nova Crown threat 10 to reset for cores',
     'shop.reachZone': 'Reach {zone}',
     'shop.unlockNext': 'Unlock next: {items}.',
-    'shop.bankCores': 'Core Reset now to bank global cores for the next technology.',
     'shop.defeatBosses': 'Defeat gate bosses to open the route toward Nova Crown.',
     'shop.collectCrystals': 'Crystals improve the current ship through skills.',
     'settings.audio': 'Audio',
@@ -225,7 +217,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'status.firstBossDetected': 'Primeiro boss detectado.',
     'status.default': 'Arraste e solte para impulsionar. Toque/segure para atirar. WASD também voa.',
     'goal.installDroneSystems': 'Instale Sistemas de Drones',
-    'goal.warpForFirstCore': 'Chegue ao threat 10 da Nova Crown pelo primeiro núcleo',
+    'goal.earnFirstCore': 'Ganhe seu primeiro núcleo da Nova Crown',
     'goal.defeatGateBoss': 'Derrote o boss do portal',
     'goal.drawGateBoss': 'Atraia o boss do portal',
     'goal.collectWarpCrystals': 'Colete cristais',
@@ -253,18 +245,14 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.max': 'MAX',
     'shop.damage': '{value} dano',
     'shop.perHour': '{value} / h',
-    'shop.warpReset': 'Core Reset',
     'shop.gainCores': 'Ganhar {count} {unit}',
-    'shop.resetRun': 'Core Reset',
     'shop.notReady': 'Bloqueado',
     'shop.crystals': 'Cristais',
     'shop.availableAfter': 'Depois do reset',
     'shop.route': 'Rota',
     'shop.owned': '{count} comprados',
-    'shop.nextCore': 'Alcance threat 10 na Nova Crown para resetar por cores',
     'shop.reachZone': 'Alcance {zone}',
     'shop.unlockNext': 'Próximo desbloqueio: {items}.',
-    'shop.bankCores': 'Faça Core Reset agora para guardar cores globais para a próxima tecnologia.',
     'shop.defeatBosses': 'Derrote bosses de portal para abrir caminho até a Nova Crown.',
     'shop.collectCrystals': 'Cristais melhoram a nave atual pela árvore de habilidades.',
     'settings.audio': 'Áudio',

@@ -323,7 +323,7 @@ export type GuidedMissionId =
   | 'collectWarpCrystals'
   | 'openVegaRoute'
   | 'travelToVega'
-  | 'warpForFirstCore'
+  | 'earnFirstCore'
   | 'installDroneSystems'
   | 'openCygnusRoute'
   | 'travelToCygnus'
@@ -420,7 +420,6 @@ export type ProgressionState = {
   unlockedShipFrameIds: ShipFrameId[];
   shipUnlockProgress: ShipUnlockProgress;
   shipRuns: Partial<Record<ShipFrameId, ShipRunState>>;
-  shipExchanges: number;
   prestigeCores: number;
   ownedWarpUnlockIds: WarpUnlockId[];
   announcedAffordableWarpUnlockIds: WarpUnlockId[];

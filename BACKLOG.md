@@ -4,6 +4,19 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Remove Ship Reset Loop
+
+Removed ship/core reset as a primary progression mechanic.
+
+Notes:
+- Removed the player-facing Core Reset panel and action from the Technologies tab.
+- Removed reset-based core gain from Nova Crown threat; cores now come from Nova Crown boss and first-clear rewards.
+- Removed the core reset state factory and obsolete ship exchange count unlock helpers.
+- Renamed the first-core guided mission from the legacy `warpForFirstCore` path to `earnFirstCore`, with save migration for old mission ids.
+- Run reward choices now describe lasting until the current Nova Crown survival attempt ends, and active/pending run rewards clear when survival ends.
+- Existing saves keep global cores, owned Technologies, unlocked ships, ship runs, and Nova Crown records without needing the old reset path.
+- Updated tests away from reset behavior and kept coverage for ship switching, core rewards, and legacy mission migration.
+
 ### Boss Identity and Pattern Pass
 
 Made route bosses read more like distinct fights instead of larger asteroid targets.
@@ -36,7 +49,7 @@ Notes:
 - Added difficulty-scaled global core rewards for bosses defeated while in Nova Crown survival.
 - Added a first-clear global core reward for reaching threat level 11 on each Nova Crown difficulty.
 - First-clear rewards are tracked per difficulty so repeat clears do not duplicate the milestone payout.
-- Core rewards use the selected/active Nova Crown difficulty and persist globally across ship switching and core reset.
+- Core rewards use the selected/active Nova Crown difficulty and persist globally across ship switching.
 - Reward feed copy now explains when cores came from Nova Crown boss defeats or difficulty clears.
 - Added tests for boss core rewards, first-clear rewards, save persistence, and reset preservation.
 
@@ -79,6 +92,7 @@ Notes:
 Moved core earning from ship exchange/crystal routing into Nova Crown survival.
 
 Notes:
+- Superseded by `Remove Ship Reset Loop`: the player-facing reset action and reset state path have been removed.
 - Core Reset is now available only during active Nova Crown survival at threat level 10 or higher.
 - Core gain now scales from current threat level: 1 core at threat 10, 2 at threat 20, 3 at threat 30, and so on.
 - Warp/ship exchange reset was removed from the Hangar UI.
@@ -210,6 +224,7 @@ Added boss-defeat reward choices that create run-scoped build decisions.
 
 Notes:
 - Superseded by `Threat Milestone Reward Choices`: bosses no longer queue these choices directly.
+- Superseded by `Remove Ship Reset Loop`: run rewards now clear when the Nova Crown survival attempt ends.
 - Originally, defeating a route boss queued a serializable pending reward choice.
 - The player can choose between faster ship fire, faster deployed drone reloads, or stronger credit salvage.
 - Chosen rewards persist through save/load during the current run.
@@ -482,23 +497,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Remove Ship Reset Loop
-
-Remove ship reset as a primary progression mechanic once Nova Crown difficulty rewards replace it.
-
-Design:
-- Delete or retire reset UI, reset copy, and reset-only code paths that no longer serve the new loop.
-- Preserve existing saves by migrating old reset/core fields into the new global core/technology model.
-- Ship progress should remain attached to the ship; starting another ship from zero remains the collection/build loop.
-- Technologies remain global account progression purchased with Nova Crown cores.
-
-Acceptance:
-- No player-facing reset action remains in the main loop.
-- Obsolete reset-specific code paths, labels, and tests are removed or renamed.
-- Existing saves with cores/technologies migrate without losing global progress.
-- Switching ships does not reset global cores or installed technologies.
-- Build and tests pass without dead reset dependencies.
 
 ### Ship Skill Tree Rebuild
 

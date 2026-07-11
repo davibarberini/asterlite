@@ -201,7 +201,7 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
     }
   },
   {
-    id: 'warpForFirstCore',
+    id: 'earnFirstCore',
     target: 1,
     rewardKind: 'fireRate',
     getCurrent: (state) => state.progression.prestigeCores,
@@ -289,7 +289,7 @@ const INITIAL_MISSION_IDS: GuidedMissionId[] = [
   'travelToCygnus',
   'openNovaRoute',
   'travelToNovaCrown',
-  'warpForFirstCore',
+  'earnFirstCore',
   'installDroneSystems'
 ];
 
