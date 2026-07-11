@@ -9,11 +9,11 @@ import {
   syncAchievements
 } from './achievements';
 import { createBossRewardState, isBossRewardId, normalizeBossRewardState } from './bossRewards';
-import { createTalentRanks, migrateLegacyDroneSkills, TALENT_DEFINITIONS } from './talentTree';
+import { getSpentTalentPointCost, migrateLegacyDroneSkills, normalizeTalentRanks, TALENT_DEFINITIONS } from './talentTree';
 import { maxShipLevel } from './shipLevel';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, normalizeShipFrameIds } from './shipFrames';
-import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentId, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
@@ -127,24 +127,19 @@ const readLegacyDroneSkillLevels = (value: unknown): { sentryRange: number; rang
 
 const readTalentRanks = (value: unknown, legacySkills: { sentryRange: number; rangerFocus: number; breakerCapacitor: number }): TalentRanks => {
   if (isRecord(value)) {
-    const ranks = createTalentRanks();
-    TALENT_DEFINITIONS.forEach((talent) => {
-      ranks[talent.id] = Math.max(0, Math.min(talent.maxRank, Math.floor(readNumber(value[talent.id], 0))));
-    });
-    return ranks;
+    return normalizeTalentRanks(Object.fromEntries(
+      TALENT_DEFINITIONS.map((talent) => [talent.id, readNumber(value[talent.id], 0)])
+    ) as Partial<Record<TalentId, number>>);
   }
 
-  return migrateLegacyDroneSkills(legacySkills);
+  return normalizeTalentRanks(migrateLegacyDroneSkills(legacySkills));
 };
-
-const countTalentRanks = (ranks: TalentRanks): number =>
-  TALENT_DEFINITIONS.reduce((total, talent) => total + Math.max(0, Math.floor(ranks[talent.id] ?? 0)), 0);
 
 const readShipLevelProgress = (
   value: Record<string, unknown>,
   talentRanks: TalentRanks
 ): { shipXp: number; shipLevel: number; shipSkillPoints: number; spentShipSkillPoints: number } => {
-  const spentShipSkillPoints = Math.max(countTalentRanks(talentRanks), Math.floor(readNumber(value.spentShipSkillPoints, 0)));
+  const spentShipSkillPoints = getSpentTalentPointCost(talentRanks);
   const shipSkillPoints = Math.max(spentShipSkillPoints, Math.floor(readNumber(value.shipSkillPoints, spentShipSkillPoints)));
   const shipLevel = Math.max(
     1,

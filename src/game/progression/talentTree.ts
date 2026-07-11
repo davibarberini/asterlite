@@ -1,16 +1,17 @@
 import type { AsteroidVariant, DroneType, ProgressionState, TalentId, TalentRanks } from '../simulation/types';
-import { getAvailableShipSkillPoints, getTalentPointCost } from './shipLevel';
+import { getAvailableShipSkillPoints } from './shipLevel';
 
 export type TalentBranch = 'economy' | 'semiAuto' | 'shotgun' | 'missile';
+export type TalentNodeType = 'minor' | 'notable' | 'keystone' | 'lockedRegion';
 
 export type TalentDefinition = {
   id: TalentId;
   name: string;
   summary: string;
   branch: TalentBranch;
+  nodeType: TalentNodeType;
   maxRank: number;
-  baseCost: number;
-  costScale: number;
+  pointCost: number;
   requiresDrone?: DroneType;
   requires: { id: TalentId; rank: number }[];
   grid: { col: number; row: number };
@@ -25,9 +26,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Offline Relay',
     summary: '+10% offline credit income per rank.',
     branch: 'economy',
-    maxRank: 3,
-    baseCost: 2,
-    costScale: 1.65,
+    nodeType: 'minor',
+    maxRank: 2,
+    pointCost: 1,
     requires: [],
     grid: { col: 3, row: 1 }
   },
@@ -36,9 +37,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Combat Bounty',
     summary: '+12% asteroid credit rewards per rank.',
     branch: 'economy',
-    maxRank: 3,
-    baseCost: 3,
-    costScale: 1.7,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requires: [{ id: 'refineryYield', rank: 1 }],
     grid: { col: 2, row: 2 }
   },
@@ -47,9 +48,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Crystal Seam',
     summary: '+20% crystal drops from crystal asteroids per rank.',
     branch: 'economy',
-    maxRank: 2,
-    baseCost: 4,
-    costScale: 1.85,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requires: [{ id: 'refineryYield', rank: 1 }],
     grid: { col: 4, row: 2 }
   },
@@ -58,11 +59,11 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Salvage Loop',
     summary: '+25% offline credit income.',
     branch: 'economy',
+    nodeType: 'keystone',
     maxRank: 1,
-    baseCost: 8,
-    costScale: 1,
+    pointCost: 3,
     requires: [
-      { id: 'combatBounty', rank: 2 },
+      { id: 'combatBounty', rank: 1 },
       { id: 'crystalSeam', rank: 1 }
     ],
     grid: { col: 3, row: 3 }
@@ -72,9 +73,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Propulsion Tuning',
     summary: '+6% ship thrust and max speed per rank.',
     branch: 'economy',
-    maxRank: 5,
-    baseCost: 5,
-    costScale: 1.82,
+    nodeType: 'minor',
+    maxRank: 2,
+    pointCost: 1,
     requires: [{ id: 'combatBounty', rank: 1 }],
     grid: { col: 2, row: 3 }
   },
@@ -83,11 +84,11 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Vector Nozzles',
     summary: '+8% ship thrust and max speed per rank.',
     branch: 'economy',
-    maxRank: 3,
-    baseCost: 9,
-    costScale: 1.95,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requires: [
-      { id: 'propulsionTuning', rank: 3 },
+      { id: 'propulsionTuning', rank: 2 },
       { id: 'crystalSeam', rank: 1 }
     ],
     grid: { col: 4, row: 3 }
@@ -97,9 +98,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Target Optics',
     summary: 'Unlocks the semi-auto branch and adds +50 targeting range.',
     branch: 'semiAuto',
+    nodeType: 'lockedRegion',
     maxRank: 1,
-    baseCost: 3,
-    costScale: 1,
+    pointCost: 1,
     requiresDrone: 'sentry',
     requires: [],
     grid: { col: 1, row: 1 }
@@ -109,9 +110,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Long Lens',
     summary: '+40 semi-auto targeting range per rank.',
     branch: 'semiAuto',
-    maxRank: 3,
-    baseCost: 3,
-    costScale: 1.6,
+    nodeType: 'minor',
+    maxRank: 2,
+    pointCost: 1,
     requiresDrone: 'sentry',
     requires: [{ id: 'semiAutoOptics', rank: 1 }],
     grid: { col: 1, row: 2 }
@@ -121,9 +122,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Linear Pierce',
     summary: '+1 asteroid pierce per rank. Semi-auto starts at 1 pierce.',
     branch: 'semiAuto',
-    maxRank: 4,
-    baseCost: 4,
-    costScale: 1.75,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requiresDrone: 'sentry',
     requires: [{ id: 'semiAutoOptics', rank: 1 }],
     grid: { col: 1, row: 3 }
@@ -133,9 +134,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Burst Timing',
     summary: '-10% semi-auto fire interval per rank.',
     branch: 'semiAuto',
-    maxRank: 3,
-    baseCost: 4,
-    costScale: 1.68,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requiresDrone: 'sentry',
     requires: [{ id: 'semiAutoPierce', rank: 1 }],
     grid: { col: 1, row: 4 }
@@ -145,13 +146,13 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Overdrive Rounds',
     summary: '+2 semi-auto shot damage.',
     branch: 'semiAuto',
+    nodeType: 'keystone',
     maxRank: 1,
-    baseCost: 9,
-    costScale: 1,
+    pointCost: 3,
     requiresDrone: 'sentry',
     requires: [
-      { id: 'semiAutoCadence', rank: 2 },
-      { id: 'semiAutoPierce', rank: 2 }
+      { id: 'semiAutoCadence', rank: 1 },
+      { id: 'semiAutoPierce', rank: 1 }
     ],
     grid: { col: 1, row: 5 }
   },
@@ -160,9 +161,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Heavy Load',
     summary: 'Unlocks the shotgun branch and adds +1 pellet damage.',
     branch: 'shotgun',
+    nodeType: 'lockedRegion',
     maxRank: 1,
-    baseCost: 3,
-    costScale: 1,
+    pointCost: 1,
     requiresDrone: 'ranger',
     requires: [],
     grid: { col: 3, row: 4 }
@@ -172,9 +173,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Tight Choke',
     summary: '+1 shotgun pellet damage per rank.',
     branch: 'shotgun',
-    maxRank: 3,
-    baseCost: 4,
-    costScale: 1.72,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requiresDrone: 'ranger',
     requires: [{ id: 'shotgunLoad', rank: 1 }],
     grid: { col: 2, row: 5 }
@@ -184,9 +185,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Wide Spread',
     summary: '+1 shotgun pellet per rank.',
     branch: 'shotgun',
-    maxRank: 2,
-    baseCost: 5,
-    costScale: 1.8,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requiresDrone: 'ranger',
     requires: [{ id: 'shotgunLoad', rank: 1 }],
     grid: { col: 4, row: 5 }
@@ -196,11 +197,11 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Barrage Cycle',
     summary: '-12% shotgun fire interval.',
     branch: 'shotgun',
+    nodeType: 'notable',
     maxRank: 1,
-    baseCost: 7,
-    costScale: 1,
+    pointCost: 2,
     requiresDrone: 'ranger',
-    requires: [{ id: 'shotgunChoke', rank: 2 }],
+    requires: [{ id: 'shotgunChoke', rank: 1 }],
     grid: { col: 2, row: 6 }
   },
   {
@@ -208,9 +209,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Slag Rounds',
     summary: '+2 shotgun pellet damage against dense asteroids.',
     branch: 'shotgun',
+    nodeType: 'keystone',
     maxRank: 1,
-    baseCost: 8,
-    costScale: 1,
+    pointCost: 3,
     requiresDrone: 'ranger',
     requires: [
       { id: 'shotgunSpread', rank: 1 },
@@ -223,9 +224,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Guidance Uplink',
     summary: 'Unlocks the missile branch and adds +20% homing turn rate per rank.',
     branch: 'missile',
-    maxRank: 3,
-    baseCost: 3,
-    costScale: 1.62,
+    nodeType: 'lockedRegion',
+    maxRank: 1,
+    pointCost: 1,
     requiresDrone: 'breaker',
     requires: [],
     grid: { col: 5, row: 1 }
@@ -235,9 +236,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'High Yield',
     summary: '+1 missile damage per rank.',
     branch: 'missile',
-    maxRank: 3,
-    baseCost: 4,
-    costScale: 1.7,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileGuidance', rank: 1 }],
     grid: { col: 5, row: 2 }
@@ -247,9 +248,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Fast Reload',
     summary: '-10% missile fire interval per rank.',
     branch: 'missile',
-    maxRank: 3,
-    baseCost: 4,
-    costScale: 1.66,
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileGuidance', rank: 1 }],
     grid: { col: 5, row: 3 }
@@ -259,11 +260,11 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Blast Warhead',
     summary: 'Missiles explode on impact for area damage.',
     branch: 'missile',
+    nodeType: 'notable',
     maxRank: 1,
-    baseCost: 7,
-    costScale: 1,
+    pointCost: 2,
     requiresDrone: 'breaker',
-    requires: [{ id: 'missileYield', rank: 2 }],
+    requires: [{ id: 'missileYield', rank: 1 }],
     grid: { col: 5, row: 4 }
   },
   {
@@ -271,9 +272,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Shrapnel Burst',
     summary: '+18% missile splash radius and +1 splash damage per rank.',
     branch: 'missile',
-    maxRank: 3,
-    baseCost: 5,
-    costScale: 1.78,
+    nodeType: 'minor',
+    maxRank: 2,
+    pointCost: 1,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileWarhead', rank: 1 }],
     grid: { col: 5, row: 5 }
@@ -283,9 +284,9 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     name: 'Chain Detonation',
     summary: 'Missile explosions deal +60% splash damage.',
     branch: 'missile',
+    nodeType: 'keystone',
     maxRank: 1,
-    baseCost: 10,
-    costScale: 1,
+    pointCost: 3,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileShrapnel', rank: 2 }],
     grid: { col: 5, row: 6 }
@@ -300,13 +301,25 @@ export const TALENT_BY_ID = Object.fromEntries(TALENT_DEFINITIONS.map((talent) =
 export const createTalentRanks = (): TalentRanks =>
   Object.fromEntries(TALENT_DEFINITIONS.map((talent) => [talent.id, 0])) as TalentRanks;
 
+export const normalizeTalentRanks = (ranks: Partial<Record<TalentId, number>>): TalentRanks => {
+  const normalized = createTalentRanks();
+  TALENT_DEFINITIONS.forEach((talent) => {
+    normalized[talent.id] = Math.max(0, Math.min(talent.maxRank, Math.floor(ranks[talent.id] ?? 0)));
+  });
+  return normalized;
+};
+
 export const getTalentRank = (progression: ProgressionState, id: TalentId): number =>
   Math.max(0, Math.min(TALENT_BY_ID[id].maxRank, progression.talentRanks[id] ?? 0));
 
-export const getTalentCost = (id: TalentId, currentRank: number): number => {
-  const talent = TALENT_BY_ID[id];
-  return Math.round(talent.baseCost * talent.costScale ** currentRank);
-};
+export const getTalentPointCost = (id: TalentId): number =>
+  Math.max(1, Math.floor(TALENT_BY_ID[id].pointCost));
+
+export const getSpentTalentPointCost = (ranks: TalentRanks): number =>
+  TALENT_DEFINITIONS.reduce((total, talent) => {
+    const rank = Math.max(0, Math.min(talent.maxRank, Math.floor(ranks[talent.id] ?? 0)));
+    return total + rank * getTalentPointCost(talent.id);
+  }, 0);
 
 export const countUnlockedTalentRanks = (progression: ProgressionState): number =>
   TALENT_DEFINITIONS.reduce((total, talent) => total + getTalentRank(progression, talent.id), 0);
@@ -327,7 +340,7 @@ export const canBuyTalentRank = (progression: ProgressionState, id: TalentId): b
     return false;
   }
 
-  return getAvailableShipSkillPoints(progression) >= getTalentPointCost();
+  return getAvailableShipSkillPoints(progression) >= getTalentPointCost(id);
 };
 
 export type TalentNodeState = 'locked' | 'available' | 'partial' | 'maxed';

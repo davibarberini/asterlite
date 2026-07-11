@@ -22,7 +22,7 @@ import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
 import { applyBossRewardChoice } from '../progression/bossRewards';
 import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
-import { TALENT_DEFINITIONS } from '../progression/talentTree';
+import { TALENT_DEFINITIONS, getSpentTalentPointCost, getTalentPointCost } from '../progression/talentTree';
 import { formatCompactNumber, formatMoney } from '../numberFormat';
 import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateBosses } from '../simulation/systems/enemies';
@@ -103,6 +103,7 @@ describe('save loading', () => {
     savedState.progression.shipLevel = 6;
     savedState.progression.shipXp = 12;
     savedState.progression.shipSkillPoints = 5;
+    savedState.progression.talentRanks.refineryYield = 1;
     savedState.progression.spentShipSkillPoints = 1;
     savedState.progression.bossDiscovery = {
       rareBossProgress: 12,
@@ -189,6 +190,10 @@ describe('save loading', () => {
     progression.unlockedZoneIndex = 2;
     progression.currentZoneIndex = 99;
     progression.travelLevel = 2;
+    progression.talentRanks.refineryYield = 99;
+    progression.talentRanks.combatBounty = 2;
+    progression.shipSkillPoints = 99;
+    progression.spentShipSkillPoints = 99;
 
     window.localStorage.setItem(
       saveKey,
@@ -214,6 +219,9 @@ describe('save loading', () => {
     expect(state.progression.unlockedZoneIndex).toBe(2);
     expect(state.progression.currentZoneIndex).toBe(2);
     expect(state.progression.travelLevel).toBe(2);
+    expect(state.progression.talentRanks.refineryYield).toBe(2);
+    expect(state.progression.talentRanks.combatBounty).toBe(1);
+    expect(state.progression.spentShipSkillPoints).toBe(getSpentTalentPointCost(state.progression.talentRanks));
     expect(state.progression.ownedWarpUnlockIds).toEqual([]);
     expect(state.ship.hp).toBe(state.ship.maxHp);
     expect(state.ship.position).toEqual({ x: 25, y: 40 });
@@ -691,6 +699,13 @@ describe('guided missions', () => {
 });
 
 describe('crystal spending and talents', () => {
+  it('defines unique skill node types with per-node point costs', () => {
+    expect(new Set(TALENT_DEFINITIONS.map((talent) => talent.nodeType))).toEqual(new Set(['minor', 'notable', 'keystone', 'lockedRegion']));
+    expect(getTalentPointCost('refineryYield')).toBe(1);
+    expect(getTalentPointCost('combatBounty')).toBe(2);
+    expect(getTalentPointCost('salvageLoop')).toBe(3);
+  });
+
   it('normalizes crystal balance before spending', () => {
     const state = createGameState(800, 600);
     state.crystals = 7.9;
@@ -706,15 +721,20 @@ describe('crystal spending and talents', () => {
     const state = createGameState(800, 600);
     state.crystals = 5;
     state.progression.shipLevel = 3;
-    state.progression.shipSkillPoints = 2;
+    state.progression.shipSkillPoints = 3;
 
     expect(purchaseTalentRank(state, 'refineryYield')).toBe(true);
     expect(state.progression.talentRanks.refineryYield).toBe(1);
     expect(state.crystals).toBe(5);
-    expect(getAvailableShipSkillPoints(state.progression)).toBe(1);
+    expect(getAvailableShipSkillPoints(state.progression)).toBe(2);
+    expect(purchaseTalentRank(state, 'combatBounty')).toBe(true);
+    expect(state.progression.talentRanks.combatBounty).toBe(1);
+    expect(state.progression.spentShipSkillPoints).toBe(getTalentPointCost('refineryYield') + getTalentPointCost('combatBounty'));
+    expect(getAvailableShipSkillPoints(state.progression)).toBe(0);
     expect(purchaseTalentRank(state, 'semiAutoOptics')).toBe(false);
     expect(state.progression.talentRanks.semiAutoOptics).toBe(0);
 
+    state.progression.shipSkillPoints = 4;
     state.progression.droneCounts.sentry = 1;
     expect(purchaseTalentRank(state, 'semiAutoOptics')).toBe(true);
     expect(state.progression.talentRanks.semiAutoOptics).toBe(1);
@@ -724,18 +744,18 @@ describe('crystal spending and talents', () => {
 
   it('respecs spent talent ranks with crystals while preserving ship level and XP', () => {
     const state = createGameState(800, 600);
-    state.crystals = 20;
+    state.crystals = 24;
     state.progression.shipLevel = 4;
     state.progression.shipXp = 37;
     state.progression.shipSkillPoints = 3;
 
     expect(purchaseTalentRank(state, 'refineryYield')).toBe(true);
     expect(purchaseTalentRank(state, 'combatBounty')).toBe(true);
-    expect(getTalentRespecCost(state)).toBe(16);
+    expect(getTalentRespecCost(state)).toBe(24);
 
     expect(respecTalentRanks(state)).toBe(true);
 
-    expect(state.crystals).toBe(4);
+    expect(state.crystals).toBe(0);
     expect(state.progression.talentRanks.refineryYield).toBe(0);
     expect(state.progression.talentRanks.combatBounty).toBe(0);
     expect(state.progression.spentShipSkillPoints).toBe(0);
@@ -816,7 +836,9 @@ describe('crystal spending and talents', () => {
     expect(state.audioEvents.some((event) => event.type === 'shipLevelUp')).toBe(true);
     expect(state.levelShockwaves).toHaveLength(1);
     expect(getTotalShipSkillPointCap()).toBe(maxShipLevel - 1);
-    expect(getTotalShipSkillPointCap()).toBeLessThan(TALENT_DEFINITIONS.reduce((total, talent) => total + talent.maxRank, 0));
+    expect(getTotalShipSkillPointCap()).toBeLessThan(
+      TALENT_DEFINITIONS.reduce((total, talent) => total + talent.maxRank * getTalentPointCost(talent.id), 0)
+    );
   });
 
   it('clears nearby normal asteroids with a level-up shockwave without splitting them', () => {

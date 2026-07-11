@@ -4,22 +4,6 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Skill Tree Unique Node Model
-
-Rework the ship skill tree data model so it supports fewer, more meaningful build decisions.
-
-Design:
-- Reduce most skill nodes to one rank, with only a few minor nodes having two ranks.
-- Add explicit node types such as minor, notable, keystone, and locked-region entry.
-- Preserve current per-ship level, XP, skill point, spent point, and respec behavior.
-- Keep save state serializable and migrate/normalize old talent ranks into the new structure without crashing.
-
-Acceptance:
-- Talent definitions support unique/notable/keystone nodes with per-node point costs.
-- Existing save data with old ranks loads into a valid new tree state.
-- Skill purchasing and respec still work with the new model.
-- Tests cover old-rank normalization, point spending, and respec after the model change.
-
 ### Skill Tree Impact and Speed Branches
 
 Replace the current incremental tree with a larger build-oriented tree split around distinct playstyles.

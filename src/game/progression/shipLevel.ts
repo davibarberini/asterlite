@@ -11,8 +11,6 @@ export const getShipXpForNextLevel = (level: number): number => {
 export const getAvailableShipSkillPoints = (progression: ProgressionState): number =>
   Math.max(0, Math.floor(progression.shipSkillPoints) - Math.floor(progression.spentShipSkillPoints));
 
-export const getTalentPointCost = (): number => 1;
-
 export const getTotalShipSkillPointCap = (): number => maxShipLevel - 1;
 
 const createLevelShockwave = (state: GameState, levelsGained: number): void => {

@@ -5,10 +5,10 @@ import {
   TALENT_GRID_ROWS,
   canBuyTalentRank,
   getTalentNodeState,
+  getTalentPointCost,
   getTalentRank,
   getTalentRankLabel
 } from '../../game/progression/talentTree';
-import { getTalentPointCost } from '../../game/progression/shipLevel';
 import type { LanguageCode } from '../../game/i18n';
 import type { DroneType, ProgressionState, TalentId } from '../../game/simulation/types';
 
@@ -62,7 +62,9 @@ const getTalentText = (id: TalentId, language: LanguageCode): { name: string; su
 };
 
 const formatSkillPointCost = (language: LanguageCode, cost: number): string =>
-  language === 'pt-BR' ? `${cost} ponto` : `${cost} point`;
+  language === 'pt-BR'
+    ? `${cost} ${cost === 1 ? 'ponto' : 'pontos'}`
+    : `${cost} ${cost === 1 ? 'point' : 'points'}`;
 
 const formatRankLabel = (language: LanguageCode, progression: ProgressionState, id: TalentId): string => {
   const rankLabel = getTalentRankLabel(progression, id);
@@ -187,7 +189,7 @@ export class SkillTreeModalController {
 
     const node = document.createElement('button');
     node.type = 'button';
-    node.className = `talent-node talent-node--compact talent-node--${talent.branch} is-${nodeState}`;
+    node.className = `talent-node talent-node--compact talent-node--${talent.branch} talent-node--${talent.nodeType} is-${nodeState}`;
     node.classList.toggle('is-selected', state.selectedTalentId === id);
     node.style.gridColumn = `${talent.grid.col}`;
     node.style.gridRow = `${talent.grid.row}`;
@@ -239,7 +241,7 @@ export class SkillTreeModalController {
     const text = getTalentText(id, state.language);
     const rank = getTalentRank(state.progression, id);
     const nodeState = getTalentNodeState(state.progression, id);
-    const nextCost = getTalentPointCost();
+    const nextCost = getTalentPointCost(id);
     const canBuy = canBuyTalentRank(state.progression, id);
 
     const panel = document.createElement('section');

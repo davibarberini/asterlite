@@ -4,6 +4,19 @@ Completed backlog and technical debt items moved out for the 1.0 release snapsho
 
 ## Backlog Completed
 
+### Skill Tree Unique Node Model
+
+Reworked the skill tree foundation so future build-oriented nodes can be more meaningful.
+
+Notes:
+- Added explicit skill node types: minor, notable, keystone, and locked-region entry.
+- Added per-node skill point costs instead of a universal one-point purchase cost.
+- Reduced current tree ranks so most nodes are single-purchase choices, with only a few minor nodes keeping two ranks.
+- Updated requirements that referenced old high-rank thresholds to fit the normalized tree.
+- Save loading now clamps old persisted ranks into the new max-rank structure and recalculates spent skill points from the normalized current tree.
+- Skill purchase, available point checks, respec cost, and tooltip copy now use per-node point costs.
+- Added tests for node type/cost definitions, point spending, respec, and old-rank normalization.
+
 ### Survival Run Modifiers
 
 Expanded Nova Crown threat rewards into more run-defining survival choices.
