@@ -2623,11 +2623,11 @@ export class GameScene extends Phaser.Scene {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
     this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
-    this.modalKickerEl.textContent = this.language === 'pt-BR' ? 'Recompensa de Boss' : 'Boss Reward';
+    this.modalKickerEl.textContent = this.language === 'pt-BR' ? 'Recompensa de Threat' : 'Threat Reward';
     this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha um bônus da run' : 'Choose a run bonus';
     this.modalCopyEl.textContent = this.language === 'pt-BR'
-      ? 'Este bônus dura até o próximo Core Reset da nave atual.'
-      : 'This bonus lasts until the next Core Reset for the current ship.';
+      ? 'Este bônus vem da pressão da Nova Crown e dura até o próximo Core Reset da nave atual.'
+      : 'This bonus comes from Nova Crown pressure and lasts until the next Core Reset for the current ship.';
     this.modalCopyEl.classList.remove('is-hidden');
 
     const actions = document.createElement('div');

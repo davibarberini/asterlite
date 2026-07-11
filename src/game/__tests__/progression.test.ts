@@ -785,7 +785,7 @@ describe('boss gates and core reset', () => {
     });
   });
 
-  it('creates a pending run reward choice when a route boss is defeated', () => {
+  it('does not create a pending run reward choice when a route boss is defeated', () => {
     const state = createGameState(800, 600);
     const boss = makeBossAsteroid(1);
     state.asteroids = [boss];
@@ -808,7 +808,7 @@ describe('boss gates and core reset', () => {
     resolveCollisions(state);
 
     expect(state.progression.bossDefeats).toBe(1);
-    expect(state.bossRewards.pendingChoiceIds).toEqual(['rapidFire', 'droneOverdrive', 'salvageSurge']);
+    expect(state.bossRewards.pendingChoiceIds).toEqual([]);
     expect(state.bossRewards.activeIds).toEqual([]);
   });
 

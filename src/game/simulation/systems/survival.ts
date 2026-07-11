@@ -1,5 +1,10 @@
 import { balance } from '../../balance';
 import {
+  queueThreatMilestoneRewardChoice,
+  getNextThreatRewardMilestone,
+  getThreatRewardInterval
+} from '../../progression/bossRewards';
+import {
   getNovaCrownDifficultyConfig,
   novaCrownClearThreatLevel,
   normalizeNovaCrownDifficulty,
@@ -16,6 +21,7 @@ export const createSurvivalState = (): SurvivalState => ({
   currentSeconds: 0,
   threatLevel: 0,
   lastAnnouncedThreatLevel: 0,
+  nextRewardThreatLevel: getThreatRewardInterval(),
   hazardSpawnCooldown: 0,
   hunterSpawnCooldown: 0,
   timedEventCooldown: 0,
@@ -85,6 +91,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     state.survival.difficulty = normalizeNovaCrownDifficulty(state.progression.novaCrownSelectedDifficulty);
     state.survival.threatLevel = getSurvivalThreatLevel(0, state.survival.difficulty);
     state.survival.lastAnnouncedThreatLevel = state.survival.threatLevel;
+    state.survival.nextRewardThreatLevel = getNextThreatRewardMilestone(state.survival.threatLevel);
     state.survival.hazardSpawnCooldown = balance.survival.mines.spawnInterval;
     state.survival.hunterSpawnCooldown = balance.survival.hunters.spawnInterval;
     state.survival.timedEventCooldown = balance.survival.timedEvents.meteorLane.spawnInterval;
@@ -115,6 +122,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     emitReward(state, `Nova Crown difficulty ${state.progression.novaCrownHighestDifficulty} unlocked`, 'unlock');
   }
   grantNovaCrownFirstClearCoreReward(state);
+  queueThreatMilestoneRewardChoice(state);
 
   if (state.survival.threatLevel > state.survival.lastAnnouncedThreatLevel) {
     state.survival.lastAnnouncedThreatLevel = state.survival.threatLevel;
@@ -129,6 +137,7 @@ const resetCurrentSurvivalRun = (state: GameState): void => {
   state.survival.currentSeconds = 0;
   state.survival.threatLevel = 0;
   state.survival.lastAnnouncedThreatLevel = 0;
+  state.survival.nextRewardThreatLevel = getThreatRewardInterval();
   state.survival.hazardSpawnCooldown = 0;
   state.survival.hunterSpawnCooldown = 0;
   state.survival.timedEventCooldown = 0;

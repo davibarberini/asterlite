@@ -99,6 +99,7 @@ describe('nova crown survival', () => {
       currentSeconds: 76,
       threatLevel: 3,
       lastAnnouncedThreatLevel: 3,
+      nextRewardThreatLevel: 10,
       hazardSpawnCooldown: 0,
       hunterSpawnCooldown: 0,
       timedEventCooldown: 0,
@@ -115,6 +116,7 @@ describe('nova crown survival', () => {
     expect(loaded.progression.currentZoneIndex).toBe(zones.length - 1);
     expect(loaded.survival.currentSeconds).toBe(76);
     expect(loaded.survival.threatLevel).toBe(3);
+    expect(loaded.survival.nextRewardThreatLevel).toBe(10);
     expect(loaded.progression.survivalBestSeconds).toBe(76);
     expect(loaded.progression.survivalBestThreatLevel).toBe(3);
     expect(getNovaCrownBestSeconds(loaded.progression.novaCrownBestSecondsByDifficulty, 1)).toBe(76);
@@ -169,6 +171,24 @@ describe('nova crown survival', () => {
 
     expect(state.progression.prestigeCores).toBe(getNovaCrownCoreReward(4));
     expect(state.progression.novaCrownCoreRewardedDifficultyKeys).toEqual(['4']);
+  });
+
+  it('queues run reward choices at Nova Crown threat milestones', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+
+    updateGame(state, neutralInput(), balance.survival.threatLevelSeconds * 9 + 0.1);
+
+    expect(state.survival.threatLevel).toBe(10);
+    expect(state.survival.nextRewardThreatLevel).toBe(20);
+    expect(state.bossRewards.pendingChoiceIds).toEqual(['rapidFire', 'droneOverdrive', 'salvageSurge']);
+    expect(state.rewardEvents.some((event) => event.text.includes('Nova Crown threat 10'))).toBe(true);
+
+    saveGameState(state);
+    const loaded = loadGameState(800, 600);
+
+    expect(loaded.survival.nextRewardThreatLevel).toBe(20);
+    expect(loaded.bossRewards.pendingChoiceIds).toEqual(['rapidFire', 'droneOverdrive', 'salvageSurge']);
   });
 
   it('spawns proximity mines only after survival threat reaches the mine threshold', () => {

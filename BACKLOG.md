@@ -4,6 +4,18 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Threat Milestone Reward Choices
+
+Moved run reward choices away from boss defeat and into Nova Crown threat milestones.
+
+Notes:
+- Route boss defeats no longer queue run reward choices directly.
+- Nova Crown survival now queues run reward choices at threat 10, 20, 30, and so on by default.
+- The next reward threat level is stored in serializable survival state so active runs can persist safely.
+- Added a `getThreatRewardInterval` hook so future Technologies can reduce the threat interval or otherwise tune reward pacing.
+- Updated the reward choice modal copy from boss loot to Nova Crown threat pressure.
+- Added tests for boss reward removal, threat milestone triggering, and save/load persistence of milestone progress.
+
 ### Nova Crown Core Economy
 
 Moved technology core earning into Nova Crown challenge rewards.
@@ -185,7 +197,8 @@ Notes:
 Added boss-defeat reward choices that create run-scoped build decisions.
 
 Notes:
-- Defeating a route boss now queues a serializable pending reward choice.
+- Superseded by `Threat Milestone Reward Choices`: bosses no longer queue these choices directly.
+- Originally, defeating a route boss queued a serializable pending reward choice.
 - The player can choose between faster ship fire, faster deployed drone reloads, or stronger credit salvage.
 - Chosen rewards persist through save/load during the current run.
 - Warp reset or ship exchange clears active and pending boss rewards with the rest of run state.
@@ -457,25 +470,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Threat Milestone Reward Choices
-
-Move run reward choices away from boss defeat and into Nova Crown threat milestones.
-
-Design:
-- Remove the automatic reward choice that appears when a boss is defeated.
-- During Nova Crown survival, show a run reward choice every 10 threat levels by default.
-- Reward choices should feel like survival escalation rewards rather than boss loot.
-- Add or reserve a Technology upgrade that reduces the threat interval required for the next reward choice.
-- Add or reserve Technology upgrades that can accelerate threat gain later for faster difficulty and reward progression.
-- Keep the milestone interval serializable and easy to tune, because this will become a main survival pacing lever.
-
-Acceptance:
-- Boss defeats no longer directly queue run reward choices.
-- Nova Crown queues a reward choice at threat 10, 20, 30, and so on by default.
-- A Technology hook exists to reduce the required threat interval later.
-- Reward milestone progress persists safely through save/load during an active survival attempt.
-- Tests cover boss reward removal and threat-level reward triggering.
 
 ### Boss Identity and Pattern Pass
 

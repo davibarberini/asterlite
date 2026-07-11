@@ -1,5 +1,5 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
-import { getBossRewardPlayerFireIntervalMultiplier, queueBossRewardChoices } from '../../progression/bossRewards';
+import { getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getFireRateMultiplier } from '../../progression/idleBonuses';
 import { grantNovaCrownBossCoreReward } from '../../progression/novaCrownRewards';
 import {
@@ -663,7 +663,6 @@ const destroyAsteroid = (
     if (state.progression.currentZoneIndex >= maxTravelLevel) {
       grantNovaCrownBossCoreReward(state);
     }
-    queueBossRewardChoices(state);
     emitAudio(state, { type: 'bossDefeated' });
     emitAudio(state, { type: 'zoneUnlocked' });
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');

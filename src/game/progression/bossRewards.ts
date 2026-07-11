@@ -1,4 +1,5 @@
 import type { BossRewardId, BossRewardState, GameState } from '../simulation/types';
+import { emitReward } from '../simulation/events';
 
 export type BossRewardDefinition = {
   id: BossRewardId;
@@ -37,6 +38,8 @@ export const createBossRewardState = (): BossRewardState => ({
   activeIds: []
 });
 
+export const baseThreatRewardInterval = 10;
+
 export const normalizeBossRewardState = (state: BossRewardState): BossRewardState => {
   const knownIds = new Set(BOSS_REWARD_DEFINITIONS.map((definition) => definition.id));
   return {
@@ -45,9 +48,21 @@ export const normalizeBossRewardState = (state: BossRewardState): BossRewardStat
   };
 };
 
-export const queueBossRewardChoices = (state: GameState): void => {
+export const getThreatRewardInterval = (_state?: GameState): number =>
+  baseThreatRewardInterval;
+
+export const getNextThreatRewardMilestone = (
+  currentThreatLevel: number,
+  interval = baseThreatRewardInterval
+): number => {
+  const safeInterval = Math.max(1, Math.floor(interval));
+  const nextThreatLevel = Math.max(0, Math.floor(currentThreatLevel)) + 1;
+  return Math.max(safeInterval, Math.ceil(nextThreatLevel / safeInterval) * safeInterval);
+};
+
+export const queueRunRewardChoices = (state: GameState): boolean => {
   if (state.bossRewards.pendingChoiceIds.length > 0) {
-    return;
+    return false;
   }
 
   const activeIds = new Set(state.bossRewards.activeIds);
@@ -55,6 +70,26 @@ export const queueBossRewardChoices = (state: GameState): void => {
     .map((definition) => definition.id)
     .filter((id) => !activeIds.has(id))
     .slice(0, 3);
+  return state.bossRewards.pendingChoiceIds.length > 0;
+};
+
+export const queueThreatMilestoneRewardChoice = (state: GameState): boolean => {
+  if (!state.survival.active) {
+    return false;
+  }
+
+  const interval = getThreatRewardInterval(state);
+  const nextRewardThreatLevel = state.survival.nextRewardThreatLevel > 0
+    ? state.survival.nextRewardThreatLevel
+    : getNextThreatRewardMilestone(state.survival.threatLevel, interval);
+
+  if (state.survival.threatLevel < nextRewardThreatLevel || !queueRunRewardChoices(state)) {
+    return false;
+  }
+
+  state.survival.nextRewardThreatLevel = nextRewardThreatLevel + interval;
+  emitReward(state, `Nova Crown threat ${nextRewardThreatLevel}: choose a run bonus`, 'unlock');
+  return true;
 };
 
 export const applyBossRewardChoice = (state: GameState, id: BossRewardId): boolean => {

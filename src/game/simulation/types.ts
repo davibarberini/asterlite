@@ -262,6 +262,7 @@ export type SurvivalState = {
   currentSeconds: number;
   threatLevel: number;
   lastAnnouncedThreatLevel: number;
+  nextRewardThreatLevel: number;
   hazardSpawnCooldown: number;
   hunterSpawnCooldown: number;
   timedEventCooldown: number;
