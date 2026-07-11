@@ -25,6 +25,8 @@ export type TalentId =
   | 'crystalSeam'
   | 'propulsionTuning'
   | 'vectorNozzles'
+  | 'bulwarkProtocol'
+  | 'afterburnerDoctrine'
   | 'salvageLoop'
   | 'semiAutoOptics'
   | 'semiAutoRange'

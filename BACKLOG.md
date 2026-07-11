@@ -4,22 +4,6 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Skill Tree Impact and Speed Branches
-
-Replace the current incremental tree with a larger build-oriented tree split around distinct playstyles.
-
-Design:
-- Build a left-side impact/tank/area branch focused on hull, asteroid collision, shockwaves, AoE size, aura/explosion area, and reactive effects.
-- Build a right-side speed/attack branch focused on attack speed, movement speed, swipe/dash feel, cooldown bursts, and velocity-based damage.
-- Include stronger notables and keystones that meaningfully change build direction.
-- Avoid filling the tree with small repeated percentage-only nodes.
-
-Acceptance:
-- The tree has clear visual left/right identity for impact/tank and speed/attack builds.
-- At least two keystones add strong upside with a meaningful tradeoff.
-- New node effects are applied through simulation/progression helpers, not UI-only state.
-- Tests cover at least one impact/tank node, one speed/attack node, and one keystone tradeoff.
-
 ### Skill Tree Draggable Canvas
 
 Make the skill tree modal behave like a large draggable ascension/tree map.

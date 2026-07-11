@@ -14,7 +14,13 @@ import {
   syncShipUnlocks
 } from '../../progression/shipUnlocks';
 import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
-import { getMissileSplashDamage, getMissileSplashRadius, getShotgunPelletDamage, hasMissileExplosion } from '../../progression/talentTree';
+import {
+  getMissileSplashDamage,
+  getMissileSplashRadius,
+  getShotgunPelletDamage,
+  getSkillIncomingDamageMultiplier,
+  hasMissileExplosion
+} from '../../progression/talentTree';
 import type { GameState, SurvivalMeteorLaneEventState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
 import { getExplorationZone, getZoneAsteroidDamageMultiplier, getZoneByIndex, maxTravelLevel } from '../zones';
@@ -756,7 +762,10 @@ const destroyAsteroid = (
 
 const damageShip = (state: GameState, amount: number): void => {
   const effectiveArmor = state.ship.armor * getAchievementMultiplier(state.progression, 'armor');
-  const damage = Math.max(0, amount * getBossRewardIncomingDamageMultiplier(state) - effectiveArmor);
+  const damage = Math.max(
+    0,
+    amount * getBossRewardIncomingDamageMultiplier(state) * getSkillIncomingDamageMultiplier(state.progression) - effectiveArmor
+  );
   if (damage <= 0) {
     state.ship.invulnerableFor = 0.35;
     emitAudio(state, { type: 'shipHit' });

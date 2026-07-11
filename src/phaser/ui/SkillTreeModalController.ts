@@ -29,11 +29,13 @@ const droneLabels: Record<DroneType, string> = {
 };
 
 const talentPtBr: Partial<Record<TalentId, { name: string; summary: string }>> = {
-  refineryYield: { name: 'Relé Offline', summary: '+10% de créditos offline por nível.' },
-  combatBounty: { name: 'Bônus de Combate', summary: '+12% de créditos de asteroides por nível.' },
-  crystalSeam: { name: 'Veio de Cristal', summary: '+20% de cristais de asteroides de cristal por nível.' },
-  propulsionTuning: { name: 'Ajuste de Propulsão', summary: '+6% de propulsão e velocidade máxima da nave por nível.' },
-  vectorNozzles: { name: 'Bocais Vetoriais', summary: '+8% de propulsão e velocidade máxima da nave por nível.' },
+  refineryYield: { name: 'Calibração do Núcleo', summary: '+10% de créditos offline por nível. Abre builds de impacto e velocidade.' },
+  combatBounty: { name: 'Blindagem de Impacto', summary: '-10% de dano recebido.' },
+  crystalSeam: { name: 'Capacitor de Onda', summary: '+25% de raio da onda de choque ao subir de nível.' },
+  bulwarkProtocol: { name: 'Protocolo Bulwark', summary: '-28% de dano recebido e +35% de raio da onda, mas -12% de velocidade da nave.' },
+  propulsionTuning: { name: 'Jatos de Impulso', summary: '+8% de propulsão e velocidade máxima da nave por nível.' },
+  vectorNozzles: { name: 'Vetoração Rápida', summary: '+12% de velocidade da nave e -10% de intervalo de tiro da nave.' },
+  afterburnerDoctrine: { name: 'Doutrina Afterburner', summary: '+28% de velocidade e -16% de intervalo de tiro, mas +18% de dano recebido.' },
   salvageLoop: { name: 'Ciclo de Salvamento', summary: '+25% de créditos offline.' },
   semiAutoOptics: { name: 'Óptica de Mira', summary: 'Desbloqueia o ramo semi-auto e adiciona +50 de alcance de mira.' },
   semiAutoRange: { name: 'Lente Longa', summary: '+40 de alcance para semi-auto por nível.' },
@@ -349,13 +351,13 @@ export class SkillTreeModalController {
     if (id.includes('refinery')) {
       return 'skill-refinery';
     }
-    if (id.includes('Bounty')) {
+    if (id.includes('combatBounty') || id.includes('bulwark')) {
       return 'skill-bounty';
     }
     if (id.includes('crystal')) {
       return 'skill-crystal';
     }
-    if (id.includes('propulsion') || id.includes('Nozzles')) {
+    if (id.includes('propulsion') || id.includes('Nozzles') || id.includes('afterburner')) {
       return 'skill-generic';
     }
     if (id.includes('salvage')) {

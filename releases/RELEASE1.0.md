@@ -4,6 +4,19 @@ Completed backlog and technical debt items moved out for the 1.0 release snapsho
 
 ## Backlog Completed
 
+### Skill Tree Impact and Speed Branches
+
+Split the early skill tree into build-oriented impact/tank and speed/attack directions.
+
+Notes:
+- Added `core`, `impact`, and `speed` talent branches with a wider left/right layout.
+- Reworked early nodes into Core Calibration, Impact Plating, Shockwave Capacitor, Impulse Jets, Rapid Vectoring, Bulwark Protocol, and Afterburner Doctrine.
+- Bulwark Protocol reduces incoming damage and increases level-up shockwave radius while lowering ship speed.
+- Afterburner Doctrine increases ship speed and fire cadence while increasing incoming damage.
+- New skill effects now flow through progression helpers for incoming damage, shockwave radius, ship speed, and ship fire interval.
+- Updated the skill tree UI branch colors and Portuguese copy for the new build identities.
+- Added tests for impact mitigation, speed/fire bonuses, branch definitions, and keystone tradeoffs.
+
 ### Skill Tree Unique Node Model
 
 Reworked the skill tree foundation so future build-oriented nodes can be more meaningful.

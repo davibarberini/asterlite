@@ -1,5 +1,6 @@
 import type { GameState, ProgressionState } from '../simulation/types';
 import { emitAudio, emitReward } from '../simulation/events';
+import { getLevelShockwaveSkillMultiplier } from './talentEffects';
 
 export const maxShipLevel = 25;
 
@@ -14,7 +15,8 @@ export const getAvailableShipSkillPoints = (progression: ProgressionState): numb
 export const getTotalShipSkillPointCap = (): number => maxShipLevel - 1;
 
 const createLevelShockwave = (state: GameState, levelsGained: number): void => {
-  const maxRadius = 540 + Math.min(3, Math.max(0, levelsGained - 1)) * 90;
+  const maxRadius = (540 + Math.min(3, Math.max(0, levelsGained - 1)) * 90) *
+    getLevelShockwaveSkillMultiplier(state.progression);
   state.levelShockwaves.push({
     id: state.nextId++,
     center: { ...state.ship.position },

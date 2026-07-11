@@ -22,7 +22,15 @@ import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
 import { applyBossRewardChoice } from '../progression/bossRewards';
 import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
-import { TALENT_DEFINITIONS, getSpentTalentPointCost, getTalentPointCost } from '../progression/talentTree';
+import {
+  TALENT_DEFINITIONS,
+  getLevelShockwaveSkillMultiplier,
+  getPropulsionSkillMultiplier,
+  getShipSkillFireIntervalMultiplier,
+  getSkillIncomingDamageMultiplier,
+  getSpentTalentPointCost,
+  getTalentPointCost
+} from '../progression/talentTree';
 import { formatCompactNumber, formatMoney } from '../numberFormat';
 import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateBosses } from '../simulation/systems/enemies';
@@ -701,9 +709,72 @@ describe('guided missions', () => {
 describe('crystal spending and talents', () => {
   it('defines unique skill node types with per-node point costs', () => {
     expect(new Set(TALENT_DEFINITIONS.map((talent) => talent.nodeType))).toEqual(new Set(['minor', 'notable', 'keystone', 'lockedRegion']));
+    expect(new Set(TALENT_DEFINITIONS.map((talent) => talent.branch))).toEqual(new Set(['core', 'impact', 'speed', 'semiAuto', 'shotgun', 'missile']));
     expect(getTalentPointCost('refineryYield')).toBe(1);
     expect(getTalentPointCost('combatBounty')).toBe(2);
+    expect(getTalentPointCost('bulwarkProtocol')).toBe(3);
+    expect(getTalentPointCost('afterburnerDoctrine')).toBe(3);
     expect(getTalentPointCost('salvageLoop')).toBe(3);
+  });
+
+  it('applies impact branch mitigation and larger level-up shockwaves', () => {
+    const state = createGameState(800, 600);
+    state.progression.talentRanks.combatBounty = 1;
+    state.progression.talentRanks.crystalSeam = 1;
+    state.ship.hp = 100;
+    state.ship.invulnerableFor = 0;
+    state.bullets = [
+      {
+        id: 900,
+        owner: 'boss',
+        position: { ...state.ship.position },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 6,
+        damage: 10,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(getSkillIncomingDamageMultiplier(state.progression)).toBeCloseTo(0.9);
+    expect(getLevelShockwaveSkillMultiplier(state.progression)).toBeCloseTo(1.25);
+    expect(state.ship.hp).toBeCloseTo(91);
+  });
+
+  it('applies speed branch movement and ship fire interval bonuses', () => {
+    const state = createGameState(800, 600);
+    state.progression.talentRanks.propulsionTuning = 2;
+    state.progression.talentRanks.vectorNozzles = 1;
+
+    firePlayerWeapon(state);
+
+    expect(getPropulsionSkillMultiplier(state.progression)).toBeCloseTo(1.28);
+    expect(getShipSkillFireIntervalMultiplier(state.progression)).toBeCloseTo(0.9);
+    expect(state.ship.fireCooldown).toBeCloseTo(getPlayerFireInterval(state.progression) * 0.9);
+  });
+
+  it('applies keystone upside with meaningful tradeoffs', () => {
+    const bulwarkState = createGameState(800, 600);
+    bulwarkState.progression.talentRanks.combatBounty = 1;
+    bulwarkState.progression.talentRanks.crystalSeam = 1;
+    bulwarkState.progression.talentRanks.bulwarkProtocol = 1;
+
+    const afterburnerState = createGameState(800, 600);
+    afterburnerState.progression.talentRanks.propulsionTuning = 2;
+    afterburnerState.progression.talentRanks.vectorNozzles = 1;
+    afterburnerState.progression.talentRanks.afterburnerDoctrine = 1;
+
+    expect(getSkillIncomingDamageMultiplier(bulwarkState.progression)).toBeCloseTo(0.9 * 0.72);
+    expect(getLevelShockwaveSkillMultiplier(bulwarkState.progression)).toBeCloseTo(1.25 * 1.35);
+    expect(getPropulsionSkillMultiplier(bulwarkState.progression)).toBeCloseTo(0.88);
+    expect(getPropulsionSkillMultiplier(afterburnerState.progression)).toBeCloseTo(1.56);
+    expect(getShipSkillFireIntervalMultiplier(afterburnerState.progression)).toBeCloseTo(0.9 * 0.84);
+    expect(getSkillIncomingDamageMultiplier(afterburnerState.progression)).toBeCloseTo(1.18);
   });
 
   it('normalizes crystal balance before spending', () => {

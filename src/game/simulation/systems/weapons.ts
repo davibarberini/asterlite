@@ -2,7 +2,7 @@ import { getAchievementMultiplier } from '../../progression/achievements';
 import { getBossRewardPlayerDamageMultiplier, getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getPlayerFireInterval } from '../../progression/idleBonuses';
 import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
-import { getMissileTurnRateMultiplier } from '../../progression/talentTree';
+import { getMissileTurnRateMultiplier, getShipSkillFireIntervalMultiplier } from '../../progression/talentTree';
 import { balance } from '../../balance';
 import { emitAudio } from '../events';
 import type { BulletKind, GameState, Vec2 } from '../types';
@@ -76,7 +76,7 @@ export const firePlayerWeapon = (state: GameState): void => {
   );
 
   if (shipWeaponIdentity === 'aura') {
-    ship.fireCooldown = getPlayerFireInterval(state.progression) * getBossRewardPlayerFireIntervalMultiplier(state);
+    ship.fireCooldown = getShipFireInterval(state);
     return;
   }
 
@@ -91,9 +91,8 @@ export const firePlayerWeapon = (state: GameState): void => {
       baseDamage * (1 + speedRatio * balance.weapons.velocityDamageBonusAtMaxSpeed),
       ship.velocity
     );
-    ship.fireCooldown = getPlayerFireInterval(state.progression) *
-      (1 - speedRatio * balance.weapons.velocityFireRateBonusAtMaxSpeed) *
-      getBossRewardPlayerFireIntervalMultiplier(state);
+    ship.fireCooldown = getShipFireInterval(state) *
+      (1 - speedRatio * balance.weapons.velocityFireRateBonusAtMaxSpeed);
     return;
   }
 
@@ -108,10 +107,10 @@ export const firePlayerWeapon = (state: GameState): void => {
       Math.max(0.05, baseDamage * balance.weapons.nivitronTurretDamageMultiplier),
       ship.velocity
     );
-    ship.fireCooldown = getPlayerFireInterval(
-      state.progression,
+    ship.fireCooldown = getShipFireInterval(
+      state,
       balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier
-    ) * getBossRewardPlayerFireIntervalMultiplier(state);
+    );
     return;
   }
 
@@ -128,8 +127,7 @@ export const firePlayerWeapon = (state: GameState): void => {
         ship.velocity
       );
     });
-    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier) *
-      getBossRewardPlayerFireIntervalMultiplier(state);
+    ship.fireCooldown = getShipFireInterval(state, balance.weapons.playerFireInterval * balance.weapons.spreadCooldownMultiplier);
     return;
   }
 
@@ -144,8 +142,7 @@ export const firePlayerWeapon = (state: GameState): void => {
       ship.velocity,
       balance.weapons.piercingCount
     );
-    ship.fireCooldown = getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier) *
-      getBossRewardPlayerFireIntervalMultiplier(state);
+    ship.fireCooldown = getShipFireInterval(state, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier);
     return;
   }
 
@@ -158,8 +155,13 @@ export const firePlayerWeapon = (state: GameState): void => {
     baseDamage,
     ship.velocity
   );
-  ship.fireCooldown = getPlayerFireInterval(state.progression) * getBossRewardPlayerFireIntervalMultiplier(state);
+  ship.fireCooldown = getShipFireInterval(state);
 };
+
+const getShipFireInterval = (state: GameState, baseInterval?: number): number =>
+  getPlayerFireInterval(state.progression, baseInterval) *
+  getShipSkillFireIntervalMultiplier(state.progression) *
+  getBossRewardPlayerFireIntervalMultiplier(state);
 
 const getShipVelocityRatio = (state: GameState): number =>
   Math.max(0, Math.min(1, Math.hypot(state.ship.velocity.x, state.ship.velocity.y) / Math.max(1, balance.ship.maxSpeed)));

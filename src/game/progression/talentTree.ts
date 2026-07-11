@@ -1,7 +1,8 @@
 import type { AsteroidVariant, DroneType, ProgressionState, TalentId, TalentRanks } from '../simulation/types';
 import { getAvailableShipSkillPoints } from './shipLevel';
+export { getLevelShockwaveSkillMultiplier } from './talentEffects';
 
-export type TalentBranch = 'economy' | 'semiAuto' | 'shotgun' | 'missile';
+export type TalentBranch = 'core' | 'impact' | 'speed' | 'semiAuto' | 'shotgun' | 'missile';
 export type TalentNodeType = 'minor' | 'notable' | 'keystone' | 'lockedRegion';
 
 export type TalentDefinition = {
@@ -17,81 +18,100 @@ export type TalentDefinition = {
   grid: { col: number; row: number };
 };
 
-export const TALENT_GRID_COLUMNS = 5;
+export const TALENT_GRID_COLUMNS = 7;
 export const TALENT_GRID_ROWS = 7;
 
 export const TALENT_DEFINITIONS: TalentDefinition[] = [
   {
     id: 'refineryYield',
-    name: 'Offline Relay',
-    summary: '+10% offline credit income per rank.',
-    branch: 'economy',
+    name: 'Core Calibration',
+    summary: '+10% offline credit income per rank. Opens impact and speed builds.',
+    branch: 'core',
     nodeType: 'minor',
     maxRank: 2,
     pointCost: 1,
     requires: [],
-    grid: { col: 3, row: 1 }
+    grid: { col: 4, row: 1 }
   },
   {
     id: 'combatBounty',
-    name: 'Combat Bounty',
-    summary: '+12% asteroid credit rewards per rank.',
-    branch: 'economy',
+    name: 'Impact Plating',
+    summary: '-10% incoming damage.',
+    branch: 'impact',
     nodeType: 'notable',
     maxRank: 1,
     pointCost: 2,
     requires: [{ id: 'refineryYield', rank: 1 }],
-    grid: { col: 2, row: 2 }
+    grid: { col: 3, row: 2 }
   },
   {
     id: 'crystalSeam',
-    name: 'Crystal Seam',
-    summary: '+20% crystal drops from crystal asteroids per rank.',
-    branch: 'economy',
+    name: 'Shockwave Capacitor',
+    summary: '+25% level-up shockwave radius.',
+    branch: 'impact',
     nodeType: 'notable',
     maxRank: 1,
     pointCost: 2,
-    requires: [{ id: 'refineryYield', rank: 1 }],
-    grid: { col: 4, row: 2 }
+    requires: [{ id: 'combatBounty', rank: 1 }],
+    grid: { col: 2, row: 3 }
+  },
+  {
+    id: 'bulwarkProtocol',
+    name: 'Bulwark Protocol',
+    summary: '-28% incoming damage and +35% shockwave radius, but -12% ship speed.',
+    branch: 'impact',
+    nodeType: 'keystone',
+    maxRank: 1,
+    pointCost: 3,
+    requires: [{ id: 'crystalSeam', rank: 1 }],
+    grid: { col: 2, row: 4 }
   },
   {
     id: 'salvageLoop',
     name: 'Salvage Loop',
     summary: '+25% offline credit income.',
-    branch: 'economy',
+    branch: 'core',
     nodeType: 'keystone',
     maxRank: 1,
     pointCost: 3,
     requires: [
       { id: 'combatBounty', rank: 1 },
-      { id: 'crystalSeam', rank: 1 }
+      { id: 'vectorNozzles', rank: 1 }
     ],
-    grid: { col: 3, row: 3 }
+    grid: { col: 4, row: 4 }
   },
   {
     id: 'propulsionTuning',
-    name: 'Propulsion Tuning',
-    summary: '+6% ship thrust and max speed per rank.',
-    branch: 'economy',
+    name: 'Impulse Jets',
+    summary: '+8% ship thrust and max speed per rank.',
+    branch: 'speed',
     nodeType: 'minor',
     maxRank: 2,
     pointCost: 1,
-    requires: [{ id: 'combatBounty', rank: 1 }],
-    grid: { col: 2, row: 3 }
+    requires: [{ id: 'refineryYield', rank: 1 }],
+    grid: { col: 5, row: 2 }
   },
   {
     id: 'vectorNozzles',
-    name: 'Vector Nozzles',
-    summary: '+8% ship thrust and max speed per rank.',
-    branch: 'economy',
+    name: 'Rapid Vectoring',
+    summary: '+12% ship speed and -10% ship fire interval.',
+    branch: 'speed',
     nodeType: 'notable',
     maxRank: 1,
     pointCost: 2,
-    requires: [
-      { id: 'propulsionTuning', rank: 2 },
-      { id: 'crystalSeam', rank: 1 }
-    ],
-    grid: { col: 4, row: 3 }
+    requires: [{ id: 'propulsionTuning', rank: 2 }],
+    grid: { col: 6, row: 3 }
+  },
+  {
+    id: 'afterburnerDoctrine',
+    name: 'Afterburner Doctrine',
+    summary: '+28% ship speed and -16% ship fire interval, but +18% incoming damage.',
+    branch: 'speed',
+    nodeType: 'keystone',
+    maxRank: 1,
+    pointCost: 3,
+    requires: [{ id: 'vectorNozzles', rank: 1 }],
+    grid: { col: 6, row: 4 }
   },
   {
     id: 'semiAutoOptics',
@@ -367,14 +387,25 @@ export const getOfflineIncomeTalentMultiplier = (progression: ProgressionState):
   (1 + getTalentRank(progression, 'refineryYield') * 0.1) *
   (getTalentRank(progression, 'salvageLoop') > 0 ? 1.25 : 1);
 
-export const getCombatBountyMultiplier = (progression: ProgressionState): number =>
-  1 + getTalentRank(progression, 'combatBounty') * 0.12;
+export const getCombatBountyMultiplier = (_progression: ProgressionState): number => 1;
 
-export const getCrystalDropMultiplier = (progression: ProgressionState): number =>
-  1 + getTalentRank(progression, 'crystalSeam') * 0.2;
+export const getCrystalDropMultiplier = (_progression: ProgressionState): number => 1;
+
+export const getSkillIncomingDamageMultiplier = (progression: ProgressionState): number =>
+  (getTalentRank(progression, 'combatBounty') > 0 ? 0.9 : 1) *
+  (getTalentRank(progression, 'bulwarkProtocol') > 0 ? 0.72 : 1) *
+  (getTalentRank(progression, 'afterburnerDoctrine') > 0 ? 1.18 : 1);
 
 export const getPropulsionSkillMultiplier = (progression: ProgressionState): number =>
-  1 + getTalentRank(progression, 'propulsionTuning') * 0.06 + getTalentRank(progression, 'vectorNozzles') * 0.08;
+  (1 +
+    getTalentRank(progression, 'propulsionTuning') * 0.08 +
+    getTalentRank(progression, 'vectorNozzles') * 0.12 +
+    getTalentRank(progression, 'afterburnerDoctrine') * 0.28) *
+  (getTalentRank(progression, 'bulwarkProtocol') > 0 ? 0.88 : 1);
+
+export const getShipSkillFireIntervalMultiplier = (progression: ProgressionState): number =>
+  (getTalentRank(progression, 'vectorNozzles') > 0 ? 0.9 : 1) *
+  (getTalentRank(progression, 'afterburnerDoctrine') > 0 ? 0.84 : 1);
 
 export const getSemiAutoPierceLeft = (progression: ProgressionState): number =>
   1 + getTalentRank(progression, 'semiAutoPierce');

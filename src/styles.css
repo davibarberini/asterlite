@@ -2665,9 +2665,19 @@ canvas {
   background: rgba(255, 241, 168, 0.9);
 }
 
-.talent-node--economy {
+.talent-node--core {
   border-color: rgba(255, 241, 168, 0.28);
   background: rgba(255, 241, 168, 0.05);
+}
+
+.talent-node--impact {
+  border-color: rgba(255, 132, 112, 0.32);
+  background: rgba(255, 132, 112, 0.06);
+}
+
+.talent-node--speed {
+  border-color: rgba(131, 255, 220, 0.3);
+  background: rgba(131, 255, 220, 0.055);
 }
 
 .talent-node--semiAuto {
@@ -2892,8 +2902,16 @@ canvas {
   transform: translateX(-50%) rotate(225deg);
 }
 
-.talent-tooltip--economy {
+.talent-tooltip--core {
   border-color: rgba(255, 241, 168, 0.3);
+}
+
+.talent-tooltip--impact {
+  border-color: rgba(255, 132, 112, 0.34);
+}
+
+.talent-tooltip--speed {
+  border-color: rgba(131, 255, 220, 0.34);
 }
 
 .talent-tooltip--semiAuto {
