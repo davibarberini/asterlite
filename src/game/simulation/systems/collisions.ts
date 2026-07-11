@@ -24,6 +24,15 @@ import { emitAudio, emitReward } from '../events';
 import { balance } from '../../balance';
 import { getMeteorLaneMeteorPosition, isSurvivalTimedEventActive } from './survivalEvents';
 
+const LEVEL_SHOCKWAVE_DESTROY_LIMIT_PER_FRAME = 24;
+
+type DestroyAsteroidOptions = {
+  split?: boolean;
+  emitPayout?: boolean;
+  emitDestroyAudio?: boolean;
+  particleMultiplier?: number;
+};
+
 export const resolveCollisions = (state: GameState, dt = 0): void => {
   const asteroidDestroyCountBefore = state.progression.achievementStats.asteroidsDestroyed;
   const nextAsteroids = [...state.asteroids];
@@ -235,10 +244,61 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
   applyShipAuraDamage(state, dt, destroyedAsteroidIds, destroyedHazardIds, nextAsteroids, nextHazards);
+  updateLevelShockwaves(state, dt, destroyedAsteroidIds, nextAsteroids);
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
   syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
+};
+
+const updateLevelShockwaves = (
+  state: GameState,
+  dt: number,
+  destroyedAsteroidIds: Set<number>,
+  nextAsteroids: GameState['asteroids']
+): void => {
+  if (state.levelShockwaves.length <= 0) {
+    return;
+  }
+
+  const existingShockwaves = state.levelShockwaves;
+  const existingIds = new Set(existingShockwaves.map((shockwave) => shockwave.id));
+  const updatedShockwaves = existingShockwaves.map((shockwave) => ({
+    ...shockwave,
+    age: shockwave.age + Math.max(0, dt),
+    radius: Math.min(shockwave.maxRadius, shockwave.radius + shockwave.speed * Math.max(0, dt))
+  }));
+
+  let destroyedThisFrame = 0;
+  for (const shockwave of updatedShockwaves) {
+    for (const asteroid of [...nextAsteroids]) {
+      if (
+        destroyedThisFrame >= LEVEL_SHOCKWAVE_DESTROY_LIMIT_PER_FRAME ||
+        asteroid.bossType ||
+        destroyedAsteroidIds.has(asteroid.id) ||
+        distance(shockwave.center, asteroid.position) > shockwave.radius + asteroid.radius * 0.7
+      ) {
+        continue;
+      }
+
+      destroyedAsteroidIds.add(asteroid.id);
+      destroyAsteroid(state, asteroid, nextAsteroids, {
+        split: false,
+        emitPayout: false,
+        emitDestroyAudio: false,
+        particleMultiplier: 0.48
+      });
+      destroyedThisFrame += 1;
+    }
+
+    if (destroyedThisFrame >= LEVEL_SHOCKWAVE_DESTROY_LIMIT_PER_FRAME) {
+      break;
+    }
+  }
+
+  const spawnedDuringUpdate = state.levelShockwaves.filter((shockwave) => !existingIds.has(shockwave.id));
+  const nextShockwaves = updatedShockwaves.filter((shockwave) => shockwave.age < shockwave.ttl && shockwave.radius < shockwave.maxRadius);
+  state.levelShockwaves = [...nextShockwaves, ...spawnedDuringUpdate];
 };
 
 const applyShipAuraDamage = (
@@ -639,8 +699,13 @@ const collideDeflectorWithAsteroid = (
 const destroyAsteroid = (
   state: GameState,
   asteroid: GameState['asteroids'][number],
-  nextAsteroids: GameState['asteroids']
+  nextAsteroids: GameState['asteroids'],
+  options: DestroyAsteroidOptions = {}
 ): void => {
+  const split = options.split ?? true;
+  const emitPayoutEvent = options.emitPayout ?? true;
+  const emitDestroyAudio = options.emitDestroyAudio ?? true;
+  const particleMultiplier = options.particleMultiplier ?? 1;
   const reward = getAsteroidReward(state, asteroid);
   state.money += reward.money;
   state.crystals += reward.crystals;
@@ -672,10 +737,21 @@ const destroyAsteroid = (
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');
     state.bullets = state.bullets.filter((bullet) => bullet.owner !== 'boss');
   }
-  emitReward(state, reward.crystals > 0 ? `+${formatMoney(reward.money)} credits  +${reward.crystals} crystals` : `+${formatMoney(reward.money)} credits`, 'payout');
-  emitAudio(state, { type: 'asteroidDestroyed', size: asteroid.size });
-  burstParticles(state, asteroid.position, asteroid.size === 'large' ? 22 : 13, asteroid.radius * 4);
-  nextAsteroids.push(...splitAsteroid(state, asteroid));
+  if (emitPayoutEvent) {
+    emitReward(state, reward.crystals > 0 ? `+${formatMoney(reward.money)} credits  +${reward.crystals} crystals` : `+${formatMoney(reward.money)} credits`, 'payout');
+  }
+  if (emitDestroyAudio) {
+    emitAudio(state, { type: 'asteroidDestroyed', size: asteroid.size });
+  }
+  burstParticles(
+    state,
+    asteroid.position,
+    Math.max(3, Math.round((asteroid.size === 'large' ? 22 : 13) * particleMultiplier)),
+    asteroid.radius * 4 * particleMultiplier
+  );
+  if (split) {
+    nextAsteroids.push(...splitAsteroid(state, asteroid));
+  }
 };
 
 const damageShip = (state: GameState, amount: number): void => {

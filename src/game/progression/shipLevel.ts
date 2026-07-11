@@ -1,5 +1,5 @@
 import type { GameState, ProgressionState } from '../simulation/types';
-import { emitReward } from '../simulation/events';
+import { emitAudio, emitReward } from '../simulation/events';
 
 export const maxShipLevel = 25;
 
@@ -15,6 +15,19 @@ export const getTalentPointCost = (): number => 1;
 
 export const getTotalShipSkillPointCap = (): number => maxShipLevel - 1;
 
+const createLevelShockwave = (state: GameState, levelsGained: number): void => {
+  const maxRadius = 540 + Math.min(3, Math.max(0, levelsGained - 1)) * 90;
+  state.levelShockwaves.push({
+    id: state.nextId++,
+    center: { ...state.ship.position },
+    radius: 34,
+    maxRadius,
+    speed: 1080,
+    age: 0,
+    ttl: maxRadius / 1080 + 0.18
+  });
+};
+
 export const grantShipXp = (state: GameState, amount: number): void => {
   if (state.progression.shipLevel >= maxShipLevel) {
     state.progression.shipLevel = maxShipLevel;
@@ -23,7 +36,7 @@ export const grantShipXp = (state: GameState, amount: number): void => {
   }
 
   state.progression.shipXp += Math.max(0, Math.floor(amount));
-  let leveled = false;
+  let levelsGained = 0;
   while (state.progression.shipLevel < maxShipLevel) {
     const needed = getShipXpForNextLevel(state.progression.shipLevel);
     if (state.progression.shipXp < needed) {
@@ -32,7 +45,7 @@ export const grantShipXp = (state: GameState, amount: number): void => {
     state.progression.shipXp -= needed;
     state.progression.shipLevel += 1;
     state.progression.shipSkillPoints += 1;
-    leveled = true;
+    levelsGained += 1;
   }
 
   if (state.progression.shipLevel >= maxShipLevel) {
@@ -40,8 +53,10 @@ export const grantShipXp = (state: GameState, amount: number): void => {
     state.progression.shipXp = 0;
   }
 
-  if (leveled) {
-    emitReward(state, `Ship level ${state.progression.shipLevel}: +1 skill point`, 'system');
+  if (levelsGained > 0) {
+    createLevelShockwave(state, levelsGained);
+    emitAudio(state, { type: 'shipLevelUp' });
+    emitReward(state, `Ship level ${state.progression.shipLevel}: +${levelsGained} skill point${levelsGained === 1 ? '' : 's'}`, 'system');
   }
 };
 

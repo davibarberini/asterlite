@@ -813,8 +813,50 @@ describe('crystal spending and talents', () => {
     expect(state.progression.shipLevel).toBe(2);
     expect(state.progression.shipSkillPoints).toBe(1);
     expect(state.rewardEvents.some((event) => event.text.includes('Ship level 2'))).toBe(true);
+    expect(state.audioEvents.some((event) => event.type === 'shipLevelUp')).toBe(true);
+    expect(state.levelShockwaves).toHaveLength(1);
     expect(getTotalShipSkillPointCap()).toBe(maxShipLevel - 1);
     expect(getTotalShipSkillPointCap()).toBeLessThan(TALENT_DEFINITIONS.reduce((total, talent) => total + talent.maxRank, 0));
+  });
+
+  it('clears nearby normal asteroids with a level-up shockwave without splitting them', () => {
+    const state = createGameState(800, 600);
+    const neededXp = getShipXpForNextLevel(state.progression.shipLevel);
+    state.progression.shipXp = neededXp - 1;
+    state.asteroids = [
+      createAsteroid(state, 'small', { x: 100, y: 100 }, { x: 0, y: 0 }, 'common')
+    ];
+    state.bullets = [
+      {
+        id: 900,
+        owner: 'player',
+        position: { x: 100, y: 100 },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 6,
+        damage: state.asteroids[0].hp,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    resolveCollisions(state, 0);
+
+    expect(state.progression.shipLevel).toBe(2);
+    expect(state.levelShockwaves).toHaveLength(1);
+
+    const nearAsteroid = createAsteroid(state, 'large', { x: state.ship.position.x + 180, y: state.ship.position.y }, { x: 0, y: 0 }, 'common');
+    const farAsteroid = createAsteroid(state, 'large', { x: state.ship.position.x + 900, y: state.ship.position.y }, { x: 0, y: 0 }, 'common');
+    state.asteroids = [nearAsteroid, farAsteroid];
+    state.bullets = [];
+
+    resolveCollisions(state, 0.2);
+
+    expect(state.asteroids.map((asteroid) => asteroid.id)).toEqual([farAsteroid.id]);
+    expect(state.asteroids).toHaveLength(1);
+    expect(state.progression.achievementStats.asteroidsDestroyed).toBe(2);
   });
 });
 

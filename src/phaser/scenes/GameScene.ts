@@ -3195,6 +3195,7 @@ export class GameScene extends Phaser.Scene {
     this.state.hazards = [];
     this.state.bullets = [];
     this.state.particles = [];
+    this.state.levelShockwaves = [];
     this.state.saucer = null;
     this.state.pendingBoss = null;
     this.appEl.classList.add('is-zone-travel');
@@ -3237,6 +3238,7 @@ export class GameScene extends Phaser.Scene {
     this.state.hazards = [];
     this.state.bullets = [];
     this.state.particles = [];
+    this.state.levelShockwaves = [];
     this.state.saucer = null;
   }
 

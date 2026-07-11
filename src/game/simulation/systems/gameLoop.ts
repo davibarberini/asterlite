@@ -155,6 +155,10 @@ const updateAsteroids = (state: GameState, dt: number): void => {
 };
 
 const maintainAsteroidField = (state: GameState): void => {
+  if (state.levelShockwaves.length > 0) {
+    return;
+  }
+
   const targetCount = getAsteroidTargetCount(state);
   while (state.asteroids.length < targetCount) {
     state.asteroids.push(createAsteroid(state, 'large', getAsteroidSpawnPosition(state)));

@@ -191,6 +191,7 @@ export const createGameState = (width: number, height: number, progression = cre
     survivalEvents: [],
     bullets: [],
     particles: [],
+    levelShockwaves: [],
     audioEvents: [],
     rewardEvents: [],
     pendingBoss: null,

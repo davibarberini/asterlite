@@ -62,6 +62,12 @@ export class RetroSound {
       case 'shipRespawned':
         this.tone(220, 660, 0.24, 'triangle', 0.045);
         break;
+      case 'shipLevelUp':
+        this.noise(0.3, 0.052, 1300);
+        this.tone(260, 780, 0.28, 'triangle', 0.052);
+        this.tone(520, 1240, 0.34, 'sine', 0.038, 0.06);
+        this.tone(98, 46, 0.36, 'sawtooth', 0.034, 0.02);
+        break;
       case 'spaceTravel':
         this.noise(0.72, 0.045, 1700);
         this.tone(72, 1460, 0.76, 'sawtooth', 0.052);

@@ -146,6 +146,16 @@ export type ParticleState = {
   size: number;
 };
 
+export type LevelShockwaveState = {
+  id: number;
+  center: Vec2;
+  radius: number;
+  maxRadius: number;
+  speed: number;
+  age: number;
+  ttl: number;
+};
+
 export type SurvivalHazardKind = 'proximityMine' | 'survivalHunter';
 
 export type SurvivalHazardState = {
@@ -226,6 +236,7 @@ export type GameAudioEvent =
   | { type: 'shipHit' }
   | { type: 'shipDestroyed' }
   | { type: 'shipRespawned' }
+  | { type: 'shipLevelUp' }
   | { type: 'spaceTravel' }
   | { type: 'bossSummoned' }
   | { type: 'bossDefeated' }
@@ -465,6 +476,7 @@ export type GameState = {
   survivalEvents: SurvivalTimedEventState[];
   bullets: BulletState[];
   particles: ParticleState[];
+  levelShockwaves: LevelShockwaveState[];
   audioEvents: GameAudioEvent[];
   rewardEvents: GameRewardEvent[];
   pendingBoss: PendingBossState | null;

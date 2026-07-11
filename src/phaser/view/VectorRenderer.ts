@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getActiveShipFrame, getShipFrameWeaponIdentity } from '../../game/progression/shipFrames';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
-import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, ParticleState, SaucerState, ShipState, SurvivalHazardState, SurvivalMeteorLaneEventState, SurvivalMeteorVisualState, SurvivalTimedEventState, Vec2 } from '../../game/simulation/types';
+import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, LevelShockwaveState, ParticleState, SaucerState, ShipState, SurvivalHazardState, SurvivalMeteorLaneEventState, SurvivalMeteorVisualState, SurvivalTimedEventState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
 import { getMeteorLaneMeteorPosition, getNormal, isSurvivalTimedEventActive } from '../../game/simulation/systems/survivalEvents';
 import {
@@ -94,6 +94,7 @@ export class VectorRenderer {
         this.drawParticle(state, particle);
       }
     });
+    state.levelShockwaves.forEach((shockwave) => this.drawLevelShockwave(state, shockwave));
     this.drawDrones(state);
 
     if (state.saucer) {
@@ -1122,6 +1123,29 @@ export class VectorRenderer {
     const alpha = 1 - particle.age / particle.ttl;
     this.graphics.fillStyle(0xc8f1ff, alpha * 0.8);
     this.graphics.fillCircle(this.toScreenX(state, particle.position.x), this.toScreenY(state, particle.position.y), particle.size * this.getViewScale(state));
+  }
+
+  private drawLevelShockwave(state: GameState, shockwave: LevelShockwaveState): void {
+    if (!this.isCircleOnScreen(state, shockwave.center.x, shockwave.center.y, shockwave.radius + 16)) {
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, shockwave.center.x);
+    const y = this.toScreenY(state, shockwave.center.y);
+    const radius = shockwave.radius * viewScale;
+    const progress = Math.max(0, Math.min(1, shockwave.radius / Math.max(1, shockwave.maxRadius)));
+    const lifeAlpha = Math.max(0, 1 - shockwave.age / Math.max(0.01, shockwave.ttl));
+    const alpha = Math.min(0.9, lifeAlpha * (1 - progress * 0.35));
+
+    this.graphics.fillStyle(0xd7c7ff, alpha * 0.035);
+    this.graphics.fillCircle(x, y, radius);
+    this.graphics.lineStyle(Math.max(1, 5 * viewScale), 0xd7c7ff, alpha * 0.52);
+    this.graphics.strokeCircle(x, y, radius);
+    this.graphics.lineStyle(Math.max(1, 2 * viewScale), 0x83ffdc, alpha * 0.72);
+    this.graphics.strokeCircle(x, y, radius * 0.94);
+    this.graphics.lineStyle(Math.max(1, 1.5 * viewScale), 0xf5fdff, alpha * 0.46);
+    this.graphics.strokeCircle(x, y, radius * 0.72);
   }
 
   private drawSaucer(state: GameState, saucer: SaucerState): void {

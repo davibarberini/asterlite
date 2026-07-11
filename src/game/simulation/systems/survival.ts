@@ -82,6 +82,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     state.survivalEvents = [];
     state.bullets = [];
     state.particles = [];
+    state.levelShockwaves = [];
     resetCurrentSurvivalRun(state);
     return;
   }
