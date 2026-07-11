@@ -1507,7 +1507,7 @@ canvas {
   height: 28px;
 }
 
-.warp-reset-panel {
+.action-panel {
   display: grid;
   gap: 9px;
   padding: 10px;
@@ -1518,15 +1518,15 @@ canvas {
     rgba(0, 0, 0, 0.34);
 }
 
-.warp-reset-panel__header {
+.action-panel__header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
 }
 
-.warp-reset-panel__kicker,
-.warp-reset-panel__stats small {
+.action-panel__kicker,
+.action-panel__stats small {
   display: block;
   color: rgba(156, 198, 224, 0.82);
   font-size: 10px;
@@ -1535,7 +1535,7 @@ canvas {
   text-transform: uppercase;
 }
 
-.warp-reset-panel__header strong {
+.action-panel__header strong {
   display: block;
   margin-top: 2px;
   color: rgba(245, 253, 255, 0.96);
@@ -1543,20 +1543,20 @@ canvas {
   line-height: 1.15;
 }
 
-.warp-reset-panel__button {
+.action-panel__button {
   min-width: 94px;
   min-height: 34px;
   padding: 7px 10px;
   white-space: nowrap;
 }
 
-.warp-reset-panel__stats {
+.action-panel__stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
 }
 
-.warp-reset-panel__stats span {
+.action-panel__stats span {
   min-width: 0;
   padding: 7px;
   border: 1px solid rgba(208, 233, 255, 0.1);
@@ -1564,7 +1564,7 @@ canvas {
   background: rgba(255, 255, 255, 0.035);
 }
 
-.warp-reset-panel__stats strong {
+.action-panel__stats strong {
   display: block;
   margin-top: 3px;
   overflow: hidden;
@@ -1576,7 +1576,7 @@ canvas {
   white-space: nowrap;
 }
 
-.warp-reset-panel__preview {
+.action-panel__preview {
   margin: 0;
   color: rgba(198, 222, 238, 0.82);
   font-size: 12px;

@@ -995,6 +995,17 @@ Notes:
 
 ## Technical Debt Completed
 
+### Rename Legacy Warp Reset UI Classes
+
+Removed stale reset-era naming from current action panel DOM/CSS surfaces.
+
+Notes:
+- Renamed `warp-reset-panel` classes to neutral `action-panel` classes.
+- Updated the Boss Beacon panel and Hangar panel/shortcut class usage.
+- Preserved existing panel styling and shortcut modifier behavior.
+- Left actual settings reset copy/classes untouched, because those still describe save reset behavior.
+- Validated with `pnpm run build`.
+
 ### Split Progression Test File By Domain
 
 Reduced the single large progression test file into focused suites.

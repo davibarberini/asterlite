@@ -2077,13 +2077,13 @@ export class GameScene extends Phaser.Scene {
     const nextZone = getNextZone(this.state);
     const blocked = !nextZone || hasActiveZoneBoss(this.state);
     const panel = document.createElement('section');
-    panel.className = 'warp-reset-panel';
+    panel.className = 'action-panel';
 
     const header = document.createElement('div');
-    header.className = 'warp-reset-panel__header';
+    header.className = 'action-panel__header';
     const titleWrap = document.createElement('div');
     const kicker = document.createElement('span');
-    kicker.className = 'warp-reset-panel__kicker';
+    kicker.className = 'action-panel__kicker';
     kicker.textContent = this.language === 'pt-BR' ? 'Sinalizador de Boss' : 'Boss Beacon';
     const title = document.createElement('strong');
     title.textContent = nextZone
@@ -2092,7 +2092,7 @@ export class GameScene extends Phaser.Scene {
     titleWrap.append(kicker, title);
 
     const summonButton = document.createElement('button');
-    summonButton.className = 'shop-buy warp-reset-panel__button';
+    summonButton.className = 'shop-buy action-panel__button';
     summonButton.type = 'button';
     summonButton.disabled = blocked;
     summonButton.textContent = blocked ? (this.language === 'pt-BR' ? 'Bloqueado' : 'Blocked') : (this.language === 'pt-BR' ? 'Invocar' : 'Summon');
@@ -2100,7 +2100,7 @@ export class GameScene extends Phaser.Scene {
     header.append(titleWrap, summonButton);
 
     const stats = document.createElement('div');
-    stats.className = 'warp-reset-panel__stats';
+    stats.className = 'action-panel__stats';
     if (nextZone) {
       const bossStats = balance.bosses.stats[nextZone.bossType];
       const bossHp = bossStats.hpBase + nextZone.index * bossStats.hpPerZone;
@@ -2113,7 +2113,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const preview = document.createElement('p');
-    preview.className = 'warp-reset-panel__preview';
+    preview.className = 'action-panel__preview';
     preview.textContent = nextZone
       ? (this.language === 'pt-BR' ? 'Invoca um desafio de rota.' : 'Summon a route challenge.')
       : (this.language === 'pt-BR' ? 'Não há mais sinais de boss de portal disponíveis nesta rota.' : 'No further gate boss signals are available on this route.');

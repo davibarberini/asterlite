@@ -11,21 +11,6 @@ Current engineering shape:
 
 ## Ready
 
-### Rename Legacy Warp Reset UI Classes
-
-Remove stale reset-era naming from current DOM/CSS surfaces.
-
-Context:
-- Player-facing ship/core reset was removed, but several current panels still use `warp-reset-panel` class names.
-- Those classes now style boss summon panels and hangar shortcut panels, so the name is misleading while reading UI code.
-- This is a low-risk cleanup that reduces confusion before larger UI extraction work.
-
-Acceptance:
-- Rename `warp-reset-panel` CSS classes and DOM class usage to a neutral current name such as `action-panel`.
-- Preserve the existing visual styling and modifiers for shortcut panels.
-- Avoid changing settings reset copy/classes, because that still describes actual save reset behavior.
-- Run `pnpm run build`.
-
 ### Extract GameScene Skills Modal Presenter
 
 Move the Skills tab/modal DOM orchestration out of `GameScene.ts`.

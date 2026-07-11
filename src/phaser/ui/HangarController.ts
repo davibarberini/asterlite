@@ -25,13 +25,13 @@ type HangarShortcutOptions = {
 export class HangarController {
   renderPanel(options: HangarRenderOptions): HTMLElement {
     const panel = document.createElement('section');
-    panel.className = 'warp-reset-panel';
+    panel.className = 'action-panel';
 
     const header = document.createElement('div');
-    header.className = 'warp-reset-panel__header';
+    header.className = 'action-panel__header';
     const titleWrap = document.createElement('div');
     const kicker = document.createElement('span');
-    kicker.className = 'warp-reset-panel__kicker';
+    kicker.className = 'action-panel__kicker';
     kicker.textContent = options.language === 'pt-BR' ? 'Hangar de Naves' : 'Ship Hangar';
     const title = document.createElement('strong');
     title.textContent = options.language === 'pt-BR' ? 'Hangar de naves' : 'Ship hangar';
@@ -48,20 +48,20 @@ export class HangarController {
 
   renderShortcut(options: HangarShortcutOptions): HTMLElement {
     const panel = document.createElement('section');
-    panel.className = 'warp-reset-panel warp-reset-panel--shortcut';
+    panel.className = 'action-panel action-panel--shortcut';
 
     const header = document.createElement('div');
-    header.className = 'warp-reset-panel__header';
+    header.className = 'action-panel__header';
     const titleWrap = document.createElement('div');
     const kicker = document.createElement('span');
-    kicker.className = 'warp-reset-panel__kicker';
+    kicker.className = 'action-panel__kicker';
     kicker.textContent = 'Hangar';
     const title = document.createElement('strong');
     title.textContent = options.language === 'pt-BR' ? 'Naves e progresso individual' : 'Ships and individual progress';
     titleWrap.append(kicker, title);
 
     const button = document.createElement('button');
-    button.className = 'shop-buy warp-reset-panel__button';
+    button.className = 'shop-buy action-panel__button';
     button.type = 'button';
     button.textContent = options.language === 'pt-BR' ? 'Abrir' : 'Open';
     button.addEventListener('click', options.onOpenHangar);
