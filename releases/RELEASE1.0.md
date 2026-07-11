@@ -4,6 +4,18 @@ Completed backlog and technical debt items moved out for the 1.0 release snapsho
 
 ## Backlog Completed
 
+### Skill Tree Draggable Canvas
+
+Made the skill tree modal behave like a panning tree map instead of a fixed compact board.
+
+Notes:
+- Wrapped the skill tree nodes, connector lines, and tooltip layer in a draggable viewport.
+- Added touch and mouse panning with movement-threshold handling so tap selection still works on nodes.
+- Added a small recenter control that returns the tree to the starting Core Calibration area.
+- Preserved selected-node tooltip behavior while the tree is translated inside the viewport.
+- Updated compact tree layout math so the 7-column tree lines, nodes, and tooltips align in the draggable canvas.
+- Kept the warp core tree on the existing static compact layout by scoping draggable styles to the skill tree board.
+
 ### Skill Tree Impact and Speed Branches
 
 Split the early skill tree into build-oriented impact/tank and speed/attack directions.

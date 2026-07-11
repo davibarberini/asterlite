@@ -78,8 +78,24 @@ const formatRankLabel = (language: LanguageCode, progression: ProgressionState, 
 
 export class SkillTreeModalController {
   private board: HTMLElement | null = null;
+  private viewport: HTMLElement | null = null;
+  private panContent: HTMLElement | null = null;
   private tooltipLayer: HTMLElement | null = null;
   private selectedTalentId: TalentId | null = null;
+  private pan = { x: 0, y: 0 };
+  private hasPanPosition = false;
+  private drag:
+    | {
+      pointerId: number;
+      startX: number;
+      startY: number;
+      originX: number;
+      originY: number;
+      moved: boolean;
+      target: EventTarget | null;
+    }
+    | null = null;
+  private suppressNextTalentClick = false;
   private readonly nodeById = new Map<TalentId, HTMLButtonElement>();
 
   render(state: SkillTreeRenderState): HTMLElement {
@@ -87,20 +103,11 @@ export class SkillTreeModalController {
     this.selectedTalentId = state.selectedTalentId;
     const board = document.createElement('div');
     this.board = board;
-    board.className = 'talent-tree-board talent-tree-board--compact';
+    board.className = 'talent-tree-board talent-tree-board--compact talent-tree-board--draggable';
     board.style.setProperty('--talent-grid-columns', TALENT_GRID_COLUMNS.toString());
     board.style.setProperty('--talent-grid-rows', TALENT_GRID_ROWS.toString());
-    board.addEventListener('pointerdown', (event) => {
-      if (!this.selectedTalentId || !(event.target instanceof Element)) {
-        return;
-      }
-
-      if (event.target.closest('.talent-node, .talent-tooltip')) {
-        return;
-      }
-
-      state.onSelectTalent(null);
-    });
+    board.style.setProperty('--talent-world-width', `${TALENT_GRID_COLUMNS * talentCompactNodeWidth}px`);
+    board.style.setProperty('--talent-world-height', `${TALENT_GRID_ROWS * talentCompactNodeHeight}px`);
 
     const lines = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     lines.setAttribute('class', 'talent-tree-lines');
@@ -118,10 +125,36 @@ export class SkillTreeModalController {
     tooltipLayer.className = 'talent-tooltip-layer';
     this.tooltipLayer = tooltipLayer;
 
-    board.append(lines, grid, tooltipLayer);
+    const panContent = document.createElement('div');
+    panContent.className = 'talent-tree-pan';
+    panContent.append(lines, grid, tooltipLayer);
+    this.panContent = panContent;
+
+    const viewport = document.createElement('div');
+    viewport.className = 'talent-tree-viewport';
+    viewport.append(panContent);
+    this.viewport = viewport;
+    this.bindPanHandlers(viewport, state);
+
+    const recenterButton = document.createElement('button');
+    recenterButton.className = 'talent-tree-recenter';
+    recenterButton.type = 'button';
+    recenterButton.title = state.language === 'pt-BR' ? 'Centralizar árvore' : 'Recenter tree';
+    recenterButton.setAttribute('aria-label', recenterButton.title);
+    recenterButton.append(this.createRecenterIcon());
+    recenterButton.addEventListener('click', () => this.centerPanOnStart());
+
+    board.append(viewport, recenterButton);
     if (state.selectedTalentId) {
       tooltipLayer.append(this.createTalentTooltip(state.selectedTalentId, state));
     }
+    requestAnimationFrame(() => {
+      if (this.hasPanPosition) {
+        this.applyPan(true);
+      } else {
+        this.centerPanOnStart();
+      }
+    });
 
     return board;
   }
@@ -140,6 +173,124 @@ export class SkillTreeModalController {
       this.tooltipLayer.append(this.createTalentTooltip(state.selectedTalentId, state));
     }
     return true;
+  }
+
+  private bindPanHandlers(viewport: HTMLElement, state: SkillTreeRenderState): void {
+    viewport.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || (event.target instanceof Element && event.target.closest('.talent-tooltip'))) {
+        return;
+      }
+
+      this.drag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: this.pan.x,
+        originY: this.pan.y,
+        moved: false,
+        target: event.target
+      };
+      viewport.setPointerCapture(event.pointerId);
+      this.board?.classList.add('is-grabbing');
+    });
+
+    viewport.addEventListener('pointermove', (event) => {
+      if (!this.drag || this.drag.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const dx = event.clientX - this.drag.startX;
+      const dy = event.clientY - this.drag.startY;
+      if (!this.drag.moved && Math.hypot(dx, dy) > 5) {
+        this.drag.moved = true;
+        this.suppressNextTalentClick = true;
+        this.board?.classList.add('is-panning');
+      }
+
+      if (!this.drag.moved) {
+        return;
+      }
+
+      event.preventDefault();
+      this.pan = {
+        x: this.drag.originX + dx,
+        y: this.drag.originY + dy
+      };
+      this.applyPan(true);
+    });
+
+    viewport.addEventListener('pointerup', (event) => {
+      this.finishPan(event, state);
+    });
+    viewport.addEventListener('pointercancel', (event) => {
+      this.finishPan(event, state);
+    });
+  }
+
+  private finishPan(event: PointerEvent, state: SkillTreeRenderState): void {
+    if (!this.drag || this.drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const moved = this.drag.moved;
+    const target = this.drag.target;
+    this.drag = null;
+    this.board?.classList.remove('is-grabbing', 'is-panning');
+    if (this.viewport?.hasPointerCapture(event.pointerId)) {
+      this.viewport.releasePointerCapture(event.pointerId);
+    }
+
+    if (moved) {
+      this.hasPanPosition = true;
+      this.applyPan(true);
+      return;
+    }
+
+    if (
+      this.selectedTalentId &&
+      target instanceof Element &&
+      !target.closest('.talent-node, .talent-tooltip, .talent-tree-recenter')
+    ) {
+      state.onSelectTalent(null);
+    }
+  }
+
+  private centerPanOnStart(): void {
+    const startTalent = TALENT_BY_ID.refineryYield;
+    const startCenter = this.getTalentNodeCenter(startTalent.grid.col, startTalent.grid.row);
+    const viewport = this.viewport;
+    if (!viewport) {
+      return;
+    }
+
+    this.pan = {
+      x: viewport.clientWidth / 2 - startCenter.x,
+      y: viewport.clientHeight * 0.28 - startCenter.y
+    };
+    this.hasPanPosition = true;
+    this.applyPan(true);
+  }
+
+  private applyPan(clamp = false): void {
+    const viewport = this.viewport;
+    const panContent = this.panContent;
+    if (!viewport || !panContent) {
+      return;
+    }
+
+    if (clamp) {
+      const margin = 42;
+      const minX = Math.min(margin, viewport.clientWidth - panContent.offsetWidth - margin);
+      const maxX = Math.max(margin, viewport.clientWidth - panContent.offsetWidth - margin);
+      const minY = Math.min(margin, viewport.clientHeight - panContent.offsetHeight - margin);
+      const maxY = Math.max(margin, viewport.clientHeight - panContent.offsetHeight - margin);
+      this.pan = {
+        x: Math.max(minX, Math.min(maxX, this.pan.x)),
+        y: Math.max(minY, Math.min(maxY, this.pan.y))
+      };
+    }
+
+    panContent.style.transform = `translate3d(${this.pan.x}px, ${this.pan.y}px, 0)`;
   }
 
   private setNodeSelected(id: TalentId | null, selected: boolean): void {
@@ -210,10 +361,18 @@ export class SkillTreeModalController {
       if (event.pointerType !== 'mouse') {
         event.preventDefault();
         handledPointerSelection = true;
+        if (this.drag?.moved) {
+          this.suppressNextTalentClick = false;
+          return;
+        }
         toggleTalent();
       }
     });
     node.addEventListener('click', () => {
+      if (this.suppressNextTalentClick) {
+        this.suppressNextTalentClick = false;
+        return;
+      }
       if (handledPointerSelection) {
         handledPointerSelection = false;
         return;
@@ -295,14 +454,15 @@ export class SkillTreeModalController {
 
   private positionTalentTooltip(panel: HTMLElement, col: number, row: number): void {
     const nodeSize = 54;
-    const gridGap = 10;
-    const boardPadding = 10;
+    const trackWidth = talentCompactNodeWidth;
+    const trackHeight = talentCompactNodeHeight;
     const tooltipWidth = 188;
     const tooltipHeight = 150;
-    const boardWidth = boardPadding * 2 + TALENT_GRID_COLUMNS * nodeSize + (TALENT_GRID_COLUMNS - 1) * gridGap;
-    const boardHeight = boardPadding * 2 + TALENT_GRID_ROWS * nodeSize + (TALENT_GRID_ROWS - 1) * gridGap;
-    const nodeLeft = boardPadding + (col - 1) * (nodeSize + gridGap);
-    const nodeTop = boardPadding + (row - 1) * (nodeSize + gridGap);
+    const boardPadding = 8;
+    const boardWidth = TALENT_GRID_COLUMNS * trackWidth;
+    const boardHeight = TALENT_GRID_ROWS * trackHeight;
+    const nodeLeft = (col - 1) * trackWidth + (trackWidth - nodeSize) / 2;
+    const nodeTop = (row - 1) * trackHeight + (trackHeight - nodeSize) / 2;
     const nodeCenterX = nodeLeft + nodeSize / 2;
     const nodeCenterY = nodeTop + nodeSize / 2;
     const offset = 9;
@@ -311,11 +471,11 @@ export class SkillTreeModalController {
     let left = 0;
     let top = 0;
 
-    if (col <= 2) {
+    if (col <= 3) {
       placement = 'right';
       left = nodeLeft + nodeSize + offset;
       top = nodeCenterY - tooltipHeight / 2;
-    } else if (col >= 4) {
+    } else if (col >= 5) {
       placement = 'left';
       left = nodeLeft - tooltipWidth - offset;
       top = nodeCenterY - tooltipHeight / 2;
@@ -344,6 +504,21 @@ export class SkillTreeModalController {
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
     use.setAttribute('href', `${import.meta.env.BASE_URL}skill-icons.svg#${this.getTalentIconId(id)}`);
     svg.append(use);
+    return svg;
+  }
+
+  private createRecenterIcon(): SVGSVGElement {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '12');
+    circle.setAttribute('cy', '12');
+    circle.setAttribute('r', '5.5');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M12 3v4M12 17v4M3 12h4M17 12h4');
+    svg.append(circle, path);
     return svg;
   }
 

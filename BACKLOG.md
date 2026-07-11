@@ -4,22 +4,6 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Skill Tree Draggable Canvas
-
-Make the skill tree modal behave like a large draggable ascension/tree map.
-
-Design:
-- Replace the fixed compact board with a draggable/pannable tree container for touch and mouse.
-- Keep node interactions reliable on mobile: drag pans, tap selects.
-- Add a simple recenter/start button if the tree can move far from the starting area.
-- Keep layout stable without zoom in the first pass unless it becomes necessary.
-
-Acceptance:
-- Players can pan around a larger skill tree on touch and mouse.
-- Tapping nodes still selects and purchases through the existing tooltip flow.
-- The starting area is easy to recover if the player pans away.
-- Build passes and tree UI remains usable on mobile viewport sizes.
-
 ### Skill Tree Hidden Drone Region
 
 Add a drone-focused region that is hidden until drone systems are unlocked.

@@ -2553,6 +2553,104 @@ canvas {
   contain: layout paint;
 }
 
+.talent-tree-board--draggable {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: min(58vh, 560px);
+  max-height: min(62vh, 600px);
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(216, 255, 245, 0.14);
+  background:
+    linear-gradient(90deg, rgba(131, 255, 220, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(131, 255, 220, 0.026) 1px, transparent 1px),
+    rgba(255, 255, 255, 0.018);
+  background-size: 36px 36px, 36px 36px, auto;
+}
+
+.talent-tree-viewport {
+  position: relative;
+  min-height: min(58vh, 560px);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.talent-tree-board--draggable.is-grabbing .talent-tree-viewport {
+  cursor: grabbing;
+}
+
+.talent-tree-pan {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--talent-world-width);
+  height: var(--talent-world-height);
+  will-change: transform;
+}
+
+.talent-tree-board--draggable:not(.is-panning) .talent-tree-pan {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.talent-tree-board--draggable .talent-tree-lines {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.talent-tree-board--draggable .talent-tree-grid--compact {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(var(--talent-grid-columns), 72px);
+  grid-template-rows: repeat(var(--talent-grid-rows), 72px);
+  gap: 0;
+}
+
+.talent-tree-board--draggable .talent-node--compact {
+  place-self: center;
+}
+
+.talent-tree-board--draggable .talent-tooltip-layer {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.talent-tree-recenter {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(216, 255, 245, 0.18);
+  border-radius: 999px;
+  background: rgba(4, 8, 12, 0.76);
+  color: rgba(216, 255, 245, 0.9);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.talent-tree-recenter svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.talent-tree-recenter:active {
+  transform: translateY(1px);
+}
+
 .warp-tree-board {
   min-width: 246px;
   min-height: 532px;
