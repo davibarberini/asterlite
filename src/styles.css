@@ -504,7 +504,8 @@ canvas {
   display: grid;
   grid-template-columns: minmax(0, auto) auto;
   align-items: center;
-  gap: 12px;
+  column-gap: 12px;
+  row-gap: 6px;
 }
 
 .money-readout {
@@ -556,6 +557,44 @@ canvas {
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
+}
+
+.ship-xp-meter {
+  --ship-xp-fill: 0%;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(58px, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ship-xp-meter__level {
+  color: rgba(216, 199, 255, 0.9);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ship-xp-meter__track {
+  position: relative;
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(216, 199, 255, 0.14);
+}
+
+.ship-xp-meter__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--ship-xp-fill);
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(216, 199, 255, 0.92), rgba(131, 255, 220, 0.86));
+  box-shadow: 0 0 10px rgba(216, 199, 255, 0.3);
+  transition: width 180ms ease;
 }
 
 .hud-right-cluster {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { neutralInput } from '../input/actions';
-import { getCrystalBalance, purchaseTalentRank, spendCrystals } from '../progression/currency';
+import { getCrystalBalance, getTalentRespecCost, purchaseTalentRank, respecTalentRanks, spendCrystals } from '../progression/currency';
 import { createProgression } from '../simulation/state';
 import {
   getFireRateMultiplier,
@@ -719,6 +719,45 @@ describe('crystal spending and talents', () => {
     expect(state.progression.talentRanks.semiAutoOptics).toBe(1);
     expect(state.crystals).toBe(5);
     expect(getAvailableShipSkillPoints(state.progression)).toBe(0);
+  });
+
+  it('respecs spent talent ranks with crystals while preserving ship level and XP', () => {
+    const state = createGameState(800, 600);
+    state.crystals = 20;
+    state.progression.shipLevel = 4;
+    state.progression.shipXp = 37;
+    state.progression.shipSkillPoints = 3;
+
+    expect(purchaseTalentRank(state, 'refineryYield')).toBe(true);
+    expect(purchaseTalentRank(state, 'combatBounty')).toBe(true);
+    expect(getTalentRespecCost(state)).toBe(16);
+
+    expect(respecTalentRanks(state)).toBe(true);
+
+    expect(state.crystals).toBe(4);
+    expect(state.progression.talentRanks.refineryYield).toBe(0);
+    expect(state.progression.talentRanks.combatBounty).toBe(0);
+    expect(state.progression.spentShipSkillPoints).toBe(0);
+    expect(state.progression.shipLevel).toBe(4);
+    expect(state.progression.shipXp).toBe(37);
+    expect(state.progression.shipSkillPoints).toBe(3);
+    expect(getAvailableShipSkillPoints(state.progression)).toBe(3);
+  });
+
+  it('refuses talent respec when crystals are insufficient and leaves the build intact', () => {
+    const state = createGameState(800, 600);
+    state.crystals = 7;
+    state.progression.shipLevel = 2;
+    state.progression.shipSkillPoints = 1;
+
+    expect(purchaseTalentRank(state, 'refineryYield')).toBe(true);
+    expect(getTalentRespecCost(state)).toBe(8);
+
+    expect(respecTalentRanks(state)).toBe(false);
+
+    expect(state.crystals).toBe(7);
+    expect(state.progression.talentRanks.refineryYield).toBe(1);
+    expect(state.progression.spentShipSkillPoints).toBe(1);
   });
 
   it('levels the active ship from asteroid destroys and grants finite skill points', () => {

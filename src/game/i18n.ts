@@ -66,6 +66,9 @@ type TranslationKey =
   | 'shop.skillsActionTitle'
   | 'shop.skillsActionMeta'
   | 'shop.skillsActionLabel'
+  | 'shop.skillsRespecTitle'
+  | 'shop.skillsRespecMeta'
+  | 'shop.skillsRespecLabel'
   | 'shop.level'
   | 'shop.max'
   | 'shop.damage'
@@ -154,6 +157,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.skillsActionTitle': 'Talent Constellation',
     'shop.skillsActionMeta': '{count} ranks unlocked',
     'shop.skillsActionLabel': 'Open Talent Tree',
+    'shop.skillsRespecTitle': 'Reset Build',
+    'shop.skillsRespecMeta': 'Refund spent skill points without losing ship level or XP.',
+    'shop.skillsRespecLabel': '{cost} crystals',
     'shop.level': 'Lv {level}/{cap}',
     'shop.max': 'MAX',
     'shop.damage': '{value} dmg',
@@ -167,7 +173,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.reachZone': 'Reach {zone}',
     'shop.unlockNext': 'Unlock next: {items}.',
     'shop.defeatBosses': 'Defeat gate bosses to open the route toward Nova Crown.',
-    'shop.collectCrystals': 'Crystals improve the current ship through skills.',
+    'shop.collectCrystals': 'Crystals let the current ship rebuild its skill choices.',
     'settings.audio': 'Audio',
     'settings.sound': 'Sound Settings',
     'settings.saveData': 'Save Data',
@@ -241,6 +247,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.skillsActionTitle': 'Constelação de Habilidades',
     'shop.skillsActionMeta': '{count} níveis desbloqueados',
     'shop.skillsActionLabel': 'Abrir árvore',
+    'shop.skillsRespecTitle': 'Resetar build',
+    'shop.skillsRespecMeta': 'Devolve pontos gastos sem perder nível ou XP da nave.',
+    'shop.skillsRespecLabel': '{cost} cristais',
     'shop.level': 'Nv {level}/{cap}',
     'shop.max': 'MAX',
     'shop.damage': '{value} dano',
@@ -254,7 +263,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'shop.reachZone': 'Alcance {zone}',
     'shop.unlockNext': 'Próximo desbloqueio: {items}.',
     'shop.defeatBosses': 'Derrote bosses de portal para abrir caminho até a Nova Crown.',
-    'shop.collectCrystals': 'Cristais melhoram a nave atual pela árvore de habilidades.',
+    'shop.collectCrystals': 'Cristais permitem refazer as escolhas de habilidades da nave atual.',
     'settings.audio': 'Áudio',
     'settings.sound': 'Configurações de Som',
     'settings.saveData': 'Dados salvos',

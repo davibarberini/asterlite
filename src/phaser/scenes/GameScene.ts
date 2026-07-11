@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { neutralInput, type InputActions } from '../../game/input/actions';
-import { getCrystalBalance as getStateCrystalBalance, purchaseTalentRank } from '../../game/progression/currency';
+import { getCrystalBalance as getStateCrystalBalance, getTalentRespecCost, purchaseTalentRank, respecTalentRanks } from '../../game/progression/currency';
 import { BOSS_REWARD_BY_ID, applyBossRewardChoice } from '../../game/progression/bossRewards';
 import { clearAllAsteridleData, loadGameState, saveGameState } from '../../game/progression/saveData';
 import { emitReward } from '../../game/simulation/events';
@@ -150,6 +150,8 @@ export class GameScene extends Phaser.Scene {
   private sectorEl!: HTMLElement;
   private hpMeterEl!: HTMLElement;
   private hpEl!: HTMLElement;
+  private shipXpMeterEl!: HTMLElement;
+  private shipLevelEl!: HTMLElement;
   private statusEl!: HTMLElement;
   private survivalHudEl!: HTMLElement;
   private survivalTimerEl!: HTMLElement;
@@ -288,6 +290,8 @@ export class GameScene extends Phaser.Scene {
     this.sectorEl = document.getElementById('sector')!;
     this.hpMeterEl = document.getElementById('hp-meter')!;
     this.hpEl = document.getElementById('hp')!;
+    this.shipXpMeterEl = document.getElementById('ship-xp-meter')!;
+    this.shipLevelEl = document.getElementById('ship-level')!;
     this.statusEl = document.getElementById('status')!;
     this.survivalHudEl = document.getElementById('survival-hud')!;
     this.survivalTimerEl = document.getElementById('survival-timer')!;
@@ -1262,6 +1266,12 @@ export class GameScene extends Phaser.Scene {
     this.hpMeterEl.style.setProperty('--hp-fill', `${Math.round(hpPercent * 100)}%`);
     this.updateLowHpVeil(hpPercent);
     this.setText(this.hpEl, `${formatCompactNumber(Math.ceil(this.state.ship.hp))} / ${formatCompactNumber(this.state.ship.maxHp)}`);
+    const shipLevel = Math.max(1, Math.floor(this.state.progression.shipLevel));
+    const shipXpProgress = shipLevel >= maxShipLevel
+      ? 1
+      : Math.max(0, Math.min(1, this.state.progression.shipXp / Math.max(1, getShipXpForNextLevel(shipLevel))));
+    this.setText(this.shipLevelEl, `${this.language === 'pt-BR' ? 'Nv' : 'Lv'} ${shipLevel}`);
+    this.shipXpMeterEl.style.setProperty('--ship-xp-fill', `${Math.round(shipXpProgress * 100)}%`);
 
     if (this.offlineStatusFor > 0) {
       this.setText(this.statusEl, translate(this.language, 'status.offline', { amount: this.formatMoney(this.state.lastOfflineEarnings) }));
@@ -1875,7 +1885,7 @@ export class GameScene extends Phaser.Scene {
       return TALENT_DEFINITIONS.map((talent) => {
         const rank = getTalentRank(this.state.progression, talent.id);
         return `${talent.id}:${rank}:${canBuyTalentRank(this.state.progression, talent.id)}`;
-      }).join(',') + `:points:${getAvailableShipSkillPoints(this.state.progression)}:level:${this.state.progression.shipLevel}:xp:${Math.floor(this.state.progression.shipXp)}`;
+      }).join(',') + `:points:${getAvailableShipSkillPoints(this.state.progression)}:level:${this.state.progression.shipLevel}:xp:${Math.floor(this.state.progression.shipXp)}:crystals:${this.getCrystalBalance()}:respec:${getTalentRespecCost(this.state)}`;
     }
 
     return '';
@@ -2095,6 +2105,7 @@ export class GameScene extends Phaser.Scene {
   private renderSkillsTab(): void {
     const talentCount = countUnlockedTalentRanks(this.state.progression);
     const availablePoints = getAvailableShipSkillPoints(this.state.progression);
+    const respecCost = getTalentRespecCost(this.state);
     const nextLevelXp = this.state.progression.shipLevel >= maxShipLevel
       ? this.language === 'pt-BR' ? 'MAX' : 'MAX'
       : `${Math.floor(this.state.progression.shipXp)}/${getShipXpForNextLevel(this.state.progression.shipLevel)}`;
@@ -2118,6 +2129,14 @@ export class GameScene extends Phaser.Scene {
           label: translate(this.language, 'shop.skillsActionLabel'),
           disabled: false,
           onClick: () => this.openSkillTreeModal()
+        },
+        {
+          icon: '↺',
+          title: translate(this.language, 'shop.skillsRespecTitle'),
+          meta: translate(this.language, 'shop.skillsRespecMeta'),
+          label: translate(this.language, 'shop.skillsRespecLabel', { cost: formatCompactNumber(respecCost) }),
+          disabled: respecCost <= 0 || this.getCrystalBalance() < respecCost,
+          onClick: () => this.respecSkills()
         }
       ]
     );
@@ -3311,6 +3330,18 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.shopSignature = '';
+    this.retroSound.play({ type: 'purchase' });
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
+  private respecSkills(): void {
+    if (!respecTalentRanks(this.state)) {
+      return;
+    }
+
+    this.activeTalentTooltipId = null;
     this.shopSignature = '';
     this.retroSound.play({ type: 'purchase' });
     saveGameState(this.state);
