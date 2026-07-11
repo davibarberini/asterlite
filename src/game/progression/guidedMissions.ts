@@ -77,6 +77,12 @@ const completeRewardText = (rewardKind: GuidedMissionProgress['rewardKind']): st
 const getMissionMoneyReward = (state: GameState, base: number): number =>
   Math.round(base * (1 + state.progression.currentZoneIndex * 0.55 + state.progression.guidedMissions.repeatCompletions * 0.08));
 
+const hasReachedZone = (state: GameState, zoneIndex: number): boolean =>
+  state.progression.currentZoneIndex >= zoneIndex;
+
+const hasUnlockedZone = (state: GameState, zoneIndex: number): boolean =>
+  state.progression.unlockedZoneIndex >= zoneIndex;
+
 export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'drawGateBoss',
@@ -103,13 +109,95 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
     }
   },
   {
+    id: 'travelToOrion',
+    target: 1,
+    rewardKind: 'speed',
+    isAvailable: (state) => hasUnlockedZone(state, 1),
+    getCurrent: (state) => (hasReachedZone(state, 1) ? 1 : 0),
+    applyReward: (state) => {
+      state.progression.shipSpeedLevel += 1;
+      state.money += 180;
+    }
+  },
+  {
     id: 'collectWarpCrystals',
     target: crystalsPerPrestigeCore,
     rewardKind: 'income',
+    isAvailable: (state) => hasReachedZone(state, 1),
     getCurrent: (state) => state.crystals,
     applyReward: (state) => {
       state.progression.passiveIncomeLevel += 1;
       state.money += 200;
+    }
+  },
+  {
+    id: 'openVegaRoute',
+    target: 2,
+    rewardKind: 'hull',
+    isAvailable: (state) => hasReachedZone(state, 1),
+    getCurrent: (state) => state.progression.bossDefeats,
+    applyReward: (state) => {
+      state.progression.maxHp += 10;
+      const nextMaxHp = getEffectiveMaxHp(state.progression);
+      const hpGain = nextMaxHp - state.ship.maxHp;
+      state.ship.maxHp = nextMaxHp;
+      state.ship.hp += Math.max(0, hpGain);
+      state.money += 350;
+    }
+  },
+  {
+    id: 'travelToVega',
+    target: 1,
+    rewardKind: 'speed',
+    isAvailable: (state) => hasUnlockedZone(state, 2),
+    getCurrent: (state) => (hasReachedZone(state, 2) ? 1 : 0),
+    applyReward: (state) => {
+      state.progression.shipSpeedLevel += 1;
+      state.money += 420;
+    }
+  },
+  {
+    id: 'openCygnusRoute',
+    target: 3,
+    rewardKind: 'fireRate',
+    isAvailable: (state) => hasReachedZone(state, 2),
+    getCurrent: (state) => state.progression.bossDefeats,
+    applyReward: (state) => {
+      state.progression.shipFireRateLevel += 1;
+      state.money += 650;
+    }
+  },
+  {
+    id: 'travelToCygnus',
+    target: 1,
+    rewardKind: 'speed',
+    isAvailable: (state) => hasUnlockedZone(state, 3),
+    getCurrent: (state) => (hasReachedZone(state, 3) ? 1 : 0),
+    applyReward: (state) => {
+      state.progression.shipSpeedLevel += 1;
+      state.money += 760;
+    }
+  },
+  {
+    id: 'openNovaRoute',
+    target: 4,
+    rewardKind: 'damage',
+    isAvailable: (state) => hasReachedZone(state, 3),
+    getCurrent: (state) => state.progression.bossDefeats,
+    applyReward: (state) => {
+      state.progression.shipDamageLevel += 1;
+      state.money += 1000;
+    }
+  },
+  {
+    id: 'travelToNovaCrown',
+    target: 1,
+    rewardKind: 'crystals',
+    isAvailable: (state) => hasUnlockedZone(state, 4),
+    getCurrent: (state) => (hasReachedZone(state, 4) ? 1 : 0),
+    applyReward: (state) => {
+      state.crystals += 2;
+      state.money += 1200;
     }
   },
   {
@@ -193,7 +281,14 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
 const INITIAL_MISSION_IDS: GuidedMissionId[] = [
   'drawGateBoss',
   'defeatGateBoss',
+  'travelToOrion',
   'collectWarpCrystals',
+  'openVegaRoute',
+  'travelToVega',
+  'openCygnusRoute',
+  'travelToCygnus',
+  'openNovaRoute',
+  'travelToNovaCrown',
   'warpForFirstCore',
   'installDroneSystems'
 ];

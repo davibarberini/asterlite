@@ -12,6 +12,11 @@ import { getMeteorLaneCameraAnchoredCenter, updateSurvivalTimedEvents } from '..
 import { updateSurvivalHazards } from '../simulation/systems/survivalHazards';
 import { zones } from '../simulation/zones';
 import { balance } from '../balance';
+import {
+  getNovaCrownBestSeconds,
+  getNovaCrownDifficultyConfig,
+  novaCrownClearThreatLevel
+} from '../progression/novaCrownDifficulty';
 
 const createLocalStorage = (): Storage => {
   const store = new Map<string, string>();
@@ -89,6 +94,7 @@ describe('nova crown survival', () => {
     putInFinalZone(state);
     state.survival = {
       active: true,
+      difficulty: 1,
       currentSeconds: 76,
       threatLevel: 3,
       lastAnnouncedThreatLevel: 3,
@@ -100,6 +106,7 @@ describe('nova crown survival', () => {
     };
     state.progression.survivalBestSeconds = 76;
     state.progression.survivalBestThreatLevel = 3;
+    state.progression.novaCrownBestSecondsByDifficulty = { '1': 76 };
 
     saveGameState(state);
     const loaded = loadGameState(800, 600);
@@ -109,6 +116,37 @@ describe('nova crown survival', () => {
     expect(loaded.survival.threatLevel).toBe(3);
     expect(loaded.progression.survivalBestSeconds).toBe(76);
     expect(loaded.progression.survivalBestThreatLevel).toBe(3);
+    expect(getNovaCrownBestSeconds(loaded.progression.novaCrownBestSecondsByDifficulty, 1)).toBe(76);
+  });
+
+  it('uses the selected Nova Crown difficulty for threat scaling and per-difficulty bests', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.progression.novaCrownHighestDifficulty = 4;
+    state.progression.novaCrownSelectedDifficulty = 4;
+
+    updateGame(state, neutralInput(), 1);
+
+    expect(state.survival.active).toBe(true);
+    expect(state.survival.difficulty).toBe(4);
+    expect(state.survival.threatLevel).toBeGreaterThan(getSurvivalThreatLevel(1, 1));
+    expect(getNovaCrownBestSeconds(state.progression.novaCrownBestSecondsByDifficulty, 4)).toBeCloseTo(1);
+  });
+
+  it('unlocks the next Nova Crown difficulty after surviving threat 10', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.progression.novaCrownHighestDifficulty = 2;
+    state.progression.novaCrownSelectedDifficulty = 2;
+    const config = getNovaCrownDifficultyConfig(state.progression.novaCrownSelectedDifficulty);
+    const secondsToReachClearThreat =
+      (novaCrownClearThreatLevel - config.startingThreatLevel) * config.threatLevelSeconds;
+
+    updateGame(state, neutralInput(), secondsToReachClearThreat + 0.1);
+
+    expect(state.survival.threatLevel).toBeGreaterThanOrEqual(novaCrownClearThreatLevel);
+    expect(state.progression.novaCrownHighestDifficulty).toBe(3);
+    expect(state.rewardEvents.some((event) => event.text.includes('difficulty 3 unlocked'))).toBe(true);
   });
 
   it('spawns proximity mines only after survival threat reaches the mine threshold', () => {

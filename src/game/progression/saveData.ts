@@ -21,19 +21,20 @@ import { createRareSpawnState } from '../simulation/systems/rareSpawns';
 import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/systems/survival';
 import { createShipUnlockProgress, normalizeShipUnlockProgress } from './shipUnlocks';
 import { getOfflineIncomeRate } from './offlineIncome';
+import { normalizeNovaCrownDifficulty } from './novaCrownDifficulty';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
-const SAVE_VERSION: SaveVersion = 1;
+const SAVE_VERSION: SaveVersion = 2;
 
-type SaveVersion = 1;
+type SaveVersion = 2;
 
 export const SAVE_VERSION_NOTES: Record<SaveVersion, string> = {
-  1: 'Stores credits, crystals, offline timestamp, normalized progression including guided missions, ship position/health/respawn state, and shield bubble state.'
+  2: 'Stores Nova Crown difficulty ladder state, credits, crystals, offline timestamp, progression, ship state, shield bubble state, and survival state.'
 };
 
-type SavedGameV1 = {
-  version: 1;
+type SavedGameV2 = {
+  version: 2;
   money: number;
   crystals: number;
   lastSeenAt: number;
@@ -52,7 +53,7 @@ type SavedGameV1 = {
   survival?: SurvivalState;
 };
 
-type SavedGame = SavedGameV1;
+type SavedGame = SavedGameV2;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -65,6 +66,18 @@ const readNumber = (value: unknown, fallback: number): number =>
 
 const readNonNegativeNumber = (value: unknown, fallback: number): number =>
   Math.max(0, readNumber(value, fallback));
+
+const readNonNegativeNumberRecord = (value: unknown): Record<string, number> => {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.entries(value).reduce<Record<string, number>>((record, [key, rawValue]) => {
+    const normalizedKey = normalizeNovaCrownDifficulty(Number(key)).toString();
+    record[normalizedKey] = Math.max(record[normalizedKey] ?? 0, readNonNegativeNumber(rawValue, 0));
+    return record;
+  }, {});
+};
 
 const readDroneCounts = (value: unknown, legacyDroneCount: number): Record<DroneType, number> => {
   if (!isRecord(value)) {
@@ -197,9 +210,11 @@ const readSurvival = (value: unknown): SurvivalState => {
   }
 
   const currentSeconds = readNonNegativeNumber(value.currentSeconds, 0);
-  const threatLevel = Math.max(0, Math.floor(readNumber(value.threatLevel, currentSeconds > 0 ? getSurvivalThreatLevel(currentSeconds) : 0)));
+  const difficulty = normalizeNovaCrownDifficulty(readNumber(value.difficulty, 1));
+  const threatLevel = Math.max(0, Math.floor(readNumber(value.threatLevel, currentSeconds > 0 ? getSurvivalThreatLevel(currentSeconds, difficulty) : 0)));
   return {
     active: value.active === true && currentSeconds > 0,
+    difficulty,
     currentSeconds,
     threatLevel,
     lastAnnouncedThreatLevel: Math.max(0, Math.floor(readNumber(value.lastAnnouncedThreatLevel, threatLevel))),
@@ -308,9 +323,16 @@ const readShipRuns = (value: unknown, unlockedShipFrameIds: ShipFrameId[]): Part
 const guidedMissionIds: GuidedMissionId[] = [
   'drawGateBoss',
   'defeatGateBoss',
+  'travelToOrion',
   'collectWarpCrystals',
+  'openVegaRoute',
+  'travelToVega',
   'warpForFirstCore',
   'installDroneSystems',
+  'openCygnusRoute',
+  'travelToCygnus',
+  'openNovaRoute',
+  'travelToNovaCrown',
   'clearAsteroids',
   'surviveAsteroids',
   'collectCredits',
@@ -480,6 +502,9 @@ const readProgression = (value: unknown): ProgressionState | null => {
     guidedMissions: readGuidedMissions(value.guidedMissions),
     survivalBestSeconds: readNonNegativeNumber(value.survivalBestSeconds, 0),
     survivalBestThreatLevel: Math.max(0, Math.floor(readNumber(value.survivalBestThreatLevel, 0))),
+    novaCrownHighestDifficulty: normalizeNovaCrownDifficulty(readNumber(value.novaCrownHighestDifficulty, 1)),
+    novaCrownSelectedDifficulty: normalizeNovaCrownDifficulty(readNumber(value.novaCrownSelectedDifficulty, 1)),
+    novaCrownBestSecondsByDifficulty: readNonNegativeNumberRecord(value.novaCrownBestSecondsByDifficulty),
     activeShipFrameId,
     unlockedShipFrameIds,
     shipUnlockProgress: readShipUnlockProgress(value.shipUnlockProgress),
@@ -525,7 +550,7 @@ const readShieldBubble = (value: unknown, progression: ProgressionState): Shield
   };
 };
 
-const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => {
+const readSavedGameV2 = (value: Record<string, unknown>): SavedGameV2 | null => {
   const progression = readProgression(value.progression);
   const ship = isRecord(value.ship) ? value.ship : null;
   if (!progression || !ship) {
@@ -542,7 +567,7 @@ const readSavedGameV1 = (value: Record<string, unknown>): SavedGameV1 | null => 
   }
 
   return {
-    version: 1,
+    version: 2,
     money,
     crystals,
     lastSeenAt: readNonNegativeNumber(value.lastSeenAt, Date.now()),
@@ -568,8 +593,8 @@ const migrateSavedGameToCurrent = (value: unknown): SavedGame | null => {
   }
 
   switch (value.version) {
-    case 1:
-      return readSavedGameV1(value);
+    case 2:
+      return readSavedGameV2(value);
     default:
       return null;
   }
@@ -590,7 +615,12 @@ const readSavedGame = (raw: string | null): SavedGame | null => {
 
 const readStoredSave = (): SavedGame | null => {
   try {
-    return readSavedGame(window.localStorage.getItem(SAVE_KEY));
+    const raw = window.localStorage.getItem(SAVE_KEY);
+    const save = readSavedGame(raw);
+    if (raw && !save) {
+      window.localStorage.removeItem(SAVE_KEY);
+    }
+    return save;
   } catch {
     return null;
   }

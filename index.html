@@ -62,7 +62,7 @@
         </section>
         <div id="reward-feed" aria-live="polite"></div>
         <section class="hud-panel hud-panel--center">
-          <div id="status" class="status">Drag and release tension to slingshot. WASD / arrows also fly.</div>
+          <div id="status" class="status">Drag and release to boost. Touch/hold to fire. WASD also flies.</div>
         </section>
         <section id="survival-hud" class="survival-hud is-hidden" aria-label="Survival status">
           <div class="survival-timer">
@@ -89,6 +89,10 @@
           <span id="first-warp-goal-progress-text" class="first-warp-goal__progress-text">0/0</span>
         </section>
         <div class="hud-right-cluster">
+          <button class="route-toggle is-hidden" id="route-toggle" type="button" aria-label="Travel to next zone" disabled>
+            <span class="route-toggle__icon">➤</span>
+            <span id="route-target" class="route-toggle__label">Route</span>
+          </button>
           <button class="map-toggle is-hidden" id="map-toggle" type="button" aria-label="Open zone map" disabled>
             <span class="map-toggle__icon">⌖</span>
             <span id="sector" class="map-toggle__label">Map</span>

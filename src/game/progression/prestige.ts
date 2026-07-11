@@ -43,6 +43,11 @@ export const createCoreResetState = (previousState: GameState, width: number, he
   permanentProgression.shipUnlockProgress = { ...previousState.progression.shipUnlockProgress };
   permanentProgression.survivalBestSeconds = previousState.progression.survivalBestSeconds;
   permanentProgression.survivalBestThreatLevel = previousState.progression.survivalBestThreatLevel;
+  permanentProgression.novaCrownHighestDifficulty = previousState.progression.novaCrownHighestDifficulty;
+  permanentProgression.novaCrownSelectedDifficulty = previousState.progression.novaCrownSelectedDifficulty;
+  permanentProgression.novaCrownBestSecondsByDifficulty = {
+    ...previousState.progression.novaCrownBestSecondsByDifficulty
+  };
   permanentProgression.shipRuns = {
     ...withCapturedActiveShipRun(previousState),
     [activeShipFrameId]: createDefaultShipRun()

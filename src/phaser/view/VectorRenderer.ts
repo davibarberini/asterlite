@@ -64,7 +64,7 @@ export class VectorRenderer {
     this.graphics.clear();
   }
 
-  render(state: GameState, thrusting: boolean, slingshot: { start: Vec2; current: Vec2; power: number } | null = null): void {
+  render(state: GameState, thrusting: boolean, swipeIndicator: { start: Vec2; current: Vec2; power: number; inverted?: boolean } | null = null): void {
     this.graphics.clear();
     this.nivitronHandImage.setVisible(false);
     const now = this.scene.time.now / 1000;
@@ -104,8 +104,8 @@ export class VectorRenderer {
       this.drawPendingBossWarning(state);
     }
 
-    if (slingshot) {
-      this.drawSlingshotIndicator(slingshot);
+    if (swipeIndicator) {
+      this.drawSwipeImpulseIndicator(swipeIndicator);
     }
 
     if (state.ship.alive) {
@@ -242,23 +242,37 @@ export class VectorRenderer {
     const active = isSurvivalTimedEventActive(event);
     const pulse = 0.5 + Math.sin((event.age + event.id * 0.23) * 2.8) * 0.5;
 
-    this.graphics.fillStyle(0x466a52, 0.045);
-    this.graphics.fillCircle(x, y, radius * 0.92);
-    for (let index = 0; index < 15; index += 1) {
+    this.graphics.fillStyle(0x5f8f5a, 0.085);
+    this.graphics.fillCircle(x, y, radius * 0.96);
+    this.graphics.lineStyle(Math.max(2, radius * 0.006), 0xc9ff89, 0.18 + pulse * 0.1);
+    this.graphics.strokeCircle(x, y, radius * 0.98);
+    this.graphics.lineStyle(Math.max(1, radius * 0.003), 0x9fcf7a, 0.1 + pulse * 0.08);
+    for (let index = 0; index < 8; index += 1) {
+      const angle = event.age * 0.12 + index * 0.78 + event.id * 0.19;
+      const startRadius = radius * (0.16 + (index % 3) * 0.08);
+      const endRadius = radius * (0.68 + (index % 4) * 0.06);
+      this.graphics.lineBetween(
+        x + Math.cos(angle) * startRadius,
+        y + Math.sin(angle) * startRadius,
+        x + Math.cos(angle + 0.34) * endRadius,
+        y + Math.sin(angle + 0.34) * endRadius
+      );
+    }
+    for (let index = 0; index < 24; index += 1) {
       const seed = event.id * 31 + index * 17;
       const angle = seed * 0.73 + Math.sin(event.age * 0.22 + index) * 0.18;
-      const distanceFromCenter = radius * (0.08 + ((seed % 100) / 100) * 0.72);
+      const distanceFromCenter = radius * (0.06 + ((seed % 100) / 100) * 0.82);
       const puffPulse = 0.5 + Math.sin(event.age * (0.75 + (index % 4) * 0.12) + seed) * 0.5;
-      const puffRadius = radius * (0.17 + ((seed % 7) / 7) * 0.16) * (0.92 + puffPulse * 0.18);
+      const puffRadius = radius * (0.18 + ((seed % 7) / 7) * 0.18) * (0.94 + puffPulse * 0.24);
       const puffX = x + Math.cos(angle) * distanceFromCenter;
       const puffY = y + Math.sin(angle) * distanceFromCenter;
-      const color = index % 3 === 0 ? 0x9fcf7a : index % 3 === 1 ? 0x6f8f6a : 0x45544d;
-      this.graphics.fillStyle(color, 0.08 + puffPulse * 0.055 + pulse * 0.025);
+      const color = index % 3 === 0 ? 0xc9ff89 : index % 3 === 1 ? 0x7fbf6f : 0x55685f;
+      this.graphics.fillStyle(color, 0.13 + puffPulse * 0.075 + pulse * 0.04);
       this.graphics.fillCircle(puffX, puffY, puffRadius);
     }
 
-    this.graphics.fillStyle(0xc9ff89, 0.045 + pulse * 0.035);
-    this.graphics.fillCircle(x, y, radius * 0.18);
+    this.graphics.fillStyle(0xc9ff89, 0.08 + pulse * 0.055);
+    this.graphics.fillCircle(x, y, radius * 0.22);
   }
 
   private drawMeteorLaneRock(
@@ -419,9 +433,9 @@ export class VectorRenderer {
     const pulse = 0.5 + Math.sin((hazard.age + hazard.id * 0.11) * 8) * 0.5;
 
     this.drawHunterTrail(state, hazard, viewScale);
-    this.graphics.lineStyle(1, 0xcfffda, 0.12 + pulse * 0.18);
+    this.graphics.lineStyle(1, 0xffb8b8, 0.12 + pulse * 0.18);
     this.graphics.strokeCircle(x, y, radius * (1.2 + pulse * 0.22));
-    this.graphics.fillStyle(0x00ff22, 0.28);
+    this.graphics.fillStyle(0xff1f38, 0.3);
     this.graphics.beginPath();
     this.graphics.moveTo(nose.x, nose.y);
     this.graphics.lineTo(left.x, left.y);
@@ -429,9 +443,9 @@ export class VectorRenderer {
     this.graphics.lineTo(right.x, right.y);
     this.graphics.closePath();
     this.graphics.fillPath();
-    this.graphics.lineStyle(2, 0x00ff22, 0.96);
+    this.graphics.lineStyle(2, 0xff2446, 0.96);
     this.graphics.strokePath();
-    this.graphics.fillStyle(0xf1fff4, 0.92);
+    this.graphics.fillStyle(0xfff1f1, 0.92);
     this.graphics.fillCircle(nose.x, nose.y, Math.max(1.5, radius * 0.16));
   }
 
@@ -444,7 +458,7 @@ export class VectorRenderer {
       const previous = hazard.trail[index - 1];
       const current = hazard.trail[index];
       const alpha = index / hazard.trail.length;
-      this.graphics.lineStyle(Math.max(1, 4 * viewScale * alpha), 0x00ff22, 0.04 + alpha * 0.28);
+      this.graphics.lineStyle(Math.max(1, 4.4 * viewScale * alpha), 0xff2446, 0.05 + alpha * 0.32);
       this.graphics.lineBetween(
         this.toScreenX(state, previous.x),
         this.toScreenY(state, previous.y),
@@ -1182,23 +1196,24 @@ export class VectorRenderer {
     this.graphics.strokePath();
   }
 
-  private drawSlingshotIndicator(slingshot: { start: Vec2; current: Vec2; power: number }): void {
-    const alpha = 0.28 + slingshot.power * 0.38;
-    const dx = slingshot.start.x - slingshot.current.x;
-    const dy = slingshot.start.y - slingshot.current.y;
+  private drawSwipeImpulseIndicator(swipe: { start: Vec2; current: Vec2; power: number; inverted?: boolean }): void {
+    const alpha = 0.28 + swipe.power * 0.38;
+    const dx = swipe.inverted ? swipe.start.x - swipe.current.x : swipe.current.x - swipe.start.x;
+    const dy = swipe.inverted ? swipe.start.y - swipe.current.y : swipe.current.y - swipe.start.y;
     const angle = Math.atan2(dy, dx);
-    const arrowDistance = 34 + slingshot.power * 42;
+    const arrowDistance = 34 + swipe.power * 42;
+    const arrowOrigin = swipe.inverted ? swipe.start : swipe.current;
     const arrowCenter = {
-      x: slingshot.start.x + Math.cos(angle) * arrowDistance,
-      y: slingshot.start.y + Math.sin(angle) * arrowDistance
+      x: arrowOrigin.x + Math.cos(angle) * arrowDistance,
+      y: arrowOrigin.y + Math.sin(angle) * arrowDistance
     };
 
     this.graphics.lineStyle(2, 0x83ffdc, alpha);
-    this.graphics.strokeCircle(slingshot.start.x, slingshot.start.y, 16 + slingshot.power * 10);
+    this.graphics.strokeCircle(swipe.start.x, swipe.start.y, 16 + swipe.power * 10);
     this.graphics.lineStyle(2, 0xfff1a8, alpha);
-    this.graphics.lineBetween(slingshot.current.x, slingshot.current.y, slingshot.start.x, slingshot.start.y);
-    this.graphics.fillStyle(0x83ffdc, 0.12 + slingshot.power * 0.16);
-    this.graphics.fillCircle(slingshot.current.x, slingshot.current.y, 10 + slingshot.power * 8);
+    this.graphics.lineBetween(swipe.current.x, swipe.current.y, swipe.start.x, swipe.start.y);
+    this.graphics.fillStyle(0x83ffdc, 0.12 + swipe.power * 0.16);
+    this.graphics.fillCircle(swipe.current.x, swipe.current.y, 10 + swipe.power * 8);
 
     const arrow = [
       { x: 16, y: 0 },
@@ -1206,7 +1221,7 @@ export class VectorRenderer {
       { x: -4, y: 0 },
       { x: -8, y: 8 }
     ].map((point) => this.rotatePoint(point.x, point.y, angle, arrowCenter.x, arrowCenter.y));
-    this.graphics.lineStyle(2, 0x83ffdc, 0.72 + slingshot.power * 0.2);
+    this.graphics.lineStyle(2, 0x83ffdc, 0.72 + swipe.power * 0.2);
     this.graphics.beginPath();
     this.graphics.moveTo(arrow[0].x, arrow[0].y);
     arrow.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));

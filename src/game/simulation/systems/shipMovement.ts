@@ -19,16 +19,17 @@ export const updateShipMovement = (state: GameState, input: InputActions, dt: nu
     return;
   }
 
-  if (input.slingshotVector) {
-    const slingPower = Math.min(1, Math.hypot(input.slingshotVector.x, input.slingshotVector.y));
-    if (slingPower > balance.ship.slingshotDeadzone) {
-      ship.rotation = Math.atan2(input.slingshotVector.y, input.slingshotVector.x);
-      const thrust = balance.ship.thrust * getSpeedMultiplier(state) * (0.35 + slingPower * 0.9);
-      ship.velocity.x += Math.cos(ship.rotation) * thrust * dt;
-      ship.velocity.y += Math.sin(ship.rotation) * thrust * dt;
-    } else {
-      ship.velocity.x *= 0.965;
-      ship.velocity.y *= 0.965;
+  if (input.impulseVector) {
+    const impulsePower = Math.min(1, Math.hypot(input.impulseVector.x, input.impulseVector.y));
+    if (impulsePower > 0) {
+      ship.rotation = Math.atan2(input.impulseVector.y, input.impulseVector.x);
+      const easedPower = Math.pow(impulsePower, 0.82);
+      const impulse =
+        (balance.ship.swipeImpulseMinSpeed +
+          (balance.ship.swipeImpulseMaxSpeed - balance.ship.swipeImpulseMinSpeed) * easedPower) *
+        getSpeedMultiplier(state);
+      ship.velocity.x += Math.cos(ship.rotation) * impulse;
+      ship.velocity.y += Math.sin(ship.rotation) * impulse;
     }
   } else if (input.aimDirection) {
     ship.rotation = Math.atan2(input.aimDirection.y, input.aimDirection.x);

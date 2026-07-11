@@ -258,6 +258,7 @@ export type RareSpawnState = {
 
 export type SurvivalState = {
   active: boolean;
+  difficulty: number;
   currentSeconds: number;
   threatLevel: number;
   lastAnnouncedThreatLevel: number;
@@ -317,9 +318,16 @@ export type BossDiscoveryState = {
 export type GuidedMissionId =
   | 'drawGateBoss'
   | 'defeatGateBoss'
+  | 'travelToOrion'
   | 'collectWarpCrystals'
+  | 'openVegaRoute'
+  | 'travelToVega'
   | 'warpForFirstCore'
   | 'installDroneSystems'
+  | 'openCygnusRoute'
+  | 'travelToCygnus'
+  | 'openNovaRoute'
+  | 'travelToNovaCrown'
   | 'clearAsteroids'
   | 'surviveAsteroids'
   | 'collectCredits'
@@ -403,6 +411,9 @@ export type ProgressionState = {
   guidedMissions: GuidedMissionState;
   survivalBestSeconds: number;
   survivalBestThreatLevel: number;
+  novaCrownHighestDifficulty: number;
+  novaCrownSelectedDifficulty: number;
+  novaCrownBestSecondsByDifficulty: Record<string, number>;
   activeShipFrameId: ShipFrameId;
   unlockedShipFrameIds: ShipFrameId[];
   shipUnlockProgress: ShipUnlockProgress;

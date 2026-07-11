@@ -75,8 +75,8 @@ beforeEach(() => {
 
 describe('save loading', () => {
   it('documents the current save version contents', () => {
-    expect(SAVE_VERSION_NOTES[1]).toContain('progression');
-    expect(SAVE_VERSION_NOTES[1]).toContain('ship');
+    expect(SAVE_VERSION_NOTES[2]).toContain('progression');
+    expect(SAVE_VERSION_NOTES[2]).toContain('Nova Crown');
   });
 
   it('writes current version saves and loads them through the migration path', () => {
@@ -121,7 +121,7 @@ describe('save loading', () => {
     saveGameState(savedState);
     const stored = JSON.parse(window.localStorage.getItem(saveKey) ?? '{}') as { version?: unknown };
 
-    expect(stored.version).toBe(1);
+    expect(stored.version).toBe(2);
 
     const loadedState = loadGameState(800, 600);
 
@@ -168,7 +168,7 @@ describe('save loading', () => {
     window.localStorage.setItem(
       saveKey,
       JSON.stringify({
-        version: 1,
+        version: 2,
         money: -100,
         crystals: 4.8,
         lastSeenAt: Date.now(),
@@ -217,6 +217,7 @@ describe('save loading', () => {
     expect(state.money).toBe(0);
     expect(state.crystals).toBe(0);
     expect(state.ship.position).toEqual({ x: 400, y: 300 });
+    expect(window.localStorage.getItem(saveKey)).toBeNull();
   });
 
   it('normalizes persisted warp unlock ids', () => {
@@ -229,7 +230,7 @@ describe('save loading', () => {
     window.localStorage.setItem(
       saveKey,
       JSON.stringify({
-        version: 1,
+        version: 2,
         money: 0,
         crystals: 0,
         lastSeenAt: Date.now(),
@@ -255,7 +256,7 @@ describe('save loading', () => {
     window.localStorage.setItem(
       saveKey,
       JSON.stringify({
-        version: 1,
+        version: 2,
         money: 0,
         crystals: 0,
         lastSeenAt: Date.now(),
@@ -298,7 +299,7 @@ describe('save loading', () => {
     expect(loadedState.shieldBubble.hitFlashFor).toBe(0.2);
   });
 
-  it('migrates persisted shield bubble state into owned warp unlocks', () => {
+  it('clears old save formats instead of migrating stale fields', () => {
     const progression = createProgression();
 
     window.localStorage.setItem(
@@ -326,14 +327,10 @@ describe('save loading', () => {
 
     const state = loadGameState(800, 600);
 
-    expect(state.progression.ownedWarpUnlockIds).toEqual(['deflectorFrame', 'shieldBubble']);
-    expect(state.progression.deflectorLevel).toBe(1);
-    expect(state.shieldBubble).toEqual({
-      active: false,
-      broken: true,
-      rechargeFor: 5,
-      hitFlashFor: 0.1
-    });
+    expect(state.money).toBe(0);
+    expect(state.progression.ownedWarpUnlockIds).toEqual([]);
+    expect(state.shieldBubble.active).toBe(false);
+    expect(window.localStorage.getItem(saveKey)).toBeNull();
   });
 
   it('defaults missing active drone counts to all owned drones when loading saves', () => {
@@ -350,7 +347,7 @@ describe('save loading', () => {
     window.localStorage.setItem(
       saveKey,
       JSON.stringify({
-        version: 1,
+        version: 2,
         money: 0,
         crystals: 0,
         lastSeenAt: Date.now(),
@@ -391,7 +388,7 @@ describe('save loading', () => {
     window.localStorage.setItem(
       saveKey,
       JSON.stringify({
-        version: 1,
+        version: 2,
         money: 0,
         crystals: 0,
         lastSeenAt: Date.now(),
@@ -533,6 +530,21 @@ describe('warp unlock definitions', () => {
   });
 });
 
+describe('ship input movement', () => {
+  it('applies swipe impulse as a one-frame movement burst', () => {
+    const state = createGameState(800, 600);
+    const startX = state.ship.position.x;
+    const input = neutralInput();
+    input.impulseVector = { x: 1, y: 0 };
+
+    updateGame(state, input, 0.1);
+
+    expect(state.ship.velocity.x).toBeGreaterThan(0);
+    expect(state.ship.position.x).toBeGreaterThan(startX);
+    expect(state.ship.rotation).toBeCloseTo(0);
+  });
+});
+
 describe('first warp goal', () => {
   it('guides new saves toward the first gate boss', () => {
     const state = createGameState(800, 600);
@@ -569,6 +581,21 @@ describe('first warp goal', () => {
 });
 
 describe('guided missions', () => {
+  const completedGuidedPath = [
+    'drawGateBoss',
+    'defeatGateBoss',
+    'travelToOrion',
+    'collectWarpCrystals',
+    'openVegaRoute',
+    'travelToVega',
+    'openCygnusRoute',
+    'travelToCygnus',
+    'openNovaRoute',
+    'travelToNovaCrown',
+    'warpForFirstCore',
+    'installDroneSystems'
+  ] as const;
+
   it('starts the guided mission sequence in the existing objective pill flow', () => {
     const state = createGameState(800, 600);
 
@@ -593,13 +620,7 @@ describe('guided missions', () => {
 
   it('selects repeatable missions after the first guided path', () => {
     const state = createGameState(800, 600);
-    state.progression.guidedMissions.completedMissionIds = [
-      'drawGateBoss',
-      'defeatGateBoss',
-      'collectWarpCrystals',
-      'warpForFirstCore',
-      'installDroneSystems'
-    ];
+    state.progression.guidedMissions.completedMissionIds = [...completedGuidedPath];
     state.progression.guidedMissions.activeMissionId = null;
 
     updateGame(state, neutralInput(), 0.016);
@@ -617,13 +638,7 @@ describe('guided missions', () => {
 
   it('resets the deathless repeatable mission window after a death', () => {
     const state = createGameState(800, 600);
-    state.progression.guidedMissions.completedMissionIds = [
-      'drawGateBoss',
-      'defeatGateBoss',
-      'collectWarpCrystals',
-      'warpForFirstCore',
-      'installDroneSystems'
-    ];
+    state.progression.guidedMissions.completedMissionIds = [...completedGuidedPath];
     state.progression.guidedMissions.repeatCompletions = 2;
     state.progression.guidedMissions.activeMissionId = null;
 
@@ -643,13 +658,7 @@ describe('guided missions', () => {
     const state = createGameState(800, 600);
     state.progression.unlockedZoneIndex = 1;
     state.progression.currentZoneIndex = 1;
-    state.progression.guidedMissions.completedMissionIds = [
-      'drawGateBoss',
-      'defeatGateBoss',
-      'collectWarpCrystals',
-      'warpForFirstCore',
-      'installDroneSystems'
-    ];
+    state.progression.guidedMissions.completedMissionIds = [...completedGuidedPath];
     state.progression.guidedMissions.repeatCompletions = 3;
     state.progression.guidedMissions.activeMissionId = null;
 

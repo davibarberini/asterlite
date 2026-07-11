@@ -1,4 +1,5 @@
 import type { AsteroidVariant, BossType, GameState } from './types';
+import { getNovaCrownDifficultyConfig } from '../progression/novaCrownDifficulty';
 
 export type ZoneId = 'lyraGate' | 'orionForge' | 'vegaDrift' | 'cygnusReef' | 'novaCrown';
 
@@ -143,14 +144,29 @@ export const isZoneUnlocked = (state: GameState, index: number): boolean =>
 export const isCurrentZoneProfitable = (state: GameState): boolean =>
   isZoneUnlocked(state, state.progression.currentZoneIndex);
 
-export const getZoneRewardMultiplier = (state: GameState): number =>
-  getExplorationZone(state).rewardMultiplier;
+export const getZoneRewardMultiplier = (state: GameState): number => {
+  const zone = getExplorationZone(state);
+  if (zone.id !== 'novaCrown') {
+    return zone.rewardMultiplier;
+  }
+  return zone.rewardMultiplier * getNovaCrownDifficultyConfig(state.survival.difficulty).rewardMultiplier;
+};
 
-export const getZoneAsteroidHpMultiplier = (state: GameState): number =>
-  getExplorationZone(state).asteroidHpMultiplier;
+export const getZoneAsteroidHpMultiplier = (state: GameState): number => {
+  const zone = getExplorationZone(state);
+  if (zone.id !== 'novaCrown') {
+    return zone.asteroidHpMultiplier;
+  }
+  return zone.asteroidHpMultiplier * getNovaCrownDifficultyConfig(state.survival.difficulty).asteroidHpMultiplier;
+};
 
-export const getZoneAsteroidDamageMultiplier = (state: GameState): number =>
-  getExplorationZone(state).asteroidDamageMultiplier;
+export const getZoneAsteroidDamageMultiplier = (state: GameState): number => {
+  const zone = getExplorationZone(state);
+  if (zone.id !== 'novaCrown') {
+    return zone.asteroidDamageMultiplier;
+  }
+  return zone.asteroidDamageMultiplier * getNovaCrownDifficultyConfig(state.survival.difficulty).asteroidDamageMultiplier;
+};
 
 export const hasNextZone = (state: GameState): boolean =>
   state.progression.unlockedZoneIndex < zones.length - 1;

@@ -18,8 +18,14 @@ import {
 } from '../../game/progression/talentTree';
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { isSurvivalZone } from '../../game/simulation/systems/survival';
-import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, zones } from '../../game/simulation/zones';
+import { getExplorationZone, getNextZone, getZoneByIndex, isZoneUnlocked, maxTravelLevel, zones } from '../../game/simulation/zones';
 import { createCoreResetState, getPrestigeCoreGain, minimumCoreResetThreatLevel } from '../../game/progression/prestige';
+import {
+  getNovaCrownBestSeconds,
+  getNovaCrownDifficultyConfig,
+  novaCrownClearThreatLevel,
+  normalizeNovaCrownDifficulty
+} from '../../game/progression/novaCrownDifficulty';
 import { getActiveGuidedMissionProgress, type GuidedMissionProgress } from '../../game/progression/guidedMissions';
 import {
   ACHIEVEMENT_BONUS_LABELS,
@@ -53,6 +59,7 @@ import { formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, 
 
 type ShopTab = 'upgrades' | 'warp' | 'hangar' | 'drones' | 'skills' | 'achievements';
 type DockTab = ShopTab | 'map';
+type SwipeDirectionMode = 'direct' | 'inverted';
 
 type ShopAction = {
   label: string;
@@ -88,10 +95,10 @@ type MenuBackdropAsteroid = {
   seed: number;
 };
 
-const SLINGSHOT_MAX_DRAG_MOBILE = 150;
-const SLINGSHOT_MAX_DRAG_DESKTOP = 172;
-const SLINGSHOT_DEADZONE_MOBILE = 58;
-const SLINGSHOT_DEADZONE_DESKTOP = 24;
+const SWIPE_DIRECTION_STORAGE_KEY = 'asteridle.settings.swipeDirection';
+const DEFAULT_SWIPE_DIRECTION: SwipeDirectionMode = 'direct';
+const SWIPE_RELEASE_FIRE_SECONDS = 0.38;
+const SWIPE_THRUST_TRAIL_SECONDS = 1.35;
 const INTRO_WARP_DURATION = 2.05;
 const SUBMENU_TIME_SCALE = 0.28;
 const TIME_SCALE_RECOVERY_SECONDS = 1;
@@ -179,6 +186,8 @@ export class GameScene extends Phaser.Scene {
   private modalBodyEl!: HTMLElement;
   private modalCloseEl!: HTMLButtonElement;
   private modalHandleEl!: HTMLButtonElement;
+  private routeToggleEl!: HTMLButtonElement;
+  private routeTargetEl!: HTMLElement;
   private mapToggleEl!: HTMLButtonElement;
   private menuToggleEl!: HTMLButtonElement;
   private bottomNavEl!: HTMLElement;
@@ -186,13 +195,19 @@ export class GameScene extends Phaser.Scene {
   private activeTab: ShopTab = 'upgrades';
   private priorityPopupQueue: PriorityPopupContent[] = [];
   private activePriorityPopup: PriorityPopupContent | null = null;
-  private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | 'bossReward' | null = null;
+  private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | 'bossReward' | 'novaCrownDifficulty' | null = null;
   private activeModalInfo: ModalContent | null = null;
+  private novaCrownDifficultySelection = 1;
   private activeTalentTooltipId: TalentId | null = null;
   private activeWarpUnlockId: WarpUnlockId | null = null;
   private activeGameplayPointerId: number | null = null;
   private gameplayPointerStartScreen: Vec2 | null = null;
   private gameplayPointerScreen: Vec2 | null = null;
+  private pendingSwipeImpulseVector: Vec2 | null = null;
+  private swipeImpulseIndicator: { start: Vec2; current: Vec2; power: number; ttl: number } | null = null;
+  private swipeThrustTrail: { direction: Vec2; ttl: number } | null = null;
+  private swipeFireFor = 0;
+  private swipeDirectionMode: SwipeDirectionMode = DEFAULT_SWIPE_DIRECTION;
   private shopSignature = '';
   private saveElapsed = 0;
   private offlineStatusFor = 0;
@@ -228,13 +243,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.isUiPointerEvent(event)) {
-      this.activeGameplayPointerId = null;
-      this.gameplayPointerStartScreen = null;
-      this.gameplayPointerScreen = null;
-      return;
-    }
-
     this.gameplayPointerScreen = this.toGameScreenPoint(event);
   };
   private readonly handleDocumentPointerUp = (event: PointerEvent): void => {
@@ -242,6 +250,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.queueSwipeImpulse();
     this.activeGameplayPointerId = null;
     this.gameplayPointerStartScreen = null;
     this.gameplayPointerScreen = null;
@@ -253,6 +262,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.state = loadGameState(this.scale.width, this.scale.height);
+    this.swipeDirectionMode = this.loadSwipeDirectionMode();
     this.offlineStatusFor = this.state.lastOfflineEarnings > 0 ? 8 : 0;
     this.retroSound = new RetroSound();
     this.backgroundMusic = new BackgroundMusic(`${import.meta.env.BASE_URL}audio/zone-1.mp3`);
@@ -307,6 +317,8 @@ export class GameScene extends Phaser.Scene {
     this.tutorialGuide = new TutorialGuideController(this.appEl);
     this.warpCoreTree = new WarpCoreTreeController();
     this.zoneMap = new ZoneMapController();
+    this.routeToggleEl = document.getElementById('route-toggle') as HTMLButtonElement;
+    this.routeTargetEl = document.getElementById('route-target')!;
     this.mapToggleEl = document.getElementById('map-toggle') as HTMLButtonElement;
     this.menuToggleEl = document.getElementById('menu-toggle') as HTMLButtonElement;
     this.bottomNavEl = document.querySelector<HTMLElement>('.bottom-nav')!;
@@ -365,6 +377,19 @@ export class GameScene extends Phaser.Scene {
     const rawDt = Math.min(deltaMs / 1000, 0.033);
     this.updateGameplayTimeScale(rawDt);
     const dt = rawDt * this.gameplayTimeScale;
+    this.swipeFireFor = Math.max(0, this.swipeFireFor - rawDt);
+    if (this.swipeImpulseIndicator) {
+      this.swipeImpulseIndicator.ttl -= rawDt;
+      if (this.swipeImpulseIndicator.ttl <= 0) {
+        this.swipeImpulseIndicator = null;
+      }
+    }
+    if (this.swipeThrustTrail) {
+      this.swipeThrustTrail.ttl -= rawDt;
+      if (this.swipeThrustTrail.ttl <= 0) {
+        this.swipeThrustTrail = null;
+      }
+    }
     this.readInput();
 
     this.state.width = this.scale.width;
@@ -396,8 +421,12 @@ export class GameScene extends Phaser.Scene {
       this.inputState = neutralInput();
     }
     this.starfield.update(tutorialPaused ? 0 : dt, this.state.ship.velocity);
-    const slingPower = this.inputState.slingshotVector ? Math.hypot(this.inputState.slingshotVector.x, this.inputState.slingshotVector.y) : 0;
-    this.vectorRenderer.render(this.state, (this.inputState.thrust || slingPower > 0.08) && this.state.ship.alive, this.getSlingshotIndicator());
+    const impulsePower = this.inputState.impulseVector ? Math.hypot(this.inputState.impulseVector.x, this.inputState.impulseVector.y) : 0;
+    this.vectorRenderer.render(
+      this.state,
+      (this.inputState.thrust || impulsePower > 0.08 || this.isSwipeThrusting()) && this.state.ship.alive,
+      this.getSwipeImpulseIndicator()
+    );
     this.updateHud();
     this.maybeStartTutorialGuide();
     this.updateDeathFade();
@@ -409,10 +438,13 @@ export class GameScene extends Phaser.Scene {
     this.inputState.thrust = this.cursors.up.isDown || this.keys.W.isDown;
     this.inputState.brake = this.cursors.down.isDown || this.keys.S.isDown || this.keys.SHIFT.isDown;
     this.inputState.pointerTarget = null;
-    this.inputState.slingshotVector = this.getSlingshotVector();
+    this.inputState.impulseVector = this.consumeSwipeImpulseVector();
     this.inputState.aimDirection = this.getPointerAimDirection();
-    const slingPower = this.inputState.slingshotVector ? Math.hypot(this.inputState.slingshotVector.x, this.inputState.slingshotVector.y) : 0;
-    this.inputState.fire = this.cursors.space.isDown || this.keys.SPACE.isDown || this.activeGameplayPointerId !== null || slingPower > 0.08;
+    this.inputState.fire =
+      this.cursors.space.isDown ||
+      this.keys.SPACE.isDown ||
+      this.activeGameplayPointerId !== null ||
+      this.swipeFireFor > 0;
   }
 
   private getPointerAimDirection(): Vec2 | null {
@@ -421,8 +453,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.gameplayPointerStartScreen) {
-      const pullDx = this.gameplayPointerStartScreen.x - this.gameplayPointerScreen.x;
-      const pullDy = this.gameplayPointerStartScreen.y - this.gameplayPointerScreen.y;
+      const directionSign = this.getSwipeDirectionSign();
+      const pullDx = (this.gameplayPointerScreen.x - this.gameplayPointerStartScreen.x) * directionSign;
+      const pullDy = (this.gameplayPointerScreen.y - this.gameplayPointerStartScreen.y) * directionSign;
       const pullDistance = Math.hypot(pullDx, pullDy);
       if (pullDistance >= 8) {
         return {
@@ -444,56 +477,123 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private getSlingshotVector(): Vec2 | null {
-    if (!this.gameplayPointerStartScreen || !this.gameplayPointerScreen) {
+  private getSwipeImpulseIndicator(): { start: Vec2; current: Vec2; power: number; inverted: boolean } | null {
+    if (this.gameplayPointerStartScreen && this.gameplayPointerScreen) {
+      const distance = Math.hypot(
+        this.gameplayPointerScreen.x - this.gameplayPointerStartScreen.x,
+        this.gameplayPointerScreen.y - this.gameplayPointerStartScreen.y
+      );
+      if (distance >= balance.ship.swipeImpulseDeadzone) {
+        return {
+          start: this.gameplayPointerStartScreen,
+          current: this.gameplayPointerScreen,
+          power: this.getSwipeImpulsePower(distance),
+          inverted: this.swipeDirectionMode === 'inverted'
+        };
+      }
+    }
+
+    if (!this.swipeImpulseIndicator) {
       return null;
     }
 
-    const maxDrag = this.getSlingshotMaxDrag();
-    const deadzone = this.getSlingshotDeadzone();
-    const dx = this.gameplayPointerStartScreen.x - this.gameplayPointerScreen.x;
-    const dy = this.gameplayPointerStartScreen.y - this.gameplayPointerScreen.y;
+    return {
+      start: this.swipeImpulseIndicator.start,
+      current: this.swipeImpulseIndicator.current,
+      power: this.swipeImpulseIndicator.power * Math.max(0, this.swipeImpulseIndicator.ttl / 0.24),
+      inverted: this.swipeDirectionMode === 'inverted'
+    };
+  }
+
+  private queueSwipeImpulse(): void {
+    if (!this.gameplayPointerStartScreen || !this.gameplayPointerScreen) {
+      return;
+    }
+
+    const dx = this.gameplayPointerScreen.x - this.gameplayPointerStartScreen.x;
+    const dy = this.gameplayPointerScreen.y - this.gameplayPointerStartScreen.y;
     const distance = Math.hypot(dx, dy);
-    if (distance < deadzone) {
-      return null;
+    this.swipeFireFor = SWIPE_RELEASE_FIRE_SECONDS;
+    if (distance < balance.ship.swipeImpulseDeadzone) {
+      return;
     }
 
-    const adjustedDistance = distance - deadzone;
-    const scale = Math.min(1, adjustedDistance / maxDrag) / distance;
-    return {
-      x: dx * scale,
-      y: dy * scale
+    const power = this.getSwipeImpulsePower(distance);
+    const directionSign = this.getSwipeDirectionSign();
+    const direction = {
+      x: (dx / distance) * directionSign,
+      y: (dy / distance) * directionSign
+    };
+    this.pendingSwipeImpulseVector = {
+      x: direction.x * power,
+      y: direction.y * power
+    };
+    this.swipeThrustTrail = {
+      direction,
+      ttl: SWIPE_THRUST_TRAIL_SECONDS
+    };
+    this.swipeImpulseIndicator = {
+      start: { ...this.gameplayPointerStartScreen },
+      current: { ...this.gameplayPointerScreen },
+      power,
+      ttl: 0.24
     };
   }
 
-  private getSlingshotIndicator(): { start: Vec2; current: Vec2; power: number } | null {
-    if (!this.gameplayPointerStartScreen || !this.gameplayPointerScreen) {
-      return null;
-    }
-
-    const maxDrag = this.getSlingshotMaxDrag();
-    const deadzone = this.getSlingshotDeadzone();
-    const distance = Math.hypot(
-      this.gameplayPointerStartScreen.x - this.gameplayPointerScreen.x,
-      this.gameplayPointerStartScreen.y - this.gameplayPointerScreen.y
-    );
-    if (distance < deadzone) {
-      return null;
-    }
-
-    return {
-      start: this.gameplayPointerStartScreen,
-      current: this.gameplayPointerScreen,
-      power: Math.min(1, (distance - deadzone) / maxDrag)
-    };
+  private consumeSwipeImpulseVector(): Vec2 | null {
+    const impulse = this.pendingSwipeImpulseVector;
+    this.pendingSwipeImpulseVector = null;
+    return impulse;
   }
 
-  private getSlingshotMaxDrag(): number {
-    return this.state.width <= 720 ? SLINGSHOT_MAX_DRAG_MOBILE : SLINGSHOT_MAX_DRAG_DESKTOP;
+  private getSwipeImpulsePower(distance: number): number {
+    return Math.min(1, Math.max(0, (distance - balance.ship.swipeImpulseDeadzone) / balance.ship.swipeImpulseMaxDrag));
   }
 
-  private getSlingshotDeadzone(): number {
-    return this.state.width <= 720 ? SLINGSHOT_DEADZONE_MOBILE : SLINGSHOT_DEADZONE_DESKTOP;
+  private getSwipeDirectionSign(): number {
+    return this.swipeDirectionMode === 'inverted' ? -1 : 1;
+  }
+
+  private isSwipeThrusting(): boolean {
+    if (!this.swipeThrustTrail) {
+      return false;
+    }
+
+    const speed = Math.hypot(this.state.ship.velocity.x, this.state.ship.velocity.y);
+    if (speed < 28) {
+      return false;
+    }
+
+    const alignment =
+      (this.state.ship.velocity.x / speed) * this.swipeThrustTrail.direction.x +
+      (this.state.ship.velocity.y / speed) * this.swipeThrustTrail.direction.y;
+    return alignment > 0.45;
+  }
+
+  private loadSwipeDirectionMode(): SwipeDirectionMode {
+    try {
+      const stored = window.localStorage.getItem(SWIPE_DIRECTION_STORAGE_KEY);
+      return stored === 'inverted' || stored === 'direct' ? stored : DEFAULT_SWIPE_DIRECTION;
+    } catch {
+      return DEFAULT_SWIPE_DIRECTION;
+    }
+  }
+
+  private saveSwipeDirectionMode(mode: SwipeDirectionMode): void {
+    this.swipeDirectionMode = mode;
+    this.pendingSwipeImpulseVector = null;
+    this.swipeImpulseIndicator = null;
+    this.swipeThrustTrail = null;
+    this.swipeFireFor = 0;
+    this.gameplayPointerStartScreen = null;
+    this.gameplayPointerScreen = null;
+    this.activeGameplayPointerId = null;
+    try {
+      window.localStorage.setItem(SWIPE_DIRECTION_STORAGE_KEY, mode);
+    } catch {
+      // Input preferences are best-effort.
+    }
+    this.applyLanguage();
   }
 
   private toGameScreenPoint(event: PointerEvent): Vec2 {
@@ -795,6 +895,8 @@ export class GameScene extends Phaser.Scene {
       kicker.textContent = this.language === 'pt-BR' ? 'Missão' : 'Mission';
     }
     this.hpMeterEl.setAttribute('aria-label', translate(this.language, 'hud.shipHull'));
+    this.routeToggleEl.setAttribute('aria-label', this.language === 'pt-BR' ? 'Viajar para próxima zona' : 'Travel to next zone');
+    this.routeToggleEl.title = this.language === 'pt-BR' ? 'Viajar para próxima zona' : 'Travel to next zone';
     this.mapToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openZoneMap'));
     this.mapToggleEl.title = translate(this.language, 'hud.openZoneMap');
     this.menuToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openUpgrades'));
@@ -922,7 +1024,8 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.prestigeCores > 0 ||
       getOwnedWarpUnlockCount(this.state.progression) > 0 ||
       getAvailableWarpCores(this.state.progression) > 0 ||
-      this.getPrestigeGain() > 0
+      this.getPrestigeGain() > 0 ||
+      (getNextZone(this.state) !== null && !hasActiveZoneBoss(this.state))
     );
   }
 
@@ -1142,13 +1245,18 @@ export class GameScene extends Phaser.Scene {
       const threatLevel = Math.max(1, this.state.survival.threatLevel);
       this.setText(this.survivalThreatEl, threatLevel.toString());
       this.survivalThreatFillEl.style.setProperty('--threat-fill', `${Math.min(100, Math.round((threatLevel / 12) * 100))}%`);
-      this.setText(this.survivalBestEl, this.formatDuration(this.state.progression.survivalBestSeconds));
+      const difficultyBest = getNovaCrownBestSeconds(
+        this.state.progression.novaCrownBestSecondsByDifficulty,
+        this.state.survival.difficulty
+      );
+      this.setText(this.survivalBestEl, `D${this.state.survival.difficulty} · ${this.formatDuration(difficultyBest)}`);
     }
 
     const crystals = this.getCrystalBalance();
     this.setText(this.moneyEl, this.formatMoney(this.state.money));
     this.setText(this.crystalsEl, `${crystals} ${formatCrystalUnit(this.language, crystals)}`);
     this.setText(this.sectorEl, this.formatSector());
+    this.updateRouteToggle();
     this.mapToggleEl.disabled = !this.state.progression.mapUnlocked;
     this.mapToggleEl.classList.toggle('is-locked', !this.state.progression.mapUnlocked);
     const hpPercent = Math.max(0, Math.min(1, this.state.ship.hp / Math.max(1, this.state.ship.maxHp)));
@@ -1172,19 +1280,47 @@ export class GameScene extends Phaser.Scene {
       this.setText(this.statusEl, translate(this.language, 'status.survival', {
         time: this.formatDuration(this.state.survival.currentSeconds),
         threat: this.state.survival.threatLevel,
-        best: this.formatDuration(this.state.progression.survivalBestSeconds)
+        best: this.formatDuration(getNovaCrownBestSeconds(
+          this.state.progression.novaCrownBestSecondsByDifficulty,
+          this.state.survival.difficulty
+        ))
       }));
     } else if (this.state.progression.unlockedZoneIndex === 0 && !hasActiveZoneBoss(this.state)) {
       const remaining = Math.max(0, balance.bosses.firstGateAsteroids - this.state.progression.firstGateAsteroidsDestroyed);
       this.setText(this.statusEl, remaining > 0 ? translate(this.language, 'status.firstBossCountdown', { remaining }) : translate(this.language, 'status.firstBossDetected'));
     } else {
-      this.setText(this.statusEl, translate(this.language, 'status.default'));
+      this.setText(this.statusEl, this.getDefaultInputStatusText());
     }
 
     this.syncVisibleShopTabs();
     this.updateFirstWarpGoal();
     this.updateBossHealth();
     this.updateShop();
+  }
+
+  private updateRouteToggle(): void {
+    const nextRouteIndex = this.getNextUnlockedTravelZoneIndex();
+    const visible = nextRouteIndex !== null && this.zoneTravel === null;
+    this.routeToggleEl.classList.toggle('is-hidden', !visible);
+    this.routeToggleEl.disabled = !visible;
+    if (nextRouteIndex === null) {
+      this.setText(this.routeTargetEl, this.language === 'pt-BR' ? 'Rota' : 'Route');
+      return;
+    }
+
+    const zone = getZoneByIndex(nextRouteIndex);
+    this.setText(this.routeTargetEl, this.language === 'pt-BR' ? `Ir: ${zone.name}` : `Go: ${zone.name}`);
+    const label = this.language === 'pt-BR' ? `Viajar para ${zone.name}` : `Travel to ${zone.name}`;
+    this.routeToggleEl.setAttribute('aria-label', label);
+    this.routeToggleEl.title = label;
+  }
+
+  private getNextUnlockedTravelZoneIndex(): number | null {
+    const nextIndex = this.state.progression.currentZoneIndex + 1;
+    if (!this.state.progression.mapUnlocked || nextIndex > this.state.progression.unlockedZoneIndex || !isZoneUnlocked(this.state, nextIndex)) {
+      return null;
+    }
+    return nextIndex;
   }
 
   private updateFirstWarpGoal(): void {
@@ -1210,9 +1346,16 @@ export class GameScene extends Phaser.Scene {
     const titles: Record<GuidedMissionProgress['id'], string> = {
       drawGateBoss: this.language === 'pt-BR' ? 'Atrair o boss do portal' : 'Draw out the gate boss',
       defeatGateBoss: this.language === 'pt-BR' ? 'Derrotar o boss' : 'Defeat the boss',
+      travelToOrion: this.language === 'pt-BR' ? 'Viajar para Orion Forge' : 'Travel to Orion Forge',
       collectWarpCrystals: this.language === 'pt-BR' ? 'Coletar cristais' : 'Collect crystals',
       warpForFirstCore: this.language === 'pt-BR' ? 'Fazer Core Reset' : 'Core Reset',
       installDroneSystems: this.language === 'pt-BR' ? 'Instalar sistemas de drones' : 'Install Drone Systems',
+      openVegaRoute: this.language === 'pt-BR' ? 'Abrir rota para Vega Drift' : 'Open route to Vega Drift',
+      travelToVega: this.language === 'pt-BR' ? 'Viajar para Vega Drift' : 'Travel to Vega Drift',
+      openCygnusRoute: this.language === 'pt-BR' ? 'Abrir rota para Cygnus Reef' : 'Open route to Cygnus Reef',
+      travelToCygnus: this.language === 'pt-BR' ? 'Viajar para Cygnus Reef' : 'Travel to Cygnus Reef',
+      openNovaRoute: this.language === 'pt-BR' ? 'Abrir rota para Nova Crown' : 'Open route to Nova Crown',
+      travelToNovaCrown: this.language === 'pt-BR' ? 'Viajar para Nova Crown' : 'Travel to Nova Crown',
       clearAsteroids: this.language === 'pt-BR' ? 'Limpar asteroides' : 'Clear asteroids',
       surviveAsteroids: this.language === 'pt-BR' ? 'Limpar sem morrer' : 'Clear without dying',
       collectCredits: this.language === 'pt-BR' ? 'Coletar créditos' : 'Collect credits',
@@ -1224,10 +1367,16 @@ export class GameScene extends Phaser.Scene {
 
   private getFirstWarpGoalProgressLabel(goal: GuidedMissionProgress): string {
     const reward = this.getGuidedMissionRewardLabel(goal);
-    if (goal.id === 'defeatGateBoss' || goal.id === 'defeatZoneBoss') {
+    if (goal.id === 'defeatGateBoss' || goal.id === 'defeatZoneBoss' || goal.id === 'openVegaRoute' || goal.id === 'openCygnusRoute' || goal.id === 'openNovaRoute') {
       const progress = goal.ready
         ? (this.language === 'pt-BR' ? 'Completa' : 'Complete')
-        : (this.language === 'pt-BR' ? 'Boss ativo' : 'Boss active');
+        : (this.language === 'pt-BR' ? 'Derrote boss de rota' : 'Defeat route boss');
+      return `${progress} · ${reward}`;
+    }
+    if (goal.id === 'travelToOrion' || goal.id === 'travelToVega' || goal.id === 'travelToCygnus' || goal.id === 'travelToNovaCrown') {
+      const progress = goal.ready
+        ? (this.language === 'pt-BR' ? 'Destino alcançado' : 'Arrived')
+        : (this.language === 'pt-BR' ? 'Rota aberta' : 'Route open');
       return `${progress} · ${reward}`;
     }
     if (goal.id === 'warpForFirstCore') {
@@ -1318,6 +1467,14 @@ export class GameScene extends Phaser.Scene {
       const expanded = !this.bottomNavEl.classList.toggle('is-collapsed');
       this.menuToggleEl.setAttribute('aria-expanded', expanded.toString());
       this.menuToggleEl.classList.toggle('is-active', expanded);
+    });
+
+    this.routeToggleEl.addEventListener('click', () => {
+      const nextRouteIndex = this.getNextUnlockedTravelZoneIndex();
+      if (nextRouteIndex === null) {
+        return;
+      }
+      this.travelToZone(nextRouteIndex);
     });
 
     this.mapToggleEl.addEventListener('click', () => {
@@ -1677,6 +1834,8 @@ export class GameScene extends Phaser.Scene {
       this.renderSettingsModal();
     } else if (this.activeModal === 'bossReward') {
       this.renderBossRewardChoiceModal();
+    } else if (this.activeModal === 'novaCrownDifficulty') {
+      this.renderNovaCrownDifficultyModal();
     }
   }
 
@@ -1847,7 +2006,7 @@ export class GameScene extends Phaser.Scene {
     if (this.shouldShowHangarTab()) {
       panels.push(this.createHangarShortcutPanel());
     }
-    if (hasWarpUnlock(this.state.progression, 'bossBeacon')) {
+    if (hasWarpUnlock(this.state.progression, 'bossBeacon') || (getNextZone(this.state) !== null && !hasActiveZoneBoss(this.state))) {
       panels.push(this.createBossBeaconPanel());
     }
     this.shopActionsEl.replaceChildren(...panels, coreTree);
@@ -2372,7 +2531,7 @@ export class GameScene extends Phaser.Scene {
     this.activeModalInfo = info;
     this.activeTalentTooltipId = null;
     this.activeWarpUnlockId = null;
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.renderInfoModal();
   }
 
@@ -2398,6 +2557,18 @@ export class GameScene extends Phaser.Scene {
     this.activeTalentTooltipId = null;
     this.activeWarpUnlockId = null;
     this.renderZoneMapModal();
+  }
+
+  private openNovaCrownDifficultyModal(): void {
+    this.activeModal = 'novaCrownDifficulty';
+    this.activeModalInfo = null;
+    this.activeTalentTooltipId = null;
+    this.activeWarpUnlockId = null;
+    this.novaCrownDifficultySelection = Math.min(
+      normalizeNovaCrownDifficulty(this.state.progression.novaCrownSelectedDifficulty),
+      normalizeNovaCrownDifficulty(this.state.progression.novaCrownHighestDifficulty)
+    );
+    this.renderNovaCrownDifficultyModal();
   }
 
   private openSettingsModal(): void {
@@ -2435,7 +2606,7 @@ export class GameScene extends Phaser.Scene {
     this.audioSettings.setExpanded(false);
     this.modalEl.classList.add('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'true');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.modalBodyEl.replaceChildren();
     if (wasSkillTree && this.activeTab === 'skills') {
       this.navButtons.forEach((button) => button.classList.remove('is-active'));
@@ -2451,7 +2622,7 @@ export class GameScene extends Phaser.Scene {
 
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.modalKickerEl.textContent = this.language === 'pt-BR' ? 'Recompensa de Boss' : 'Boss Reward';
     this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha um bônus da run' : 'Choose a run bonus';
     this.modalCopyEl.textContent = this.language === 'pt-BR'
@@ -2505,13 +2676,71 @@ export class GameScene extends Phaser.Scene {
   private renderSettingsModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--nova-crown');
     this.modalPanelEl.classList.add('ui-modal__panel--settings');
     this.modalKickerEl.textContent = translate(this.language, 'settings.audio');
     this.modalTitleEl.textContent = translate(this.language, 'settings.sound');
     this.modalCopyEl.textContent = '';
     this.modalCopyEl.classList.add('is-hidden');
-    this.modalBodyEl.replaceChildren(...this.audioSettings.render(), this.createResetDataControl());
+    this.modalBodyEl.replaceChildren(...this.audioSettings.render(), this.createSwipeDirectionControl(), this.createResetDataControl());
+  }
+
+  private createSwipeDirectionControl(): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'settings-modal-control input-mode-control';
+
+    const heading = document.createElement('div');
+    heading.className = 'settings-control';
+    const title = document.createElement('span');
+    title.textContent = this.language === 'pt-BR' ? 'Direção do swipe' : 'Swipe direction';
+    const status = document.createElement('strong');
+    status.textContent = this.getSwipeDirectionLabel(this.swipeDirectionMode);
+    heading.append(title, status);
+
+    const options = document.createElement('div');
+    options.className = 'input-mode-options';
+    (['direct', 'inverted'] as SwipeDirectionMode[]).forEach((mode) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'input-mode-option';
+      button.classList.toggle('is-active', this.swipeDirectionMode === mode);
+      button.textContent = this.getSwipeDirectionLabel(mode);
+      button.addEventListener('click', () => {
+        this.saveSwipeDirectionMode(mode);
+        this.renderSettingsModal();
+      });
+      options.append(button);
+    });
+
+    const copy = document.createElement('p');
+    copy.className = 'settings-danger-copy input-mode-copy';
+    copy.textContent = this.swipeDirectionMode === 'direct'
+      ? (this.language === 'pt-BR'
+        ? 'Arraste para o lado que quer impulsionar.'
+        : 'Drag toward the direction you want to boost.')
+      : (this.language === 'pt-BR'
+        ? 'Puxe contra a direção que quer impulsionar.'
+        : 'Pull against the direction you want to boost.');
+
+    wrapper.append(heading, options, copy);
+    return wrapper;
+  }
+
+  private getSwipeDirectionLabel(mode: SwipeDirectionMode): string {
+    if (mode === 'direct') {
+      return this.language === 'pt-BR' ? 'Direto' : 'Direct';
+    }
+    return this.language === 'pt-BR' ? 'Invertido' : 'Inverted';
+  }
+
+  private getDefaultInputStatusText(): string {
+    return this.swipeDirectionMode === 'direct'
+      ? (this.language === 'pt-BR'
+        ? 'Arraste e solte para impulsionar. Toque/segure para atirar. WASD também voa.'
+        : 'Drag and release to boost. Touch/hold to fire. WASD also flies.')
+      : (this.language === 'pt-BR'
+        ? 'Puxe e solte contra a direção do impulso. Toque/segure para atirar. WASD também voa.'
+        : 'Pull and release against the boost direction. Touch/hold to fire. WASD also flies.');
   }
 
   private createResetDataControl(): HTMLElement {
@@ -2558,6 +2787,11 @@ export class GameScene extends Phaser.Scene {
     this.appEl.classList.remove('is-zone-travel', 'is-impact');
     this.setScreenFlash(0);
     this.audioSettings.resetToDefaults();
+    this.swipeDirectionMode = DEFAULT_SWIPE_DIRECTION;
+    this.pendingSwipeImpulseVector = null;
+    this.swipeImpulseIndicator = null;
+    this.swipeThrustTrail = null;
+    this.swipeFireFor = 0;
     saveGameState(this.state);
     this.closeModal();
     this.closeShopDrawer();
@@ -2568,7 +2802,7 @@ export class GameScene extends Phaser.Scene {
   private renderZoneMapModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--settings', 'ui-modal__panel--warp');
+    this.modalPanelEl.classList.remove('ui-modal__panel--settings', 'ui-modal__panel--warp', 'ui-modal__panel--nova-crown');
     this.modalPanelEl.classList.add('ui-modal__panel--skills', 'ui-modal__panel--map');
     this.modalKickerEl.textContent = '';
     this.modalTitleEl.textContent = '';
@@ -2582,6 +2816,111 @@ export class GameScene extends Phaser.Scene {
     }));
   }
 
+  private renderNovaCrownDifficultyModal(): void {
+    const highestDifficulty = normalizeNovaCrownDifficulty(this.state.progression.novaCrownHighestDifficulty);
+    this.novaCrownDifficultySelection = Math.max(1, Math.min(this.novaCrownDifficultySelection, highestDifficulty));
+    const selectedDifficulty = this.novaCrownDifficultySelection;
+    const config = getNovaCrownDifficultyConfig(selectedDifficulty);
+    const bestSeconds = getNovaCrownBestSeconds(this.state.progression.novaCrownBestSecondsByDifficulty, selectedDifficulty);
+    const nextLocked = selectedDifficulty >= highestDifficulty;
+
+    this.modalEl.classList.remove('is-hidden');
+    this.modalEl.setAttribute('aria-hidden', 'false');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
+    this.modalPanelEl.classList.add('ui-modal__panel--nova-crown');
+    this.modalKickerEl.textContent = 'Nova Crown';
+    this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha a dificuldade' : 'Choose difficulty';
+    this.modalCopyEl.textContent = this.language === 'pt-BR'
+      ? `Alcance threat ${novaCrownClearThreatLevel} para liberar a próxima dificuldade.`
+      : `Reach threat ${novaCrownClearThreatLevel} to unlock the next difficulty.`;
+    this.modalCopyEl.classList.remove('is-hidden');
+
+    const shell = document.createElement('div');
+    shell.className = 'nova-difficulty';
+
+    const selector = document.createElement('div');
+    selector.className = 'nova-difficulty__selector';
+
+    const previous = document.createElement('button');
+    previous.type = 'button';
+    previous.className = 'nova-difficulty__step';
+    previous.textContent = '‹';
+    previous.disabled = selectedDifficulty <= 1;
+    previous.setAttribute('aria-label', this.language === 'pt-BR' ? 'Dificuldade anterior' : 'Previous difficulty');
+    previous.addEventListener('click', () => {
+      this.novaCrownDifficultySelection = Math.max(1, this.novaCrownDifficultySelection - 1);
+      this.renderNovaCrownDifficultyModal();
+    });
+
+    const level = document.createElement('div');
+    level.className = 'nova-difficulty__level';
+    const levelLabel = document.createElement('span');
+    levelLabel.textContent = this.language === 'pt-BR' ? 'Dificuldade' : 'Difficulty';
+    const levelValue = document.createElement('strong');
+    levelValue.textContent = selectedDifficulty.toString();
+    level.append(levelLabel, levelValue);
+
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'nova-difficulty__step';
+    next.textContent = '›';
+    next.disabled = nextLocked;
+    next.setAttribute('aria-label', this.language === 'pt-BR' ? 'Próxima dificuldade' : 'Next difficulty');
+    next.addEventListener('click', () => {
+      this.novaCrownDifficultySelection = Math.min(highestDifficulty, this.novaCrownDifficultySelection + 1);
+      this.renderNovaCrownDifficultyModal();
+    });
+    selector.append(previous, level, next);
+
+    const stats = document.createElement('div');
+    stats.className = 'nova-difficulty__stats';
+    stats.append(
+      this.createNovaDifficultyStat(this.language === 'pt-BR' ? 'Maior' : 'Highest', highestDifficulty.toString()),
+      this.createNovaDifficultyStat(this.language === 'pt-BR' ? 'Recorde' : 'Best', this.formatDuration(bestSeconds)),
+      this.createNovaDifficultyStat(this.language === 'pt-BR' ? 'Threat inicial' : 'Start threat', config.startingThreatLevel.toString()),
+      this.createNovaDifficultyStat(this.language === 'pt-BR' ? 'Recompensa' : 'Reward', `x${this.formatStatNumber(config.rewardMultiplier)}`),
+      this.createNovaDifficultyStat(this.language === 'pt-BR' ? 'Asteroides' : 'Asteroids', `x${this.formatStatNumber(config.asteroidHpMultiplier)}`),
+      this.createNovaDifficultyStat(this.language === 'pt-BR' ? 'Dano' : 'Damage', `x${this.formatStatNumber(config.asteroidDamageMultiplier)}`)
+    );
+
+    const actions = document.createElement('div');
+    actions.className = 'nova-difficulty__actions';
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'nova-difficulty__secondary';
+    back.textContent = this.language === 'pt-BR' ? 'Voltar' : 'Back';
+    back.addEventListener('click', () => this.openZoneMapModal());
+
+    const enter = document.createElement('button');
+    enter.type = 'button';
+    enter.className = 'nova-difficulty__primary';
+    enter.textContent = this.language === 'pt-BR' ? 'Entrar' : 'Enter';
+    enter.addEventListener('click', () => this.confirmNovaCrownDifficultyTravel(selectedDifficulty));
+    actions.append(back, enter);
+
+    shell.append(selector, stats, actions);
+    this.modalBodyEl.replaceChildren(shell);
+  }
+
+  private createNovaDifficultyStat(label: string, value: string): HTMLElement {
+    const stat = document.createElement('span');
+    stat.className = 'nova-difficulty__stat';
+    const labelEl = document.createElement('small');
+    labelEl.textContent = label;
+    const valueEl = document.createElement('strong');
+    valueEl.textContent = value;
+    stat.append(labelEl, valueEl);
+    return stat;
+  }
+
+  private confirmNovaCrownDifficultyTravel(difficulty: number): void {
+    const highestDifficulty = normalizeNovaCrownDifficulty(this.state.progression.novaCrownHighestDifficulty);
+    const selectedDifficulty = Math.max(1, Math.min(normalizeNovaCrownDifficulty(difficulty), highestDifficulty));
+    this.state.progression.novaCrownSelectedDifficulty = selectedDifficulty;
+    this.state.survival.difficulty = selectedDifficulty;
+    this.startZoneTravel(maxTravelLevel);
+  }
+
   private renderInfoModal(): void {
     const info = this.activeModalInfo;
     if (!info) {
@@ -2591,7 +2930,7 @@ export class GameScene extends Phaser.Scene {
 
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.modalKickerEl.textContent = info.kicker;
     this.modalTitleEl.textContent = info.title;
     this.modalCopyEl.textContent = info.copy;
@@ -2603,7 +2942,7 @@ export class GameScene extends Phaser.Scene {
   private renderSkillTreeModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.modalPanelEl.classList.add('ui-modal__panel--skills');
     this.modalKickerEl.textContent = translate(this.language, 'nav.skills');
     this.modalTitleEl.textContent = translate(this.language, 'shop.skillsActionTitle');
@@ -2639,7 +2978,7 @@ export class GameScene extends Phaser.Scene {
   private renderWarpCoreTreeModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--map', 'ui-modal__panel--settings');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
     this.modalPanelEl.classList.add('ui-modal__panel--skills', 'ui-modal__panel--warp');
     this.modalKickerEl.textContent = translate(this.language, 'nav.technologies');
     this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Árvore de Tecnologias' : 'Technology Tree';
@@ -2840,7 +3179,15 @@ export class GameScene extends Phaser.Scene {
     if (!isZoneUnlocked(this.state, index) || index === this.state.progression.currentZoneIndex || this.zoneTravel) {
       return;
     }
+    if (index === maxTravelLevel) {
+      this.openNovaCrownDifficultyModal();
+      return;
+    }
 
+    this.startZoneTravel(index);
+  }
+
+  private startZoneTravel(index: number): void {
     this.closeModal();
     this.closeShopDrawer();
     this.state.asteroids = [];
@@ -2953,7 +3300,7 @@ export class GameScene extends Phaser.Scene {
 
   private summonZoneBoss(): void {
     const pendingBoss = createPendingZoneBoss(this.state);
-    if (!hasWarpUnlock(this.state.progression, 'bossBeacon') || !pendingBoss) {
+    if (!pendingBoss) {
       return;
     }
 

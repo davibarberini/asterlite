@@ -94,6 +94,9 @@ export const createProgression = (): ProgressionState => ({
   guidedMissions: createGuidedMissionState(),
   survivalBestSeconds: 0,
   survivalBestThreatLevel: 0,
+  novaCrownHighestDifficulty: 1,
+  novaCrownSelectedDifficulty: 1,
+  novaCrownBestSecondsByDifficulty: {},
   activeShipFrameId: 'vector',
   unlockedShipFrameIds: ['vector'],
   shipUnlockProgress: createShipUnlockProgress(),
@@ -150,9 +153,16 @@ export const createGameState = (width: number, height: number, progression = cre
     ...progression,
     currentZoneIndex: Math.max(0, Math.min(maxTravelLevel, Math.floor(progression.currentZoneIndex))),
     unlockedZoneIndex: Math.max(0, Math.min(maxTravelLevel, Math.floor(progression.unlockedZoneIndex))),
-    travelLevel: Math.max(0, Math.min(maxTravelLevel, Math.floor(progression.unlockedZoneIndex)))
+    travelLevel: Math.max(0, Math.min(maxTravelLevel, Math.floor(progression.unlockedZoneIndex))),
+    novaCrownHighestDifficulty: Math.max(1, Math.floor(progression.novaCrownHighestDifficulty)),
+    novaCrownSelectedDifficulty: Math.max(1, Math.floor(progression.novaCrownSelectedDifficulty)),
+    novaCrownBestSecondsByDifficulty: { ...progression.novaCrownBestSecondsByDifficulty }
   };
   normalizedProgression.currentZoneIndex = Math.min(normalizedProgression.currentZoneIndex, normalizedProgression.unlockedZoneIndex);
+  normalizedProgression.novaCrownSelectedDifficulty = Math.min(
+    normalizedProgression.novaCrownSelectedDifficulty,
+    normalizedProgression.novaCrownHighestDifficulty
+  );
 
   const state: GameState = {
     width,

@@ -4,6 +4,19 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Nova Crown Difficulty Ladder
+
+Turned Nova Crown into a selectable infinite difficulty ladder instead of a single survival endpoint.
+
+Notes:
+- Traveling to Nova Crown now opens a compact difficulty picker before the zone travel animation starts.
+- The picker shows selected difficulty, highest unlocked difficulty, best time for that difficulty, starting threat, and reward/asteroid/damage multipliers.
+- Difficulty 1 is available by default; reaching threat level 11 on difficulty N unlocks difficulty N + 1.
+- Difficulty scaling is formula-driven, with higher difficulties starting at higher threat, gaining threat faster, and scaling rewards, asteroid HP, and asteroid damage.
+- Nova Crown survival bests are now tracked per difficulty while preserving the existing global best fields for older unlock logic.
+- Save format moved to version 2; incompatible old save formats are cleared instead of migrated field-by-field.
+- Added tests for selected difficulty threat scaling, threat 11 difficulty unlocks, and per-difficulty best persistence.
+
 ### Ship Build Identity Expansion
 
 Expanded ship combat identities for Ember, Kestrel, Bulwark, and Wraith.
@@ -432,6 +445,95 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
+
+### Nova Crown Core Economy
+
+Move technology core earning into Nova Crown challenge rewards.
+
+Design:
+- Bosses and major survival milestones inside Nova Crown should award cores.
+- Higher Nova Crown difficulties award more cores per boss because bosses and hazards are harder.
+- Avoid giving cores from normal asteroid farming so cores stay tied to meaningful challenge moments.
+- Keep core rewards global and usable across all ships.
+- Consider later rare events or elite bosses as additional core sources.
+
+Acceptance:
+- Nova Crown boss defeats award cores based on selected difficulty.
+- At least one survival milestone reward exists, such as the first threat 11 clear per difficulty.
+- Core rewards are persisted globally and do not reset when switching ships.
+- Reward copy explains why the player earned cores.
+- Tests cover difficulty-scaled core gain and first-clear rewards.
+
+### Threat Milestone Reward Choices
+
+Move run reward choices away from boss defeat and into Nova Crown threat milestones.
+
+Design:
+- Remove the automatic reward choice that appears when a boss is defeated.
+- During Nova Crown survival, show a run reward choice every 10 threat levels by default.
+- Reward choices should feel like survival escalation rewards rather than boss loot.
+- Add or reserve a Technology upgrade that reduces the threat interval required for the next reward choice.
+- Add or reserve Technology upgrades that can accelerate threat gain later for faster difficulty and reward progression.
+- Keep the milestone interval serializable and easy to tune, because this will become a main survival pacing lever.
+
+Acceptance:
+- Boss defeats no longer directly queue run reward choices.
+- Nova Crown queues a reward choice at threat 10, 20, 30, and so on by default.
+- A Technology hook exists to reduce the required threat interval later.
+- Reward milestone progress persists safely through save/load during an active survival attempt.
+- Tests cover boss reward removal and threat-level reward triggering.
+
+### Boss Identity and Pattern Pass
+
+Improve route bosses so each one feels like a distinct fight instead of a larger asteroid target.
+
+Design:
+- Give each boss a more unique silhouette, size, movement profile, and arena pressure.
+- Add different attack patterns per boss, such as spreads, aimed volleys, ricochets, area denial, summons, or charge patterns.
+- Increase boss size and life where needed so fights read as events.
+- Improve boss movement so each boss has a recognizable behavior instead of drifting similarly.
+- Keep boss state serializable and avoid Phaser-owned state in simulation.
+
+Acceptance:
+- At least two bosses have clearly different attack patterns and movement behavior.
+- Boss size/HP tuning makes route bosses feel more substantial without becoming long stalls.
+- Boss visuals communicate each pattern distinctly on mobile.
+- Tests cover new boss movement/attack state where behavior changes simulation.
+
+### Remove Ship Reset Loop
+
+Remove ship reset as a primary progression mechanic once Nova Crown difficulty rewards replace it.
+
+Design:
+- Delete or retire reset UI, reset copy, and reset-only code paths that no longer serve the new loop.
+- Preserve existing saves by migrating old reset/core fields into the new global core/technology model.
+- Ship progress should remain attached to the ship; starting another ship from zero remains the collection/build loop.
+- Technologies remain global account progression purchased with Nova Crown cores.
+
+Acceptance:
+- No player-facing reset action remains in the main loop.
+- Obsolete reset-specific code paths, labels, and tests are removed or renamed.
+- Existing saves with cores/technologies migrate without losing global progress.
+- Switching ships does not reset global cores or installed technologies.
+- Build and tests pass without dead reset dependencies.
+
+### Ship Skill Tree Rebuild
+
+Rework crystal-purchased ship skills into limited build choices driven by ship level and skill points.
+
+Design:
+- Replace direct crystal spending on unlimited skills with ship XP/level and a finite skill point budget.
+- Each ship earns skill points through play; points are spent in a broader skill tree.
+- The tree can allow access to the whole layout, but the point cap prevents filling everything.
+- Support respec or rebuild testing later so players can experiment with different builds per ship.
+- Keep crystals relevant only if they serve the new model cleanly, such as XP boosts, respec cost, or non-skill upgrades.
+
+Acceptance:
+- Ships gain levels and skill points through serializable progression.
+- Skill purchases spend points instead of only spending crystals.
+- A maximum point budget prevents completing the entire tree.
+- Existing skill data migrates into a reasonable starting level/point state or is reset with clear compensation.
+- UI communicates available points, spent points, and locked choices clearly on mobile.
 
 ### Survival Run Modifiers
 

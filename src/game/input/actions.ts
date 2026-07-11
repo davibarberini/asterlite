@@ -6,7 +6,7 @@ export type InputActions = {
   fire: boolean;
   aimDirection: { x: number; y: number } | null;
   pointerTarget: { x: number; y: number } | null;
-  slingshotVector: { x: number; y: number } | null;
+  impulseVector: { x: number; y: number } | null;
 };
 
 export const neutralInput = (): InputActions => ({
@@ -17,5 +17,5 @@ export const neutralInput = (): InputActions => ({
   fire: false,
   aimDirection: null,
   pointerTarget: null,
-  slingshotVector: null
+  impulseVector: null
 });
