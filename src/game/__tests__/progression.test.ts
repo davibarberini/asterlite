@@ -51,7 +51,7 @@ const createLocalStorage = (): Storage => {
   };
 };
 
-const makeBossAsteroid = (bossZoneIndex: number): AsteroidState => ({
+const makeBossAsteroid = (bossZoneIndex: number, bossType: AsteroidState['bossType'] = 'sentinel'): AsteroidState => ({
   id: 500,
   position: { x: 100, y: 100 },
   velocity: { x: 0, y: 0 },
@@ -63,7 +63,7 @@ const makeBossAsteroid = (bossZoneIndex: number): AsteroidState => ({
   hp: 1,
   maxHp: 1,
   shape: [1, 0.9, 1.1],
-  bossType: 'sentinel',
+  bossType,
   bossZoneIndex,
   bossFireCooldown: 1
 });
@@ -769,8 +769,10 @@ describe('boss gates and core reset', () => {
     const finalBoss = createZoneBossFromPending(state, makePendingBoss(4));
 
     expect(firstBoss.bossType).toBe('crusher');
-    expect(firstBoss.maxHp).toBe(36);
+    expect(firstBoss.maxHp).toBe(44);
+    expect(firstBoss.radius).toBe(92);
     expect(prismBoss.bossType).toBe('prism');
+    expect(prismBoss.radius).toBe(80);
     expect(zones[2].bossType).toBe('prism');
     expect(midBoss.maxHp).toBeGreaterThan(firstBoss.maxHp);
     expect(finalBoss.maxHp).toBeGreaterThan(midBoss.maxHp);
@@ -783,6 +785,46 @@ describe('boss gates and core reset', () => {
       expect(zone.identity.fieldTintAlpha).toBeGreaterThan(0);
       expect(balance.asteroids.variantWeights[zone.id].some((entry) => entry.variant === zone.identity.variantFocus)).toBe(true);
     });
+  });
+
+  it('gives sentinel and crusher bosses distinct movement profiles', () => {
+    const sentinelState = createGameState(800, 600);
+    sentinelState.ship.position = { x: 400, y: 300 };
+    sentinelState.asteroids = [makeBossAsteroid(1, 'sentinel')];
+    sentinelState.asteroids[0].position = { x: 100, y: 300 };
+    sentinelState.asteroids[0].bossFireCooldown = 99;
+
+    const crusherState = createGameState(800, 600);
+    crusherState.ship.position = { x: 400, y: 300 };
+    crusherState.asteroids = [makeBossAsteroid(1, 'crusher')];
+    crusherState.asteroids[0].position = { x: 100, y: 300 };
+    crusherState.asteroids[0].bossFireCooldown = 99;
+
+    updateBosses(sentinelState, 1);
+    updateBosses(crusherState, 1);
+
+    expect(Math.abs(sentinelState.asteroids[0].velocity.y)).toBeGreaterThan(60);
+    expect(Math.abs(crusherState.asteroids[0].velocity.y)).toBeLessThan(1);
+    expect(crusherState.asteroids[0].velocity.x).toBeGreaterThan(sentinelState.asteroids[0].velocity.x);
+  });
+
+  it('fires a heavier crusher spread than the sentinel aimed volley', () => {
+    const sentinelState = createGameState(800, 600);
+    sentinelState.ship.position = { x: 400, y: 300 };
+    sentinelState.asteroids = [makeBossAsteroid(1, 'sentinel')];
+    sentinelState.asteroids[0].bossFireCooldown = 0;
+
+    const crusherState = createGameState(800, 600);
+    crusherState.ship.position = { x: 400, y: 300 };
+    crusherState.asteroids = [makeBossAsteroid(1, 'crusher')];
+    crusherState.asteroids[0].bossFireCooldown = 0;
+
+    updateBosses(sentinelState, 1);
+    updateBosses(crusherState, 1);
+
+    expect(sentinelState.bullets).toHaveLength(3);
+    expect(crusherState.bullets).toHaveLength(4);
+    expect(crusherState.bullets[0].damage).toBeGreaterThan(sentinelState.bullets[0].damage);
   });
 
   it('does not create a pending run reward choice when a route boss is defeated', () => {

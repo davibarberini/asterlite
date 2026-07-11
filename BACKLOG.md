@@ -4,6 +4,18 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Boss Identity and Pattern Pass
+
+Made route bosses read more like distinct fights instead of larger asteroid targets.
+
+Notes:
+- Increased boss radius and HP scaling so route bosses feel more substantial.
+- Sentinel now favors a standoff orbit movement profile instead of direct chase.
+- Crusher now charges more aggressively and keeps a heavier forward pressure profile.
+- Crusher fires a wider four-shot spread with higher bullet damage, while Sentinel keeps a tighter aimed volley.
+- Prism keeps its ricochet projectile identity and received larger boss sizing to match the pass.
+- Added tests for boss HP/size tuning, distinct Sentinel/Crusher movement, and distinct attack patterns.
+
 ### Threat Milestone Reward Choices
 
 Moved run reward choices away from boss defeat and into Nova Crown threat milestones.
@@ -470,23 +482,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Boss Identity and Pattern Pass
-
-Improve route bosses so each one feels like a distinct fight instead of a larger asteroid target.
-
-Design:
-- Give each boss a more unique silhouette, size, movement profile, and arena pressure.
-- Add different attack patterns per boss, such as spreads, aimed volleys, ricochets, area denial, summons, or charge patterns.
-- Increase boss size and life where needed so fights read as events.
-- Improve boss movement so each boss has a recognizable behavior instead of drifting similarly.
-- Keep boss state serializable and avoid Phaser-owned state in simulation.
-
-Acceptance:
-- At least two bosses have clearly different attack patterns and movement behavior.
-- Boss size/HP tuning makes route bosses feel more substantial without becoming long stalls.
-- Boss visuals communicate each pattern distinctly on mobile.
-- Tests cover new boss movement/attack state where behavior changes simulation.
 
 ### Remove Ship Reset Loop
 

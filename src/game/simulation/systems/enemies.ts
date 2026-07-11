@@ -1,7 +1,7 @@
 import { createZoneBossFromPending } from './asteroids';
 import { fireBullet } from './weapons';
 import { emitReward } from '../events';
-import type { GameState } from '../types';
+import type { AsteroidState, GameState, Vec2 } from '../types';
 import { distance, normalize, randomRange } from '../vector';
 import { balance } from '../../balance';
 import { isSurvivalZone } from './survival';
@@ -37,12 +37,14 @@ export const updateBosses = (state: GameState, dt: number): void => {
       y: state.ship.position.y - boss.position.y
     };
     const shipAngle = Math.atan2(toShip.y, toShip.x);
-    const desiredVelocity = normalize(toShip);
+    const distanceToShip = Math.max(1, distance(boss.position, state.ship.position));
+    const desiredVelocity = getBossDesiredVelocity(boss, toShip, distanceToShip);
     const bossStats = balance.bosses.stats[boss.bossType];
     const bossSpeed = bossStats.chaseSpeedBase + (boss.bossZoneIndex ?? 0) * bossStats.chaseSpeedPerZone;
-    const steer = Math.min(1, dt * 0.65);
-    boss.velocity.x += (desiredVelocity.x * bossSpeed - boss.velocity.x) * steer;
-    boss.velocity.y += (desiredVelocity.y * bossSpeed - boss.velocity.y) * steer;
+    const steer = Math.min(1, dt * getBossSteerMultiplier(boss));
+    const speedMultiplier = getBossSpeedMultiplier(boss, distanceToShip);
+    boss.velocity.x += (desiredVelocity.x * bossSpeed * speedMultiplier - boss.velocity.x) * steer;
+    boss.velocity.y += (desiredVelocity.y * bossSpeed * speedMultiplier - boss.velocity.y) * steer;
     boss.rotation += (shipAngle - boss.rotation) * Math.min(1, dt * 2.4);
     boss.bossFireCooldown = Math.max(0, (boss.bossFireCooldown ?? 0) - dt);
     if (boss.bossFireCooldown > 0) {
@@ -66,6 +68,52 @@ export const updateBosses = (state: GameState, dt: number): void => {
     });
     boss.bossFireCooldown = Math.max(bossStats.fireCooldownMin, bossStats.fireCooldownBase - (boss.bossZoneIndex ?? 0) * bossStats.fireCooldownPerZone);
   });
+};
+
+const getBossDesiredVelocity = (boss: AsteroidState, toShip: Vec2, distanceToShip: number): Vec2 => {
+  const direct = normalize(toShip);
+  if (boss.bossType === 'sentinel') {
+    const orbitDirection = boss.id % 2 === 0 ? 1 : -1;
+    const tangent = { x: -direct.y * orbitDirection, y: direct.x * orbitDirection };
+    const orbitDistance = 260 + (boss.bossZoneIndex ?? 0) * 18;
+    const radialWeight = distanceToShip < orbitDistance
+      ? -0.85
+      : distanceToShip > orbitDistance + 80
+        ? 0.72
+        : 0.08;
+    return normalize({
+      x: direct.x * radialWeight + tangent.x * 0.95,
+      y: direct.y * radialWeight + tangent.y * 0.95
+    });
+  }
+
+  if (boss.bossType === 'prism') {
+    const orbitDirection = boss.id % 2 === 0 ? -1 : 1;
+    const tangent = { x: -direct.y * orbitDirection, y: direct.x * orbitDirection };
+    return normalize({
+      x: direct.x * 0.76 + tangent.x * 0.36,
+      y: direct.y * 0.76 + tangent.y * 0.36
+    });
+  }
+
+  return direct;
+};
+
+const getBossSteerMultiplier = (boss: AsteroidState): number => {
+  if (boss.bossType === 'crusher') {
+    return 1.15;
+  }
+  if (boss.bossType === 'sentinel') {
+    return 0.88;
+  }
+  return 0.7;
+};
+
+const getBossSpeedMultiplier = (boss: AsteroidState, distanceToShip: number): number => {
+  if (boss.bossType === 'crusher') {
+    return distanceToShip > 180 ? 1.012 : 1.002;
+  }
+  return 1;
 };
 
 export const updateSaucer = (state: GameState, dt: number): void => {
