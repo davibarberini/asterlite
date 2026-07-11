@@ -17,6 +17,7 @@ import {
   getNovaCrownDifficultyConfig,
   novaCrownClearThreatLevel
 } from '../progression/novaCrownDifficulty';
+import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
 
 const createLocalStorage = (): Storage => {
   const store = new Map<string, string>();
@@ -147,6 +148,27 @@ describe('nova crown survival', () => {
     expect(state.survival.threatLevel).toBeGreaterThanOrEqual(novaCrownClearThreatLevel);
     expect(state.progression.novaCrownHighestDifficulty).toBe(3);
     expect(state.rewardEvents.some((event) => event.text.includes('difficulty 3 unlocked'))).toBe(true);
+  });
+
+  it('awards global cores for the first threat 11 clear on each Nova Crown difficulty', () => {
+    const state = createGameState(800, 600);
+    putInFinalZone(state);
+    state.progression.novaCrownHighestDifficulty = 4;
+    state.progression.novaCrownSelectedDifficulty = 4;
+    const config = getNovaCrownDifficultyConfig(state.progression.novaCrownSelectedDifficulty);
+    const secondsToReachClearThreat =
+      (novaCrownClearThreatLevel - config.startingThreatLevel) * config.threatLevelSeconds;
+
+    updateGame(state, neutralInput(), secondsToReachClearThreat + 0.1);
+
+    expect(state.progression.prestigeCores).toBe(getNovaCrownCoreReward(4));
+    expect(state.progression.novaCrownCoreRewardedDifficultyKeys).toEqual(['4']);
+    expect(state.rewardEvents.some((event) => event.text.includes('difficulty 4 cleared'))).toBe(true);
+
+    updateGame(state, neutralInput(), 1);
+
+    expect(state.progression.prestigeCores).toBe(getNovaCrownCoreReward(4));
+    expect(state.progression.novaCrownCoreRewardedDifficultyKeys).toEqual(['4']);
   });
 
   it('spawns proximity mines only after survival threat reaches the mine threshold', () => {

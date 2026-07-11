@@ -97,6 +97,7 @@ export const createProgression = (): ProgressionState => ({
   novaCrownHighestDifficulty: 1,
   novaCrownSelectedDifficulty: 1,
   novaCrownBestSecondsByDifficulty: {},
+  novaCrownCoreRewardedDifficultyKeys: [],
   activeShipFrameId: 'vector',
   unlockedShipFrameIds: ['vector'],
   shipUnlockProgress: createShipUnlockProgress(),

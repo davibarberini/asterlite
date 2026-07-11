@@ -22,6 +22,7 @@ import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/syste
 import { createShipUnlockProgress, normalizeShipUnlockProgress } from './shipUnlocks';
 import { getOfflineIncomeRate } from './offlineIncome';
 import { normalizeNovaCrownDifficulty } from './novaCrownDifficulty';
+import { normalizeNovaCrownCoreRewardedDifficultyKeys } from './novaCrownRewards';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
@@ -505,6 +506,7 @@ const readProgression = (value: unknown): ProgressionState | null => {
     novaCrownHighestDifficulty: normalizeNovaCrownDifficulty(readNumber(value.novaCrownHighestDifficulty, 1)),
     novaCrownSelectedDifficulty: normalizeNovaCrownDifficulty(readNumber(value.novaCrownSelectedDifficulty, 1)),
     novaCrownBestSecondsByDifficulty: readNonNegativeNumberRecord(value.novaCrownBestSecondsByDifficulty),
+    novaCrownCoreRewardedDifficultyKeys: normalizeNovaCrownCoreRewardedDifficultyKeys(value.novaCrownCoreRewardedDifficultyKeys),
     activeShipFrameId,
     unlockedShipFrameIds,
     shipUnlockProgress: readShipUnlockProgress(value.shipUnlockProgress),

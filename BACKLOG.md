@@ -4,6 +4,18 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Completed
 
+### Nova Crown Core Economy
+
+Moved technology core earning into Nova Crown challenge rewards.
+
+Notes:
+- Added difficulty-scaled global core rewards for bosses defeated while in Nova Crown survival.
+- Added a first-clear global core reward for reaching threat level 11 on each Nova Crown difficulty.
+- First-clear rewards are tracked per difficulty so repeat clears do not duplicate the milestone payout.
+- Core rewards use the selected/active Nova Crown difficulty and persist globally across ship switching and core reset.
+- Reward feed copy now explains when cores came from Nova Crown boss defeats or difficulty clears.
+- Added tests for boss core rewards, first-clear rewards, save persistence, and reset preservation.
+
 ### Nova Crown Difficulty Ladder
 
 Turned Nova Crown into a selectable infinite difficulty ladder instead of a single survival endpoint.
@@ -445,24 +457,6 @@ Notes:
 - Covered prism firing and asteroid ricochet behavior with simulation tests.
 
 ## Ready
-
-### Nova Crown Core Economy
-
-Move technology core earning into Nova Crown challenge rewards.
-
-Design:
-- Bosses and major survival milestones inside Nova Crown should award cores.
-- Higher Nova Crown difficulties award more cores per boss because bosses and hazards are harder.
-- Avoid giving cores from normal asteroid farming so cores stay tied to meaningful challenge moments.
-- Keep core rewards global and usable across all ships.
-- Consider later rare events or elite bosses as additional core sources.
-
-Acceptance:
-- Nova Crown boss defeats award cores based on selected difficulty.
-- At least one survival milestone reward exists, such as the first threat 11 clear per difficulty.
-- Core rewards are persisted globally and do not reset when switching ships.
-- Reward copy explains why the player earned cores.
-- Tests cover difficulty-scaled core gain and first-clear rewards.
 
 ### Threat Milestone Reward Choices
 

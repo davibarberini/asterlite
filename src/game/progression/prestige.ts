@@ -48,6 +48,9 @@ export const createCoreResetState = (previousState: GameState, width: number, he
   permanentProgression.novaCrownBestSecondsByDifficulty = {
     ...previousState.progression.novaCrownBestSecondsByDifficulty
   };
+  permanentProgression.novaCrownCoreRewardedDifficultyKeys = [
+    ...previousState.progression.novaCrownCoreRewardedDifficultyKeys
+  ];
   permanentProgression.shipRuns = {
     ...withCapturedActiveShipRun(previousState),
     [activeShipFrameId]: createDefaultShipRun()

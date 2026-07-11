@@ -1,6 +1,7 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
 import { getBossRewardPlayerFireIntervalMultiplier, queueBossRewardChoices } from '../../progression/bossRewards';
 import { getFireRateMultiplier } from '../../progression/idleBonuses';
+import { grantNovaCrownBossCoreReward } from '../../progression/novaCrownRewards';
 import {
   emitShipUnlock,
   recordAsteroidBurstUnlockProgress,
@@ -14,7 +15,7 @@ import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../p
 import { getMissileSplashDamage, getMissileSplashRadius, getShotgunPelletDamage, hasMissileExplosion } from '../../progression/talentTree';
 import type { GameState, SurvivalMeteorLaneEventState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
-import { getExplorationZone, getZoneAsteroidDamageMultiplier, getZoneByIndex } from '../zones';
+import { getExplorationZone, getZoneAsteroidDamageMultiplier, getZoneByIndex, maxTravelLevel } from '../zones';
 import { getAsteroidReward, splitAsteroid } from './asteroids';
 import { burstParticles } from './particles';
 import { emitAudio, emitReward } from '../events';
@@ -659,6 +660,9 @@ const destroyAsteroid = (
       recordPrismBossDefeatUnlockProgress(state);
     }
     state.progression.bossDiscovery.rareBossProgress = 0;
+    if (state.progression.currentZoneIndex >= maxTravelLevel) {
+      grantNovaCrownBossCoreReward(state);
+    }
     queueBossRewardChoices(state);
     emitAudio(state, { type: 'bossDefeated' });
     emitAudio(state, { type: 'zoneUnlocked' });

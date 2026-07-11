@@ -5,6 +5,7 @@ import {
   normalizeNovaCrownDifficulty,
   setNovaCrownBestSeconds
 } from '../../progression/novaCrownDifficulty';
+import { grantNovaCrownFirstClearCoreReward } from '../../progression/novaCrownRewards';
 import { emitReward } from '../events';
 import type { GameState, SurvivalState } from '../types';
 import { maxTravelLevel } from '../zones';
@@ -113,6 +114,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     state.progression.novaCrownHighestDifficulty = state.survival.difficulty + 1;
     emitReward(state, `Nova Crown difficulty ${state.progression.novaCrownHighestDifficulty} unlocked`, 'unlock');
   }
+  grantNovaCrownFirstClearCoreReward(state);
 
   if (state.survival.threatLevel > state.survival.lastAnnouncedThreatLevel) {
     state.survival.lastAnnouncedThreatLevel = state.survival.threatLevel;

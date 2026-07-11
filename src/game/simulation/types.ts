@@ -414,6 +414,7 @@ export type ProgressionState = {
   novaCrownHighestDifficulty: number;
   novaCrownSelectedDifficulty: number;
   novaCrownBestSecondsByDifficulty: Record<string, number>;
+  novaCrownCoreRewardedDifficultyKeys: string[];
   activeShipFrameId: ShipFrameId;
   unlockedShipFrameIds: ShipFrameId[];
   shipUnlockProgress: ShipUnlockProgress;

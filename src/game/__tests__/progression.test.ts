@@ -21,6 +21,7 @@ import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, has
 import { createGameState } from '../simulation/state';
 import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
 import { applyBossRewardChoice } from '../progression/bossRewards';
+import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
 import { resolveCollisions } from '../simulation/systems/collisions';
 import { updateBosses } from '../simulation/systems/enemies';
 import { updateGame } from '../simulation/systems/gameLoop';
@@ -96,6 +97,7 @@ describe('save loading', () => {
     };
     savedState.progression.ownedWarpUnlockIds = ['droneSystems'];
     savedState.progression.announcedAffordableWarpUnlockIds = ['droneSystems'];
+    savedState.progression.novaCrownCoreRewardedDifficultyKeys = ['1', '3'];
     savedState.bossRewards = {
       pendingChoiceIds: ['rapidFire', 'salvageSurge'],
       activeIds: ['droneOverdrive']
@@ -137,6 +139,7 @@ describe('save loading', () => {
     expect(loadedState.progression.shipUnlockProgress.novaCrownShipFrameIds).toEqual(['vector']);
     expect(loadedState.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
     expect(loadedState.progression.announcedAffordableWarpUnlockIds).toEqual(['droneSystems']);
+    expect(loadedState.progression.novaCrownCoreRewardedDifficultyKeys).toEqual(['1', '3']);
     expect(loadedState.bossRewards).toEqual({
       pendingChoiceIds: ['rapidFire', 'salvageSurge'],
       activeIds: ['droneOverdrive']
@@ -1055,6 +1058,36 @@ describe('boss gates and core reset', () => {
     expect(state.audioEvents.some((event) => event.type === 'bossDefeated')).toBe(true);
   });
 
+  it('awards difficulty-scaled global cores when defeating a boss inside Nova Crown', () => {
+    const state = createGameState(800, 600);
+    state.progression.currentZoneIndex = zones.length - 1;
+    state.progression.unlockedZoneIndex = zones.length - 1;
+    state.progression.travelLevel = zones.length - 1;
+    state.survival.active = true;
+    state.survival.difficulty = 5;
+    state.asteroids = [makeBossAsteroid(zones.length - 1)];
+    state.bullets = [
+      {
+        id: 900,
+        owner: 'player',
+        position: { x: 100, y: 100 },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 6,
+        damage: 1,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    updateGame(state, neutralInput(), 0);
+
+    expect(state.progression.prestigeCores).toBe(getNovaCrownCoreReward(5));
+    expect(state.rewardEvents.some((event) => event.text.includes('Nova Crown boss defeated'))).toBe(true);
+  });
+
   it('recharges shield bubble state after it breaks', () => {
     const state = createGameState(800, 600);
     state.progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
@@ -1185,6 +1218,7 @@ describe('boss gates and core reset', () => {
     state.progression.unlockedZoneIndex = 3;
     state.progression.currentZoneIndex = 3;
     state.progression.firstGateAsteroidsDestroyed = balance.bosses.firstGateAsteroids;
+    state.progression.novaCrownCoreRewardedDifficultyKeys = ['1', '4'];
     state.bossRewards.activeIds = ['rapidFire'];
     state.bossRewards.pendingChoiceIds = ['droneOverdrive'];
     state.progression.achievementStats.asteroidsDestroyed = 120;
@@ -1213,6 +1247,7 @@ describe('boss gates and core reset', () => {
     expect(nextState.progression.unlockedZoneIndex).toBe(0);
     expect(nextState.progression.currentZoneIndex).toBe(0);
     expect(nextState.progression.firstGateAsteroidsDestroyed).toBe(0);
+    expect(nextState.progression.novaCrownCoreRewardedDifficultyKeys).toEqual(['1', '4']);
     expect(nextState.progression.achievementStats.asteroidsDestroyed).toBe(120);
     expect(nextState.progression.achievementStats.prestigeWarps).toBe(5);
     expect(nextState.progression.unlockedAchievements.firstBlood).toBe(true);
