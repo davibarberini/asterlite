@@ -46,7 +46,6 @@ export const balance = {
     pointerArrivalRadius: 34,
     pointerBrakeRadius: 72,
     slingshotDeadzone: 0.08,
-    hyperspaceInterval: 4,
     shieldBubbleRechargeSeconds: 9,
     shieldBubbleHitFlashSeconds: 0.32,
     shieldBubbleGraceSeconds: 0.22,

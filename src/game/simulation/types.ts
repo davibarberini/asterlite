@@ -67,7 +67,6 @@ export type ShipState = {
   invulnerableFor: number;
   respawnFor: number;
   fireCooldown: number;
-  hyperspaceCooldown: number;
   turretAngle: number;
   phaseShieldCooldown: number;
   phaseShieldFlashFor: number;
@@ -227,7 +226,6 @@ export type GameAudioEvent =
   | { type: 'shipHit' }
   | { type: 'shipDestroyed' }
   | { type: 'shipRespawned' }
-  | { type: 'hyperspace' }
   | { type: 'spaceTravel' }
   | { type: 'bossSummoned' }
   | { type: 'bossDefeated' }
@@ -277,7 +275,6 @@ export type AchievementStats = {
   saucersDestroyed: number;
   deaths: number;
   prestigeWarps: number;
-  hyperspaceUses: number;
 };
 
 export type AchievementId =

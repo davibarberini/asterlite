@@ -312,8 +312,7 @@ export const createAchievementStats = (): AchievementStats => ({
   crystalsCollected: 0,
   saucersDestroyed: 0,
   deaths: 0,
-  prestigeWarps: 0,
-  hyperspaceUses: 0
+  prestigeWarps: 0
 });
 
 export const createUnlockedAchievements = (): Record<AchievementId, boolean> =>

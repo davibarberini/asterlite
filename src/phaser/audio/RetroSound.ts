@@ -62,11 +62,6 @@ export class RetroSound {
       case 'shipRespawned':
         this.tone(220, 660, 0.24, 'triangle', 0.045);
         break;
-      case 'hyperspace':
-        this.tone(140, 1180, 0.32, 'sawtooth', 0.04);
-        this.tone(420, 1480, 0.18, 'triangle', 0.025, 0.08);
-        this.noise(0.22, 0.026, 1500);
-        break;
       case 'spaceTravel':
         this.noise(0.72, 0.045, 1700);
         this.tone(72, 1460, 0.76, 'sawtooth', 0.052);

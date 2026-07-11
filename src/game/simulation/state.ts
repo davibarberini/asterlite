@@ -28,7 +28,6 @@ const createShip = (width: number, height: number, progression: ProgressionState
     invulnerableFor: balance.ship.startingInvulnerableFor,
     respawnFor: 0,
     fireCooldown: 0,
-    hyperspaceCooldown: 0,
     turretAngle: -Math.PI / 2,
     phaseShieldCooldown: 0,
     phaseShieldFlashFor: 0

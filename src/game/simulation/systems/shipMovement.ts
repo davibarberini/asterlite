@@ -1,10 +1,8 @@
 import type { InputActions } from '../../input/actions';
 import { getAchievementMultiplier } from '../../progression/achievements';
-import { emitAudio } from '../events';
 import { resetShip } from '../state';
 import type { GameState } from '../types';
-import { clampMagnitude, randomRange } from '../vector';
-import { burstParticles } from './particles';
+import { clampMagnitude } from '../vector';
 import { firePlayerWeapon } from './weapons';
 import { balance } from '../../balance';
 import { getPropulsionSkillMultiplier } from '../../progression/talentTree';
@@ -81,7 +79,6 @@ export const updateShipMovement = (state: GameState, input: InputActions, dt: nu
   };
 
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
-  ship.hyperspaceCooldown = Math.max(0, ship.hyperspaceCooldown - dt);
   ship.invulnerableFor = Math.max(0, ship.invulnerableFor - dt);
   ship.phaseShieldCooldown = Math.max(0, ship.phaseShieldCooldown - dt);
   ship.phaseShieldFlashFor = Math.max(0, ship.phaseShieldFlashFor - dt);
@@ -89,19 +86,6 @@ export const updateShipMovement = (state: GameState, input: InputActions, dt: nu
   const shouldAutoFire = state.progression.activeShipFrameId === 'nivitron';
   if ((input.fire || shouldAutoFire) && ship.fireCooldown === 0) {
     firePlayerWeapon(state);
-  }
-
-  if (input.hyperspace && ship.hyperspaceCooldown === 0) {
-    state.progression.achievementStats.hyperspaceUses += 1;
-    emitAudio(state, { type: 'hyperspace' });
-    burstParticles(state, ship.position, 16, 170);
-    ship.position = {
-      x: state.camera.x + randomRange(-state.width * 0.38, state.width * 0.38),
-      y: state.camera.y + randomRange(-state.height * 0.38, state.height * 0.38)
-    };
-    ship.velocity = { x: randomRange(-80, 80), y: randomRange(-80, 80) };
-    ship.invulnerableFor = 1.1;
-    ship.hyperspaceCooldown = balance.ship.hyperspaceInterval;
   }
 };
 

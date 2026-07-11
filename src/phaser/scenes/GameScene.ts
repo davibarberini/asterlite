@@ -261,7 +261,7 @@ export class GameScene extends Phaser.Scene {
     this.introGraphics = this.add.graphics();
     this.introGraphics.setDepth(4);
     this.cursors = this.input.keyboard!.createCursorKeys();
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,SPACE,SHIFT,H,R') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = this.input.keyboard!.addKeys('W,A,S,D,SPACE,SHIFT,R') as Record<string, Phaser.Input.Keyboard.Key>;
 
     this.appEl = document.getElementById('app')!;
     this.mainMenuEl = document.getElementById('main-menu')!;
@@ -413,7 +413,6 @@ export class GameScene extends Phaser.Scene {
     this.inputState.aimDirection = this.getPointerAimDirection();
     const slingPower = this.inputState.slingshotVector ? Math.hypot(this.inputState.slingshotVector.x, this.inputState.slingshotVector.y) : 0;
     this.inputState.fire = this.cursors.space.isDown || this.keys.SPACE.isDown || this.activeGameplayPointerId !== null || slingPower > 0.08;
-    this.inputState.hyperspace = Phaser.Input.Keyboard.JustDown(this.keys.H);
   }
 
   private getPointerAimDirection(): Vec2 | null {

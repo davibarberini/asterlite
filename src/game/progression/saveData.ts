@@ -143,8 +143,7 @@ const readAchievementStats = (value: unknown): AchievementStats => {
     crystalsCollected: Math.max(0, Math.floor(readNumber(value.crystalsCollected, 0))),
     saucersDestroyed: Math.max(0, Math.floor(readNumber(value.saucersDestroyed, 0))),
     deaths: Math.max(0, Math.floor(readNumber(value.deaths, 0))),
-    prestigeWarps: Math.max(0, Math.floor(readNumber(value.prestigeWarps, 0))),
-    hyperspaceUses: Math.max(0, Math.floor(readNumber(value.hyperspaceUses, 0)))
+    prestigeWarps: Math.max(0, Math.floor(readNumber(value.prestigeWarps, 0)))
   };
 };
 
