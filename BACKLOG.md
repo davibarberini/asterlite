@@ -4,6 +4,36 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
+### Mothership Boss - Slice 2 (summons and beam)
+
+Continue the Nova Crown mothership into a full multi-phase encounter.
+
+Design:
+- Add summoned minions: waves of fighters/saucers spawned by the mothership, gated per phase, tracked in serializable state (a minions list, not the single `saucer`).
+- Add a telegraphed sweeping beam/laser attack that rotates across the arena, readable before it damages.
+- Escalate phase 3: overlap patterns (ring + fan), shorter recovery, and a summon burst.
+- Keep everything serializable in the boss/`GameState` and separate from the renderer.
+
+Acceptance:
+- Mothership summons minions on a phase-gated cadence and they behave as real threats.
+- Beam attack telegraphs, then sweeps and deals damage only during the active window.
+- Phase 3 is visibly harder than phase 1 (more bullets, summons, or overlap).
+- Add tests for summon cadence, beam telegraph/active windows, and phase-3 escalation.
+
+### Boss Personality Pass (sentinel / crusher / prism)
+
+Give the three chase bosses distinct combat identities like the mothership has.
+
+Design:
+- Reuse the mothership phase + telegraph scaffolding for the existing bosses.
+- Each boss should get one signature telegraphed attack that matches its theme (sentinel = precise volleys, crusher = slow heavy shockwave rings, prism = ricochet lattice).
+- Avoid turning every boss into a stationary arena; keep their movement identity.
+
+Acceptance:
+- Each of sentinel/crusher/prism gains at least one distinct telegraphed attack and an HP-based phase shift.
+- Movement identity (orbit/chase) is preserved.
+- Add tests for each boss's phase shift and signature attack.
+
 ### Technology-Based Max Ship Level
 
 Let global technologies raise the pilot's level ceiling above the base cap.
@@ -114,6 +144,19 @@ Acceptance:
 - Add tests for at least first, mid, and late ship unlock pacing.
 
 ## Done
+
+### Mothership Boss - Slice 1 (camera-anchored bullet-hell)
+
+Introduced the first boss with real personality: the Nova Crown gate boss is now the `mothership`.
+
+- New `mothership` boss type (Nova Matriarch) assigned to the Nova Crown gate; other bosses unchanged.
+- Camera-anchored behavior in `bossMothership.ts`: instead of chasing, it hovers in the upper arena and tracks the ship horizontally, keeping borderless player movement for dodging.
+- HP-based phases (`getMothershipPhase`) escalate bullet count, damage, and recovery speed.
+- Two telegraphed bullet-hell patterns: a radial ring with a rotating dodge gap and an aimed fan; each is previewed by a warning ring/aim line before firing.
+- Serializable boss brain fields on `AsteroidState` (`bossPhase`, `bossTelegraphFor`, `bossTelegraphKind`, `bossAimAngle`, `bossPatternCursor`); tuning lives in `balance.bosses.mothership`.
+- Renderer draws a distinct capital-ship hull, magenta identity colors, and the attack telegraphs.
+- Tests cover phase thresholds, camera anchoring/convergence, telegraph-before-fire, and phase-based ring density (`pnpm test`, 122). Build green.
+- Follow-ups added to `Ready`: summons + beam (slice 2), and a personality pass for the other bosses.
 
 ### Skill Tree Level Cap and Balance Pass
 

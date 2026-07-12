@@ -116,7 +116,7 @@ export const zones: ExplorationZone[] = [
     asteroidHpMultiplier: 4.6,
     asteroidDamageMultiplier: 2.45,
     asteroidDensityBonus: 9,
-    bossType: 'sentinel',
+    bossType: 'mothership',
     identity: {
       callsign: 'Crown Belt',
       flavor: 'A volatile mixed crown with high-value salvage and dangerous traffic.',

@@ -641,6 +641,17 @@ export class VectorRenderer {
           { x: -26, y: 18 },
           { x: 8, y: 24 }
         ]
+      : boss.bossType === 'mothership'
+      ? [
+          { x: 30, y: 0 },
+          { x: 20, y: -30 },
+          { x: -14, y: -46 },
+          { x: -44, y: -26 },
+          { x: -52, y: 0 },
+          { x: -44, y: 26 },
+          { x: -14, y: 46 },
+          { x: 20, y: 30 }
+        ]
       : boss.bossType === 'prism'
         ? [
             { x: 38, y: 0 },
@@ -686,6 +697,26 @@ export class VectorRenderer {
       this.graphics.lineStyle(2, 0xfff1a8, alpha);
       this.graphics.strokeCircle(x, y, boss.radius * 0.72 * viewScale);
     }
+
+    if (boss.bossType === 'mothership' && (boss.bossTelegraphFor ?? 0) > 0) {
+      this.drawMothershipTelegraph(boss, x, y, viewScale);
+    }
+  }
+
+  private drawMothershipTelegraph(boss: AsteroidState, x: number, y: number, viewScale: number): void {
+    const warn = 0.32 + 0.42 * Math.abs(Math.sin((boss.bossTelegraphFor ?? 0) * 12));
+    const warnColor = 0xff5cc8;
+
+    if (boss.bossTelegraphKind === 'aimedFan') {
+      const aim = boss.bossAimAngle ?? 0;
+      const length = boss.radius * 2.8 * viewScale;
+      this.graphics.lineStyle(3, warnColor, warn);
+      this.graphics.lineBetween(x, y, x + Math.cos(aim) * length, y + Math.sin(aim) * length);
+      return;
+    }
+
+    this.graphics.lineStyle(3, warnColor, warn);
+    this.graphics.strokeCircle(x, y, boss.radius * 1.18 * viewScale);
   }
 
   private drawBullet(state: GameState, bullet: BulletState, simple = false): void {
@@ -792,6 +823,9 @@ export class VectorRenderer {
     if (type === 'prism') {
       return 0xb48cff;
     }
+    if (type === 'mothership') {
+      return 0xff5cc8;
+    }
     return 0xff8b6b;
   }
 
@@ -801,6 +835,9 @@ export class VectorRenderer {
     }
     if (type === 'prism') {
       return 0xd9c7ff;
+    }
+    if (type === 'mothership') {
+      return 0xffd0f0;
     }
     return 0xfff1a8;
   }

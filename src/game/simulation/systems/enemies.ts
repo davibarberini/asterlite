@@ -1,4 +1,5 @@
 import { createZoneBossFromPending } from './asteroids';
+import { updateMothership } from './bossMothership';
 import { fireBullet } from './weapons';
 import { emitReward } from '../events';
 import type { AsteroidState, GameState, Vec2 } from '../types';
@@ -29,6 +30,11 @@ export const updateBosses = (state: GameState, dt: number): void => {
 
   state.asteroids.forEach((boss) => {
     if (!boss.bossType) {
+      return;
+    }
+
+    if (boss.bossType === 'mothership') {
+      updateMothership(state, boss, dt);
       return;
     }
 

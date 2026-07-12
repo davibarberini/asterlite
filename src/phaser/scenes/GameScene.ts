@@ -3558,6 +3558,9 @@ export class GameScene extends Phaser.Scene {
     if (type === 'prism') {
       return 'Prism Warden';
     }
+    if (type === 'mothership') {
+      return 'Nova Matriarch';
+    }
     return 'Gravity Crusher';
   }
 

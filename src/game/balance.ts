@@ -306,6 +306,21 @@ export const balance = {
     shipCollisionDamage: 24,
     ricochetBounces: 3,
     reward: { baseMoney: 260, moneyPerZone: 180, baseCrystals: 3, crystalsPerZone: 1 },
+    mothership: {
+      anchorGlideSpeed: 2.6,
+      anchorScreenOffsetY: -0.3,
+      anchorHorizontalTrack: 0.32,
+      telegraphSeconds: 0.85,
+      recoverSecondsByPhase: [1.35, 1.05, 0.78],
+      ringBulletsByPhase: [18, 24, 30],
+      ringGapSlots: 3,
+      ringBulletSpeed: 170,
+      ringSpinPerCast: 0.42,
+      fanBulletsByPhase: [4, 6, 8],
+      fanSpreadRadians: 0.62,
+      fanBulletSpeed: 250,
+      bulletDamageByPhase: [16, 18, 22]
+    },
     stats: {
       sentinel: {
         spawnSpeedBase: 106,
@@ -360,6 +375,24 @@ export const balance = {
         bulletSpeed: 270,
         bulletDamage: 16,
         bulletAngleOffsets: [-0.28, 0, 0.28]
+      },
+      mothership: {
+        spawnSpeedBase: 150,
+        spawnSpeedPerZone: 0,
+        chaseSpeedBase: 0,
+        chaseSpeedPerZone: 0,
+        hpBase: 90,
+        hpPerZone: 30,
+        radius: 128,
+        rotationSpeed: 0.18,
+        shapePoints: 20,
+        initialFireCooldown: 1.6,
+        fireCooldownBase: 1.6,
+        fireCooldownMin: 0.9,
+        fireCooldownPerZone: 0,
+        bulletSpeed: 190,
+        bulletDamage: 18,
+        bulletAngleOffsets: [0]
       }
     } satisfies Record<BossType, {
       spawnSpeedBase: number;

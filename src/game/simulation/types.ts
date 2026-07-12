@@ -5,7 +5,9 @@ export type Vec2 = {
 
 export type AsteroidSize = 'large' | 'medium' | 'small';
 export type AsteroidVariant = 'common' | 'metallic' | 'crystal' | 'dense';
-export type BossType = 'sentinel' | 'crusher' | 'prism';
+export type BossType = 'sentinel' | 'crusher' | 'prism' | 'mothership';
+
+export type BossAttackKind = 'ring' | 'aimedFan';
 export type DroneType = 'sentry' | 'ranger' | 'breaker';
 export type ShipFrameId =
   | 'vector'
@@ -105,6 +107,11 @@ export type AsteroidState = {
   bossType?: BossType;
   bossZoneIndex?: number;
   bossFireCooldown?: number;
+  bossPhase?: number;
+  bossTelegraphFor?: number;
+  bossTelegraphKind?: BossAttackKind;
+  bossAimAngle?: number;
+  bossPatternCursor?: number;
 };
 
 export type PendingBossState = {
