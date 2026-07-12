@@ -356,7 +356,13 @@ export const balance = {
         fireCooldownPerZone: 0.09,
         bulletSpeed: 285,
         bulletDamage: 18,
-        bulletAngleOffsets: [-0.16, 0, 0.16]
+        bulletAngleOffsets: [-0.16, 0, 0.16],
+        signatureTelegraphSeconds: 0.58,
+        signatureBulletCountByPhase: [1, 3, 5],
+        signatureSpreadByPhase: [0, 0.16, 0.24],
+        signatureCooldownMultiplierByPhase: [1, 0.86, 0.72],
+        signatureBulletSpeedMultiplier: 1.18,
+        signatureDamageMultiplier: 1.08
       },
       crusher: {
         spawnSpeedBase: 86,
@@ -429,6 +435,12 @@ export const balance = {
       bulletSpeed: number;
       bulletDamage: number;
       bulletAngleOffsets: number[];
+      signatureTelegraphSeconds?: number;
+      signatureBulletCountByPhase?: number[];
+      signatureSpreadByPhase?: number[];
+      signatureCooldownMultiplierByPhase?: number[];
+      signatureBulletSpeedMultiplier?: number;
+      signatureDamageMultiplier?: number;
     }>
   },
   saucer: {

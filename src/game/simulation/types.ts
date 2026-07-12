@@ -7,7 +7,7 @@ export type AsteroidSize = 'large' | 'medium' | 'small';
 export type AsteroidVariant = 'common' | 'metallic' | 'crystal' | 'dense';
 export type BossType = 'sentinel' | 'crusher' | 'prism' | 'mothership';
 
-export type BossAttackKind = 'ring' | 'aimedFan' | 'beam' | 'summon';
+export type BossAttackKind = 'ring' | 'aimedFan' | 'beam' | 'summon' | 'sentinelVolley';
 export type DroneType = 'sentry' | 'ranger' | 'breaker';
 export type ShipFrameId =
   | 'vector'

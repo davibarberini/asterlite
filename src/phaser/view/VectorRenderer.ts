@@ -702,9 +702,28 @@ export class VectorRenderer {
     if (boss.bossType === 'mothership' && (boss.bossTelegraphFor ?? 0) > 0) {
       this.drawMothershipTelegraph(boss, x, y, viewScale);
     }
+    if (boss.bossType === 'sentinel' && boss.bossTelegraphKind === 'sentinelVolley' && (boss.bossTelegraphFor ?? 0) > 0) {
+      this.drawSentinelTelegraph(boss, x, y, viewScale);
+    }
     if (boss.bossType === 'mothership' && (boss.bossBeamFor ?? 0) > 0) {
       this.drawMothershipBeam(state, boss, x, y, viewScale);
     }
+  }
+
+  private drawSentinelTelegraph(boss: AsteroidState, x: number, y: number, viewScale: number): void {
+    const aim = boss.bossAimAngle ?? 0;
+    const warn = 0.38 + 0.38 * Math.abs(Math.sin((boss.bossTelegraphFor ?? 0) * 16));
+    const length = boss.radius * 3.2 * viewScale;
+    this.graphics.lineStyle(3, 0x83ffdc, warn);
+    this.graphics.lineBetween(x, y, x + Math.cos(aim) * length, y + Math.sin(aim) * length);
+    if ((boss.bossPhase ?? 1) <= 1) {
+      return;
+    }
+
+    const spread = (boss.bossPhase ?? 1) >= 3 ? 0.24 : 0.16;
+    this.graphics.lineStyle(1, 0xd8fff5, warn * 0.58);
+    this.graphics.lineBetween(x, y, x + Math.cos(aim - spread / 2) * length, y + Math.sin(aim - spread / 2) * length);
+    this.graphics.lineBetween(x, y, x + Math.cos(aim + spread / 2) * length, y + Math.sin(aim + spread / 2) * length);
   }
 
   private drawMothershipTelegraph(boss: AsteroidState, x: number, y: number, viewScale: number): void {

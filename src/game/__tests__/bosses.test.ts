@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createGameState } from '../simulation/state';
 import { getMothershipPhase, updateMothership } from '../simulation/systems/bossMothership';
+import { getChaseBossPhase, updateBosses } from '../simulation/systems/enemies';
 import type { AsteroidState, GameState } from '../simulation/types';
 
 const createMothership = (overrides: Partial<AsteroidState> = {}): AsteroidState => ({
@@ -17,6 +18,24 @@ const createMothership = (overrides: Partial<AsteroidState> = {}): AsteroidState
   shape: [1, 1, 1],
   bossType: 'mothership',
   bossZoneIndex: 4,
+  bossFireCooldown: 0,
+  ...overrides
+});
+
+const createSentinel = (overrides: Partial<AsteroidState> = {}): AsteroidState => ({
+  id: 2,
+  position: { x: 260, y: 0 },
+  velocity: { x: 0, y: 0 },
+  rotation: 0,
+  rotationSpeed: 1.5,
+  radius: 74,
+  size: 'large',
+  variant: 'dense',
+  hp: 120,
+  maxHp: 120,
+  shape: [1, 1, 1],
+  bossType: 'sentinel',
+  bossZoneIndex: 1,
   bossFireCooldown: 0,
   ...overrides
 });
@@ -152,5 +171,55 @@ describe('mothership boss', () => {
 
     expect(phase3State.bullets.length).toBeGreaterThan(phase1State.bullets.length);
     expect(phase3State.bossMinions.length).toBeGreaterThan(0);
+  });
+});
+
+describe('chase boss personalities', () => {
+  it('maps chase boss HP ratio to escalating phases', () => {
+    expect(getChaseBossPhase(1)).toBe(1);
+    expect(getChaseBossPhase(0.5)).toBe(2);
+    expect(getChaseBossPhase(0.2)).toBe(3);
+  });
+
+  it('telegraphs Sentinel precision volley before firing', () => {
+    const state = centerState();
+    const boss = createSentinel();
+    state.asteroids = [boss];
+
+    updateBosses(state, 0.016);
+
+    expect(boss.bossPhase).toBe(1);
+    expect(boss.bossTelegraphKind).toBe('sentinelVolley');
+    expect(boss.bossTelegraphFor ?? 0).toBeGreaterThan(0);
+    expect(state.bullets).toHaveLength(0);
+    expect(Math.abs(boss.velocity.y)).toBeGreaterThan(0);
+
+    updateBosses(state, 1);
+
+    expect(boss.bossTelegraphFor).toBe(0);
+    expect(boss.bossFireCooldown ?? 0).toBeGreaterThan(0);
+    expect(state.bullets).toHaveLength(1);
+  });
+
+  it('fires denser Sentinel precision volleys in phase 3', () => {
+    const fireSentinelVolley = (hp: number): number => {
+      const state = centerState();
+      const boss = createSentinel({
+        hp,
+        maxHp: 120,
+        bossTelegraphKind: 'sentinelVolley',
+        bossTelegraphFor: 0.01,
+        bossAimAngle: 0
+      });
+      state.asteroids = [boss];
+      updateBosses(state, 1);
+      return state.bullets.length;
+    };
+
+    const phase1Bullets = fireSentinelVolley(120);
+    const phase3Bullets = fireSentinelVolley(20);
+
+    expect(phase1Bullets).toBe(1);
+    expect(phase3Bullets).toBeGreaterThan(phase1Bullets);
   });
 });

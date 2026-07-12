@@ -7,6 +7,21 @@ import { distance, normalize, randomRange } from '../vector';
 import { balance } from '../../balance';
 import { isSurvivalZone } from './survival';
 
+const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+
+export const getChaseBossPhase = (hpRatio: number): number => {
+  if (hpRatio > 0.66) {
+    return 1;
+  }
+  if (hpRatio > 0.33) {
+    return 2;
+  }
+  return 3;
+};
+
+const getPhaseValue = (values: readonly number[], phase: number): number =>
+  values[clamp(phase - 1, 0, values.length - 1)];
+
 export const updatePendingBoss = (state: GameState, dt: number): void => {
   const pendingBoss = state.pendingBoss;
   if (!pendingBoss || !state.ship.alive) {
@@ -46,14 +61,38 @@ export const updateBosses = (state: GameState, dt: number): void => {
     const distanceToShip = Math.max(1, distance(boss.position, state.ship.position));
     const desiredVelocity = getBossDesiredVelocity(boss, toShip, distanceToShip);
     const bossStats = balance.bosses.stats[boss.bossType];
+    const phase = getChaseBossPhase(boss.hp / Math.max(1, boss.maxHp));
+    boss.bossPhase = phase;
     const bossSpeed = bossStats.chaseSpeedBase + (boss.bossZoneIndex ?? 0) * bossStats.chaseSpeedPerZone;
     const steer = Math.min(1, dt * getBossSteerMultiplier(boss));
     const speedMultiplier = getBossSpeedMultiplier(boss, distanceToShip);
     boss.velocity.x += (desiredVelocity.x * bossSpeed * speedMultiplier - boss.velocity.x) * steer;
     boss.velocity.y += (desiredVelocity.y * bossSpeed * speedMultiplier - boss.velocity.y) * steer;
     boss.rotation += (shipAngle - boss.rotation) * Math.min(1, dt * 2.4);
+    if (boss.bossType === 'sentinel' && (boss.bossTelegraphFor ?? 0) > 0) {
+      const next = (boss.bossTelegraphFor ?? 0) - dt;
+      if (next > 0) {
+        boss.bossTelegraphFor = next;
+        return;
+      }
+
+      boss.bossTelegraphFor = 0;
+      fireSentinelVolley(state, boss, phase);
+      boss.bossTelegraphKind = undefined;
+      boss.bossFireCooldown = getSentinelCooldown(boss, phase);
+      return;
+    }
+
     boss.bossFireCooldown = Math.max(0, (boss.bossFireCooldown ?? 0) - dt);
     if (boss.bossFireCooldown > 0) {
+      return;
+    }
+
+    if (boss.bossType === 'sentinel') {
+      const sentinelStats = balance.bosses.stats.sentinel;
+      boss.bossTelegraphKind = 'sentinelVolley';
+      boss.bossTelegraphFor = sentinelStats.signatureTelegraphSeconds;
+      boss.bossAimAngle = shipAngle;
       return;
     }
 
@@ -74,6 +113,34 @@ export const updateBosses = (state: GameState, dt: number): void => {
     });
     boss.bossFireCooldown = Math.max(bossStats.fireCooldownMin, bossStats.fireCooldownBase - (boss.bossZoneIndex ?? 0) * bossStats.fireCooldownPerZone);
   });
+};
+
+const getSentinelCooldown = (boss: AsteroidState, phase: number): number => {
+  const stats = balance.bosses.stats.sentinel;
+  const base = Math.max(stats.fireCooldownMin, stats.fireCooldownBase - (boss.bossZoneIndex ?? 0) * stats.fireCooldownPerZone);
+  return base * getPhaseValue(stats.signatureCooldownMultiplierByPhase, phase);
+};
+
+const fireSentinelVolley = (state: GameState, boss: AsteroidState, phase: number): void => {
+  const stats = balance.bosses.stats.sentinel;
+  const count = getPhaseValue(stats.signatureBulletCountByPhase, phase);
+  const spread = getPhaseValue(stats.signatureSpreadByPhase, phase);
+  const base = boss.bossAimAngle ?? Math.atan2(
+    state.ship.position.y - boss.position.y,
+    state.ship.position.x - boss.position.x
+  );
+  const step = count > 1 ? spread / (count - 1) : 0;
+
+  for (let index = 0; index < count; index += 1) {
+    fireBullet(
+      state,
+      'boss',
+      boss.position,
+      base - spread / 2 + step * index,
+      stats.bulletSpeed * stats.signatureBulletSpeedMultiplier,
+      stats.bulletDamage * stats.signatureDamageMultiplier
+    );
+  }
 };
 
 const getBossDesiredVelocity = (boss: AsteroidState, toShip: Vec2, distanceToShip: number): Vec2 => {

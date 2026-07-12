@@ -4,19 +4,37 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Boss Personality Pass (sentinel / crusher / prism)
+### Boss Personality Pass - Crusher Slice
 
-Give the three chase bosses distinct combat identities like the mothership has.
+Give Crusher a distinct telegraphed attack while preserving its chase identity.
 
 Design:
-- Reuse the mothership phase + telegraph scaffolding for the existing bosses.
-- Each boss should get one signature telegraphed attack that matches its theme (sentinel = precise volleys, crusher = slow heavy shockwave rings, prism = ricochet lattice).
-- Avoid turning every boss into a stationary arena; keep their movement identity.
+- Reuse the existing boss phase + telegraph state.
+- Add a slow heavy shockwave/ring attack that fits Crusher's bruiser identity.
+- Escalate the ring count, speed, or recovery by HP phase.
+- Keep Crusher's direct chase movement intact.
 
 Acceptance:
-- Each of sentinel/crusher/prism gains at least one distinct telegraphed attack and an HP-based phase shift.
-- Movement identity (orbit/chase) is preserved.
-- Add tests for each boss's phase shift and signature attack.
+- Crusher gains an HP-based phase shift.
+- Crusher telegraphs before emitting the shockwave/ring attack.
+- Movement identity is preserved.
+- Add tests for phase shift and signature attack.
+
+### Boss Personality Pass - Prism Slice
+
+Give Prism a distinct telegraphed attack while preserving its orbit/chase identity.
+
+Design:
+- Reuse the existing boss phase + telegraph state.
+- Add a ricochet lattice attack that feels different from Sentinel precision and Crusher shockwaves.
+- Escalate ricochet density, bounce count, or recovery by HP phase.
+- Keep Prism's curved approach movement intact.
+
+Acceptance:
+- Prism gains an HP-based phase shift.
+- Prism telegraphs before emitting the ricochet lattice.
+- Movement identity is preserved.
+- Add tests for phase shift and signature attack.
 
 ### Mothership Boss - Polish (reward, localization, tuning)
 
@@ -168,6 +186,18 @@ Continued the Nova Crown mothership into a fuller multi-phase encounter.
 - Phase 3 now overlaps ring + aimed fan pressure and summon bursts.
 - Renderer draws active beam visuals and mothership minion fighters.
 - Tests cover summon gating/cadence, beam telegraph vs active damage, and phase-3 escalation.
+
+### Boss Personality Pass - Sentinel Slice
+
+Started the chase boss personality pass with Sentinel.
+
+- Split the broad sentinel/crusher/prism pass into smaller boss-specific slices.
+- Added shared HP phase mapping for chase bosses.
+- Sentinel now uses a telegraphed precision volley instead of instantly firing every cooldown.
+- Sentinel volleys escalate by phase: later phases fire denser narrow bursts with shorter recovery.
+- Sentinel keeps its existing orbit movement identity.
+- Renderer draws a readable green precision-line telegraph.
+- Tests cover phase mapping, telegraph-before-fire, phase-3 density, and preserved movement.
 
 ### Skill Tree Level Cap and Balance Pass
 

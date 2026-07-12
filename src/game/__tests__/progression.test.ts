@@ -1172,10 +1172,13 @@ describe('boss gates and global progression', () => {
     crusherState.asteroids = [makeBossAsteroid(1, 'crusher')];
     crusherState.asteroids[0].bossFireCooldown = 0;
 
+    updateBosses(sentinelState, 0.1);
+    expect(sentinelState.bullets).toHaveLength(0);
+    expect(sentinelState.asteroids[0].bossTelegraphKind).toBe('sentinelVolley');
     updateBosses(sentinelState, 1);
     updateBosses(crusherState, 1);
 
-    expect(sentinelState.bullets).toHaveLength(3);
+    expect(sentinelState.bullets).toHaveLength(1);
     expect(crusherState.bullets).toHaveLength(4);
     expect(crusherState.bullets[0].damage).toBeGreaterThan(sentinelState.bullets[0].damage);
   });
