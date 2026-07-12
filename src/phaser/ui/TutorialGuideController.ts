@@ -4,7 +4,10 @@ export type TutorialTargetId =
   | 'upgrade-affordable'
   | 'nav-map'
   | 'zone-node-unlocked'
-  | 'nav-skills';
+  | 'nav-skills'
+  | 'skill-tree-open'
+  | 'skill-node-available'
+  | 'skill-buy';
 
 export type TutorialFlowId = 'first-upgrade' | 'zone-travel' | 'first-skill-point';
 

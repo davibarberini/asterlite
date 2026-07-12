@@ -370,6 +370,9 @@ export class SkillTreeModalController {
     node.classList.toggle('is-selected', state.selectedTalentId === id);
     node.classList.toggle('is-region-hidden', hiddenDroneRegion);
     node.disabled = hiddenDroneRegion;
+    if (id === this.getTutorialAvailableTalentId(state.progression)) {
+      node.dataset.tutorialTarget = 'skill-node-available';
+    }
     node.style.gridColumn = `${talent.grid.col}`;
     node.style.gridRow = `${talent.grid.row}`;
     node.setAttribute(
@@ -476,6 +479,9 @@ export class SkillTreeModalController {
     buyButton.className = 'shop-buy talent-tooltip__buy';
     buyButton.type = 'button';
     buyButton.disabled = !canBuy;
+    if (canBuy) {
+      buyButton.dataset.tutorialTarget = 'skill-buy';
+    }
     buyButton.textContent = nodeState === 'maxed'
       ? (state.language === 'pt-BR' ? 'Máximo' : 'Maxed')
       : (state.language === 'pt-BR' ? `Comprar ${formatSkillPointCost(state.language, nextCost)}` : `Buy ${formatSkillPointCost(state.language, nextCost)}`);
@@ -483,6 +489,10 @@ export class SkillTreeModalController {
 
     panel.append(heading, summary, meta, buyButton);
     return panel;
+  }
+
+  private getTutorialAvailableTalentId(progression: ProgressionState): TalentId | null {
+    return TALENT_DEFINITIONS.find((talent) => canBuyTalentRank(progression, talent.id))?.id ?? null;
   }
 
   private createDroneRegionGate(language: LanguageCode): HTMLElement {

@@ -121,7 +121,10 @@ const FIRST_SKILL_POINT_TUTORIAL: TutorialFlow = {
   id: 'first-skill-point',
   steps: [
     { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
-    { id: 'open-skills', targetId: 'nav-skills', padding: 9, shape: 'rect' }
+    { id: 'open-skills', targetId: 'nav-skills', padding: 9, shape: 'rect' },
+    { id: 'open-skill-tree', targetId: 'skill-tree-open', padding: 9, shape: 'rect' },
+    { id: 'choose-skill', targetId: 'skill-node-available', padding: 9, shape: 'rect' },
+    { id: 'buy-skill', targetId: 'skill-buy', padding: 9, shape: 'rect' }
   ]
 };
 
@@ -1927,8 +1930,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (!this.tutorialGuide.hasCompleted('zone-travel') && this.hasUnlockedZoneToTravel()) {
-      this.startTutorialGuide(ZONE_TRAVEL_TUTORIAL);
+    if (!this.tutorialGuide.hasCompleted('first-skill-point') && this.hasUnspentSkillPointToGuide()) {
+      this.startTutorialGuide(FIRST_SKILL_POINT_TUTORIAL);
       return;
     }
 
@@ -1937,8 +1940,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (!this.tutorialGuide.hasCompleted('first-skill-point') && this.hasUnspentSkillPointToGuide()) {
-      this.startTutorialGuide(FIRST_SKILL_POINT_TUTORIAL);
+    if (!this.tutorialGuide.hasCompleted('zone-travel') && this.hasUnlockedZoneToTravel()) {
+      this.startTutorialGuide(ZONE_TRAVEL_TUTORIAL);
     }
   }
 

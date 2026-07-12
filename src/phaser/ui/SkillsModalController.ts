@@ -9,6 +9,7 @@ import { formatCompactNumber } from '../../game/numberFormat';
 import { translate, type LanguageCode } from '../../game/i18n';
 import type { GameState, TalentId } from '../../game/simulation/types';
 import { SkillTreeModalController } from './SkillTreeModalController';
+import type { TutorialTargetId } from './TutorialGuideController';
 
 type SkillsShopAction = {
   label: string;
@@ -17,6 +18,7 @@ type SkillsShopAction = {
   icon?: string;
   title?: string;
   meta?: string;
+  tutorialTarget?: TutorialTargetId;
 };
 
 export type SkillsShopContent = {
@@ -90,6 +92,7 @@ export class SkillsModalController {
           meta: translate(options.language, 'shop.skillsActionMeta', { count: talentCount }),
           label: translate(options.language, 'shop.skillsActionLabel'),
           disabled: false,
+          tutorialTarget: 'skill-tree-open',
           onClick: options.onOpenTree
         },
         {
