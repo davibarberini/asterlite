@@ -995,6 +995,18 @@ Notes:
 
 ## Technical Debt Completed
 
+### Extract Survival Event Renderer
+
+Moved Nova Crown timed event and hazard drawing out of `VectorRenderer.ts`.
+
+Notes:
+- Added `SurvivalEventRenderer` for meteor lanes, gravity pulses, toxic damage fields, proximity mines, and survival hunters.
+- `VectorRenderer` now delegates survival event/hazard rendering while keeping draw order unchanged.
+- Kept the renderer Phaser-only and disposable through the shared `Graphics` object.
+- Preserved existing coordinate scaling, offscreen checks, meteor fire trails, toxic smoke field, mine blinking, and hunter trail visuals.
+- Reduced `VectorRenderer.ts` from over 1,200 lines to under 1,000 lines.
+- Validated with `pnpm run build`.
+
 ### Extract GameScene Skills Modal Presenter
 
 Moved Skills tab and skill tree modal presentation out of `GameScene.ts`.

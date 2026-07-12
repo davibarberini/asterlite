@@ -4,26 +4,13 @@ Use this file as the source of truth for engineering improvements. Keep items sm
 
 Current engineering shape:
 - `GameScene.ts` is the largest orchestration file and mixes Phaser lifecycle, HUD rendering, shop/modal DOM, tutorial triggers, purchases, travel, and settings.
-- `VectorRenderer.ts` now owns most visual language: ships, asteroids, bosses, hazards, survival events, particles, level shockwaves, and special ship effects.
+- `VectorRenderer.ts` still owns broad visual language for ships, asteroids, bosses, bullets, drones, particles, level shockwaves, saucers, and special ship effects.
+- `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
 - Save loading intentionally clears incompatible versions, but still carries several legacy normalization paths from old weapons/drone/reset-era systems.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
 - `styles.css` has grown into a monolithic stylesheet with unrelated HUD, modal, map, tree, hangar, tutorial, and settings rules in one file.
 
 ## Ready
-
-### Extract Survival Event Renderer
-
-Keep the vector renderer from absorbing every Nova Crown visual rule.
-
-Context:
-- `VectorRenderer.ts` is over 1,200 lines and owns timed meteor lanes, gravity wells, toxic fields, survival hazards, elite saucers, ships, drones, and asteroids.
-- Nova Crown will keep gaining hazards and readability tweaks, so survival-specific rendering needs its own boundary.
-
-Acceptance:
-- Move survival timed event drawing helpers out of `VectorRenderer.ts` into a focused Phaser renderer/helper module.
-- Keep renderer objects disposable and Phaser-only.
-- Preserve meteor lane, gravity pulse, toxic field, mine, hunter, and elite saucer readability.
-- Run `pnpm run build`.
 
 ### Normalize Legacy Weapon Save State
 
