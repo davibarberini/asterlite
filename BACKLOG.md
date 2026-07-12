@@ -4,22 +4,6 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Mothership Boss - Slice 2 (summons and beam)
-
-Continue the Nova Crown mothership into a full multi-phase encounter.
-
-Design:
-- Add summoned minions: waves of fighters/saucers spawned by the mothership, gated per phase, tracked in serializable state (a minions list, not the single `saucer`).
-- Add a telegraphed sweeping beam/laser attack that rotates across the arena, readable before it damages.
-- Escalate phase 3: overlap patterns (ring + fan), shorter recovery, and a summon burst.
-- Keep everything serializable in the boss/`GameState` and separate from the renderer.
-
-Acceptance:
-- Mothership summons minions on a phase-gated cadence and they behave as real threats.
-- Beam attack telegraphs, then sweeps and deals damage only during the active window.
-- Phase 3 is visibly harder than phase 1 (more bullets, summons, or overlap).
-- Add tests for summon cadence, beam telegraph/active windows, and phase-3 escalation.
-
 ### Boss Personality Pass (sentinel / crusher / prism)
 
 Give the three chase bosses distinct combat identities like the mothership has.
@@ -173,6 +157,17 @@ Introduced the first boss with real personality: the Nova Crown gate boss is now
 - Renderer draws a distinct capital-ship hull, magenta identity colors, and the attack telegraphs.
 - Tests cover phase thresholds, camera anchoring/convergence, telegraph-before-fire, and phase-based ring density (`pnpm test`, 122). Build green.
 - Follow-ups added to `Ready`: summons + beam (slice 2), and a personality pass for the other bosses.
+
+### Mothership Boss - Slice 2 (summons and beam)
+
+Continued the Nova Crown mothership into a fuller multi-phase encounter.
+
+- Added serializable `bossMinions` to `GameState` and a lightweight mothership fighter minion with movement, HP, contact damage, and shots.
+- Mothership summon bursts are phase-gated: phase 1 has none, later phases spawn fighters, and phase 3 spawns a larger burst.
+- Added a telegraphed sweeping beam attack with active-window damage and beam hit cooldown.
+- Phase 3 now overlaps ring + aimed fan pressure and summon bursts.
+- Renderer draws active beam visuals and mothership minion fighters.
+- Tests cover summon gating/cadence, beam telegraph vs active damage, and phase-3 escalation.
 
 ### Skill Tree Level Cap and Balance Pass
 

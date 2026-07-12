@@ -25,6 +25,8 @@ type SkillTreeRenderState = {
 
 const talentCompactNodeWidth = 72;
 const talentCompactNodeHeight = 72;
+const talentMinZoom = 0.62;
+const talentMaxZoom = 1.45;
 const droneRegionBounds = {
   colStart: 8,
   rowStart: 1,
@@ -94,7 +96,9 @@ export class SkillTreeModalController {
   private tooltipLayer: HTMLElement | null = null;
   private selectedTalentId: TalentId | null = null;
   private pan = { x: 0, y: 0 };
+  private zoom = 1;
   private hasPanPosition = false;
+  private activePointers = new Map<number, { x: number; y: number; target: EventTarget | null }>();
   private drag:
     | {
       pointerId: number;
@@ -104,6 +108,14 @@ export class SkillTreeModalController {
       originY: number;
       moved: boolean;
       target: EventTarget | null;
+    }
+    | null = null;
+  private pinch:
+    | {
+      startDistance: number;
+      startZoom: number;
+      centerWorld: { x: number; y: number };
+      moved: boolean;
     }
     | null = null;
   private suppressNextTalentClick = false;
@@ -198,6 +210,13 @@ export class SkillTreeModalController {
         return;
       }
 
+      this.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY, target: event.target });
+      viewport.setPointerCapture(event.pointerId);
+      if (this.activePointers.size >= 2) {
+        this.beginPinch();
+        return;
+      }
+
       this.drag = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -207,11 +226,25 @@ export class SkillTreeModalController {
         moved: false,
         target: event.target
       };
-      viewport.setPointerCapture(event.pointerId);
       this.board?.classList.add('is-grabbing');
     });
 
     viewport.addEventListener('pointermove', (event) => {
+      const activePointer = this.activePointers.get(event.pointerId);
+      if (activePointer) {
+        activePointer.x = event.clientX;
+        activePointer.y = event.clientY;
+      }
+
+      if (this.activePointers.size >= 2) {
+        if (!this.pinch) {
+          this.beginPinch();
+        }
+        this.updatePinch();
+        event.preventDefault();
+        return;
+      }
+
       if (!this.drag || this.drag.pointerId !== event.pointerId) {
         return;
       }
@@ -245,6 +278,23 @@ export class SkillTreeModalController {
   }
 
   private finishPan(event: PointerEvent, state: SkillTreeRenderState): void {
+    this.activePointers.delete(event.pointerId);
+    if (this.viewport?.hasPointerCapture(event.pointerId)) {
+      this.viewport.releasePointerCapture(event.pointerId);
+    }
+
+    if (this.pinch) {
+      const moved = this.pinch.moved;
+      this.pinch = null;
+      this.drag = null;
+      this.board?.classList.remove('is-grabbing', 'is-panning');
+      if (moved) {
+        this.hasPanPosition = true;
+        this.applyPan(true);
+      }
+      return;
+    }
+
     if (!this.drag || this.drag.pointerId !== event.pointerId) {
       return;
     }
@@ -253,9 +303,6 @@ export class SkillTreeModalController {
     const target = this.drag.target;
     this.drag = null;
     this.board?.classList.remove('is-grabbing', 'is-panning');
-    if (this.viewport?.hasPointerCapture(event.pointerId)) {
-      this.viewport.releasePointerCapture(event.pointerId);
-    }
 
     if (moved) {
       this.hasPanPosition = true;
@@ -272,6 +319,73 @@ export class SkillTreeModalController {
     }
   }
 
+  private beginPinch(): void {
+    const viewport = this.viewport;
+    if (!viewport) {
+      return;
+    }
+
+    const pointers = [...this.activePointers.values()].slice(0, 2);
+    if (pointers.length < 2) {
+      return;
+    }
+
+    const center = this.getPointerPairCenter(pointers[0], pointers[1]);
+    this.drag = null;
+    this.pinch = {
+      startDistance: Math.max(1, this.getPointerPairDistance(pointers[0], pointers[1])),
+      startZoom: this.zoom,
+      centerWorld: {
+        x: (center.x - this.pan.x) / this.zoom,
+        y: (center.y - this.pan.y) / this.zoom
+      },
+      moved: false
+    };
+    this.suppressNextTalentClick = true;
+    this.board?.classList.add('is-grabbing', 'is-panning');
+  }
+
+  private updatePinch(): void {
+    if (!this.pinch) {
+      return;
+    }
+
+    const pointers = [...this.activePointers.values()].slice(0, 2);
+    if (pointers.length < 2) {
+      return;
+    }
+
+    const distance = Math.max(1, this.getPointerPairDistance(pointers[0], pointers[1]));
+    const center = this.getPointerPairCenter(pointers[0], pointers[1]);
+    const nextZoom = this.clampZoom(this.pinch.startZoom * (distance / this.pinch.startDistance));
+    this.zoom = nextZoom;
+    this.pan = {
+      x: center.x - this.pinch.centerWorld.x * nextZoom,
+      y: center.y - this.pinch.centerWorld.y * nextZoom
+    };
+    this.pinch.moved = true;
+    this.applyPan(true);
+  }
+
+  private getPointerPairCenter(
+    first: { x: number; y: number },
+    second: { x: number; y: number }
+  ): { x: number; y: number } {
+    const rect = this.viewport?.getBoundingClientRect();
+    return {
+      x: (first.x + second.x) / 2 - (rect?.left ?? 0),
+      y: (first.y + second.y) / 2 - (rect?.top ?? 0)
+    };
+  }
+
+  private getPointerPairDistance(first: { x: number; y: number }, second: { x: number; y: number }): number {
+    return Math.hypot(first.x - second.x, first.y - second.y);
+  }
+
+  private clampZoom(zoom: number): number {
+    return Math.max(talentMinZoom, Math.min(talentMaxZoom, zoom));
+  }
+
   private centerPanOnStart(): void {
     const startTalent = TALENT_BY_ID.refineryYield;
     const startCenter = this.getTalentNodeCenter(startTalent.grid.col, startTalent.grid.row);
@@ -281,8 +395,8 @@ export class SkillTreeModalController {
     }
 
     this.pan = {
-      x: viewport.clientWidth / 2 - startCenter.x,
-      y: viewport.clientHeight * 0.28 - startCenter.y
+      x: viewport.clientWidth / 2 - startCenter.x * this.zoom,
+      y: viewport.clientHeight * 0.28 - startCenter.y * this.zoom
     };
     this.hasPanPosition = true;
     this.applyPan(true);
@@ -297,17 +411,19 @@ export class SkillTreeModalController {
 
     if (clamp) {
       const margin = 42;
-      const minX = Math.min(margin, viewport.clientWidth - panContent.offsetWidth - margin);
-      const maxX = Math.max(margin, viewport.clientWidth - panContent.offsetWidth - margin);
-      const minY = Math.min(margin, viewport.clientHeight - panContent.offsetHeight - margin);
-      const maxY = Math.max(margin, viewport.clientHeight - panContent.offsetHeight - margin);
+      const scaledWidth = panContent.offsetWidth * this.zoom;
+      const scaledHeight = panContent.offsetHeight * this.zoom;
+      const minX = Math.min(margin, viewport.clientWidth - scaledWidth - margin);
+      const maxX = Math.max(margin, viewport.clientWidth - scaledWidth - margin);
+      const minY = Math.min(margin, viewport.clientHeight - scaledHeight - margin);
+      const maxY = Math.max(margin, viewport.clientHeight - scaledHeight - margin);
       this.pan = {
         x: Math.max(minX, Math.min(maxX, this.pan.x)),
         y: Math.max(minY, Math.min(maxY, this.pan.y))
       };
     }
 
-    panContent.style.transform = `translate3d(${this.pan.x}px, ${this.pan.y}px, 0)`;
+    panContent.style.transform = `translate3d(${this.pan.x}px, ${this.pan.y}px, 0) scale(${this.zoom})`;
   }
 
   private setNodeSelected(id: TalentId | null, selected: boolean): void {
@@ -395,7 +511,7 @@ export class SkillTreeModalController {
       if (event.pointerType !== 'mouse') {
         event.preventDefault();
         handledPointerSelection = true;
-        if (this.drag?.moved) {
+        if (this.drag?.moved || this.pinch?.moved) {
           this.suppressNextTalentClick = false;
           return;
         }

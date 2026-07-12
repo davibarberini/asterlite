@@ -319,7 +319,25 @@ export const balance = {
       fanBulletsByPhase: [4, 6, 8],
       fanSpreadRadians: 0.62,
       fanBulletSpeed: 250,
-      bulletDamageByPhase: [16, 18, 22]
+      bulletDamageByPhase: [16, 18, 22],
+      summonCountByPhase: [0, 2, 4],
+      summonCooldownSeconds: 0.7,
+      summonMinionRadius: 14,
+      summonMinionHp: 10,
+      summonMinionSpeed: 165,
+      summonMinionDamage: 14,
+      summonMinionFireCooldown: [1.15, 1.7],
+      summonMinionBulletSpeed: 230,
+      summonMinionBulletDamage: 10,
+      summonMinionDespawnDistanceMultiplier: 1.55,
+      beamTelegraphSeconds: 1.05,
+      beamActiveSeconds: 1.2,
+      beamSweepRadians: 1.15,
+      beamSweepSpeed: 0.95,
+      beamWidth: 42,
+      beamLengthMultiplier: 1.35,
+      beamDamage: 18,
+      beamHitCooldown: 0.5
     },
     stats: {
       sentinel: {

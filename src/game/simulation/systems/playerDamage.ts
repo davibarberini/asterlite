@@ -49,6 +49,7 @@ export const damageShip = (state: GameState, amount: number): void => {
   state.ship.alive = false;
   state.ship.respawnFor = balance.ship.respawnDelay;
   state.pendingBoss = null;
+  state.bossMinions = [];
   state.asteroids = state.asteroids.filter((asteroid) => !asteroid.bossType);
   state.bullets = state.bullets.filter((bullet) => bullet.owner !== 'boss');
   state.phase = 'respawning';

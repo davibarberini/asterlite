@@ -90,4 +90,67 @@ describe('mothership boss', () => {
     expect(phase1Bullets).toBeGreaterThan(0);
     expect(phase3Bullets).toBeGreaterThan(phase1Bullets);
   });
+
+  it('summons phase-gated minions as real serializable threats', () => {
+    const phase1State = centerState();
+    const phase1Boss = createMothership({ hp: 200, maxHp: 200, bossTelegraphKind: 'summon', bossTelegraphFor: 0.01 });
+    updateMothership(phase1State, phase1Boss, 1);
+
+    const phase2State = centerState();
+    const phase2Boss = createMothership({ hp: 100, maxHp: 200, bossTelegraphKind: 'summon', bossTelegraphFor: 0.01 });
+    updateMothership(phase2State, phase2Boss, 1);
+    updateMothership(phase2State, phase2Boss, 1.3);
+
+    expect(phase1State.bossMinions).toHaveLength(0);
+    expect(phase2State.bossMinions).toHaveLength(2);
+    expect(phase2State.bossMinions[0]).toMatchObject({
+      alive: true,
+      hp: expect.any(Number),
+      fireCooldown: expect.any(Number)
+    });
+    expect(phase2State.bullets.some((bullet) => bullet.owner === 'saucer')).toBe(true);
+  });
+
+  it('telegraphs the beam before activating damage', () => {
+    const state = centerState();
+    const boss = createMothership({
+      position: { x: 0, y: 0 },
+      hp: 100,
+      maxHp: 200,
+      bossTelegraphKind: 'beam',
+      bossTelegraphFor: 0.2,
+      bossAimAngle: 0
+    });
+    state.ship.position = { x: 180, y: 0 };
+    state.ship.invulnerableFor = 0;
+    const hpBefore = state.ship.hp;
+
+    updateMothership(state, boss, 0.1);
+
+    expect(boss.bossTelegraphFor ?? 0).toBeGreaterThan(0);
+    expect(boss.bossBeamFor ?? 0).toBe(0);
+    expect(state.ship.hp).toBe(hpBefore);
+
+    updateMothership(state, boss, 0.2);
+
+    expect(boss.bossBeamFor ?? 0).toBeGreaterThan(0);
+    expect(state.ship.hp).toBe(hpBefore);
+
+    updateMothership(state, boss, 0.65);
+
+    expect(state.ship.hp).toBeLessThan(hpBefore);
+  });
+
+  it('overlaps ring, fan, and summon pressure in phase 3', () => {
+    const phase1State = centerState();
+    const phase1Boss = createMothership({ hp: 200, maxHp: 200, bossTelegraphKind: 'ring', bossTelegraphFor: 0.01 });
+    updateMothership(phase1State, phase1Boss, 1);
+
+    const phase3State = centerState();
+    const phase3Boss = createMothership({ hp: 20, maxHp: 200, bossTelegraphKind: 'ring', bossTelegraphFor: 0.01 });
+    updateMothership(phase3State, phase3Boss, 1);
+
+    expect(phase3State.bullets.length).toBeGreaterThan(phase1State.bullets.length);
+    expect(phase3State.bossMinions.length).toBeGreaterThan(0);
+  });
 });

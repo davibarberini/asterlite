@@ -7,7 +7,7 @@ export type AsteroidSize = 'large' | 'medium' | 'small';
 export type AsteroidVariant = 'common' | 'metallic' | 'crystal' | 'dense';
 export type BossType = 'sentinel' | 'crusher' | 'prism' | 'mothership';
 
-export type BossAttackKind = 'ring' | 'aimedFan';
+export type BossAttackKind = 'ring' | 'aimedFan' | 'beam' | 'summon';
 export type DroneType = 'sentry' | 'ranger' | 'breaker';
 export type ShipFrameId =
   | 'vector'
@@ -112,6 +112,10 @@ export type AsteroidState = {
   bossTelegraphKind?: BossAttackKind;
   bossAimAngle?: number;
   bossPatternCursor?: number;
+  bossBeamFor?: number;
+  bossBeamAngle?: number;
+  bossBeamSweepDirection?: number;
+  bossBeamHitCooldown?: number;
 };
 
 export type PendingBossState = {
@@ -142,6 +146,18 @@ export type SaucerState = {
   position: Vec2;
   velocity: Vec2;
   radius: number;
+  fireCooldown: number;
+  alive: boolean;
+};
+
+export type BossMinionState = {
+  id: number;
+  position: Vec2;
+  velocity: Vec2;
+  radius: number;
+  hp: number;
+  maxHp: number;
+  damage: number;
   fireCooldown: number;
   alive: boolean;
 };
@@ -485,6 +501,7 @@ export type GameState = {
   audioEvents: GameAudioEvent[];
   rewardEvents: GameRewardEvent[];
   pendingBoss: PendingBossState | null;
+  bossMinions: BossMinionState[];
   saucer: SaucerState | null;
   saucerTimer: number;
   nextId: number;

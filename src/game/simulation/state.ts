@@ -192,6 +192,7 @@ export const createGameState = (width: number, height: number, progression = cre
     audioEvents: [],
     rewardEvents: [],
     pendingBoss: null,
+    bossMinions: [],
     saucer: null,
     saucerTimer: balance.saucer.initialTimer,
     nextId: 1

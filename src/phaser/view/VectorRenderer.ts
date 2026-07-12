@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getActiveShipFrame, getShipFrameWeaponIdentity } from '../../game/progression/shipFrames';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
-import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, LevelShockwaveState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
+import type { AsteroidState, AsteroidVariant, BossMinionState, BossType, BulletState, DroneState, GameState, LevelShockwaveState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
 import { SurvivalEventRenderer } from './SurvivalEventRenderer';
 import {
@@ -110,6 +110,7 @@ export class VectorRenderer {
     if (state.saucer) {
       this.drawSaucer(state, state.saucer);
     }
+    state.bossMinions.forEach((minion) => this.drawBossMinion(state, minion));
 
     if (state.pendingBoss) {
       this.drawPendingBossWarning(state);
@@ -701,22 +702,65 @@ export class VectorRenderer {
     if (boss.bossType === 'mothership' && (boss.bossTelegraphFor ?? 0) > 0) {
       this.drawMothershipTelegraph(boss, x, y, viewScale);
     }
+    if (boss.bossType === 'mothership' && (boss.bossBeamFor ?? 0) > 0) {
+      this.drawMothershipBeam(state, boss, x, y, viewScale);
+    }
   }
 
   private drawMothershipTelegraph(boss: AsteroidState, x: number, y: number, viewScale: number): void {
     const warn = 0.32 + 0.42 * Math.abs(Math.sin((boss.bossTelegraphFor ?? 0) * 12));
     const warnColor = 0xff5cc8;
 
-    if (boss.bossTelegraphKind === 'aimedFan') {
+    if (boss.bossTelegraphKind === 'aimedFan' || boss.bossTelegraphKind === 'beam') {
       const aim = boss.bossAimAngle ?? 0;
-      const length = boss.radius * 2.8 * viewScale;
-      this.graphics.lineStyle(3, warnColor, warn);
+      const length = boss.bossTelegraphKind === 'beam'
+        ? Math.max(window.innerWidth, window.innerHeight) * 0.8
+        : boss.radius * 2.8 * viewScale;
+      this.graphics.lineStyle(boss.bossTelegraphKind === 'beam' ? 7 : 3, warnColor, warn);
       this.graphics.lineBetween(x, y, x + Math.cos(aim) * length, y + Math.sin(aim) * length);
       return;
     }
 
     this.graphics.lineStyle(3, warnColor, warn);
     this.graphics.strokeCircle(x, y, boss.radius * 1.18 * viewScale);
+  }
+
+  private drawMothershipBeam(state: GameState, boss: AsteroidState, x: number, y: number, viewScale: number): void {
+    const cfg = balance.bosses.mothership;
+    const angle = boss.bossBeamAngle ?? 0;
+    const length = Math.max(state.width, state.height) * cfg.beamLengthMultiplier * viewScale;
+    const endX = x + Math.cos(angle) * length;
+    const endY = y + Math.sin(angle) * length;
+    const pulse = 0.5 + Math.sin(this.scene.time.now * 0.02) * 0.5;
+    this.graphics.lineStyle(cfg.beamWidth * viewScale, 0xff4fd8, 0.12 + pulse * 0.06);
+    this.graphics.lineBetween(x, y, endX, endY);
+    this.graphics.lineStyle(Math.max(3, cfg.beamWidth * 0.28 * viewScale), 0xffd0f0, 0.58 + pulse * 0.18);
+    this.graphics.lineBetween(x, y, endX, endY);
+    this.graphics.lineStyle(1, 0xfff1a8, 0.44);
+    this.graphics.lineBetween(x, y, endX, endY);
+  }
+
+  private drawBossMinion(state: GameState, minion: BossMinionState): void {
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, minion.position.x);
+    const y = this.toScreenY(state, minion.position.y);
+    const angle = Math.atan2(minion.velocity.y, minion.velocity.x);
+    const hull = [
+      { x: 16, y: 0 },
+      { x: -8, y: -10 },
+      { x: -4, y: 0 },
+      { x: -8, y: 10 }
+    ].map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, angle, x, y));
+    this.graphics.fillStyle(0xff4fd8, 0.12);
+    this.graphics.lineStyle(2, 0xff8fe7, 0.84);
+    this.graphics.beginPath();
+    this.graphics.moveTo(hull[0].x, hull[0].y);
+    hull.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
+    this.graphics.closePath();
+    this.graphics.fillPath();
+    this.graphics.strokePath();
+    this.graphics.fillStyle(0xfff1a8, 0.62);
+    this.graphics.fillCircle(x, y, 3.2 * viewScale);
   }
 
   private drawBullet(state: GameState, bullet: BulletState, simple = false): void {

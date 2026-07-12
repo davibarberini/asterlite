@@ -222,6 +222,7 @@
   left: 0;
   width: var(--talent-world-width);
   height: var(--talent-world-height);
+  transform-origin: 0 0;
   will-change: transform;
 }
 

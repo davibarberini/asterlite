@@ -37,8 +37,10 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
   const asteroidDestroyCountBefore = state.progression.achievementStats.asteroidsDestroyed;
   const nextAsteroids = [...state.asteroids];
   const nextHazards = [...state.hazards];
+  const nextBossMinions = [...state.bossMinions];
   const destroyedAsteroidIds = new Set<number>();
   const destroyedHazardIds = new Set<number>();
+  const destroyedBossMinionIds = new Set<number>();
   const destroyedBulletIds = new Set<number>();
   const deflectedAsteroidIds = new Set<number>();
 
@@ -120,6 +122,32 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
         if (hazard.hp <= 0) {
           destroyedHazardIds.add(hazard.id);
           burstParticles(state, hazard.position, hazard.kind === 'survivalHunter' ? 16 : 18, getHazardExplosionSpread(hazard));
+        }
+        break;
+      }
+
+      if (destroyedBulletIds.has(bullet.id)) {
+        continue;
+      }
+
+      for (const minion of nextBossMinions) {
+        if (destroyedBossMinionIds.has(minion.id) || distance(bullet.position, minion.position) >= bullet.radius + minion.radius) {
+          continue;
+        }
+
+        if (bullet.pierceLeft > 0) {
+          bullet.pierceLeft -= 1;
+        } else {
+          destroyedBulletIds.add(bullet.id);
+        }
+        minion.hp -= bullet.damage;
+        emitAudio(state, { type: 'asteroidHit' });
+        burstParticles(state, minion.position, 6, minion.radius * 3.2);
+        if (minion.hp <= 0) {
+          destroyedBossMinionIds.add(minion.id);
+          minion.alive = false;
+          emitAudio(state, { type: 'saucerDestroyed' });
+          burstParticles(state, minion.position, 14, minion.radius * 6);
         }
         break;
       }
@@ -245,6 +273,7 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
       syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
       state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
       state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
+      state.bossMinions = nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id) && state.phase !== 'respawning');
       state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
       return;
     }
@@ -266,14 +295,29 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
       state.saucer.alive = false;
       damageShip(state, balance.saucer.collisionDamage);
     }
+
+    for (const minion of nextBossMinions) {
+      if (destroyedBossMinionIds.has(minion.id) || distance(state.ship.position, minion.position) >= getShipThreatRadius(state) + minion.radius) {
+        continue;
+      }
+
+      repelShipFromContact(state, minion.position, getShipThreatRadius(state) + minion.radius, balance.collisions.enemyContactKnockback);
+      destroyedBossMinionIds.add(minion.id);
+      minion.alive = false;
+      burstParticles(state, minion.position, 14, minion.radius * 5);
+      damageShip(state, minion.damage);
+      break;
+    }
   }
 
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
+  state.bossMinions = nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id) && state.phase !== 'respawning');
   applyShipAuraDamage(state, dt, destroyedAsteroidIds, destroyedHazardIds, nextAsteroids, nextHazards);
   updateLevelShockwaves(state, dt, destroyedAsteroidIds, nextAsteroids);
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
+  state.bossMinions = nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id) && state.phase !== 'respawning');
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
   syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
 };

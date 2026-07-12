@@ -57,6 +57,7 @@ export const destroyAsteroid = (
     emitAudio(state, { type: 'zoneUnlocked' });
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');
     state.bullets = state.bullets.filter((bullet) => bullet.owner !== 'boss');
+    state.bossMinions = [];
   }
   if (emitPayoutEvent) {
     emitReward(state, reward.crystals > 0 ? `+${formatMoney(reward.money)} credits  +${reward.crystals} crystals` : `+${formatMoney(reward.money)} credits`, 'payout');
