@@ -34,6 +34,22 @@ Acceptance:
 - Movement identity (orbit/chase) is preserved.
 - Add tests for each boss's phase shift and signature attack.
 
+### Mothership Boss - Polish (reward, localization, tuning)
+
+Finish the loose ends left after the mothership slice 1.
+
+Design:
+- Localize the boss name: `formatBossName` in `GameScene.ts` returns hardcoded English ('Nova Matriarch'); route it through the i18n `translate` layer like other UI copy.
+- Add a distinct defeat reward for the Nova Crown gate mothership (e.g. bonus cores/crystals or an unlock), since it is a climax fight, not a normal gate boss.
+- Run a difficulty/readability tuning pass on `balance.bosses.mothership` after playtesting: ring/fan counts, bullet speeds, telegraph seconds, anchor offset, and HP.
+- Consider a spiral pattern as a third telegraphed attack if variety is still lacking.
+
+Acceptance:
+- Boss name is localized (pt-BR and en-US).
+- Defeating the mothership grants a clearly special reward and stays serializable.
+- Balance numbers are reviewed against actual play and adjusted.
+- Tests updated if reward/logic changes.
+
 ### Technology-Based Max Ship Level
 
 Let global technologies raise the pilot's level ceiling above the base cap.
