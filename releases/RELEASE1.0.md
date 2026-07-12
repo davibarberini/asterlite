@@ -995,6 +995,18 @@ Notes:
 
 ## Technical Debt Completed
 
+### Normalize Legacy Weapon Save State
+
+Removed old manual weapon selection state from active progression and ship-run data.
+
+Notes:
+- Removed `weaponMode`, `spreadUnlocked`, and `piercingUnlocked` from runtime progression and per-ship run state.
+- Removed stale `spreadBattery` and `piercingRail` technology IDs from active warp unlock typing and UI copy.
+- Old v2 saves with those weapon fields still load, but the fields are normalized away during load.
+- Ship frame identity remains the only source of player weapon behavior.
+- Added save compatibility coverage for old weapon fields and updated weapon behavior tests.
+- Validated with `pnpm test` and `pnpm run build`.
+
 ### Extract Survival Event Renderer
 
 Moved Nova Crown timed event and hazard drawing out of `VectorRenderer.ts`.

@@ -12,6 +12,7 @@ import { clearAllAsteridleData, loadGameState, saveGameState, SAVE_VERSION_NOTES
 import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
 import { createShipFrameSwitchState } from '../progression/shipRuns';
+import { getShipFrameWeaponIdentity } from '../progression/shipFrames';
 import { getAvailableShipSkillPoints, getShipXpForNextLevel, getTotalShipSkillPointCap, maxShipLevel } from '../progression/shipLevel';
 import {
   recordPrismBossDefeatUnlockProgress,
@@ -290,6 +291,42 @@ describe('save loading', () => {
     expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
   });
 
+  it('loads old weapon fields without keeping manual weapon selection state', () => {
+    const progression = createProgression();
+    const savedProgression = {
+      ...progression,
+      weaponMode: 'spread',
+      spreadUnlocked: true,
+      piercingUnlocked: true,
+      ownedWarpUnlockIds: ['droneSystems', 'spreadBattery', 'piercingRail']
+    };
+
+    window.localStorage.setItem(
+      saveKey,
+      JSON.stringify({
+        version: 2,
+        money: 0,
+        crystals: 0,
+        lastSeenAt: Date.now(),
+        progression: savedProgression,
+        ship: {
+          position: { x: 25, y: 40 },
+          hp: 100,
+          alive: true,
+          respawnFor: 0
+        }
+      })
+    );
+
+    const state = loadGameState(800, 600);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('standard');
+    expect(Object.hasOwn(state.progression, 'weaponMode')).toBe(false);
+    expect(Object.hasOwn(state.progression, 'spreadUnlocked')).toBe(false);
+    expect(Object.hasOwn(state.progression, 'piercingUnlocked')).toBe(false);
+    expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
+  });
+
   it('defaults shield bubble state for saves without shield data', () => {
     const progression = createProgression();
     progression.ownedWarpUnlockIds = ['deflectorFrame', 'shieldBubble'];
@@ -564,7 +601,7 @@ describe('warp unlock definitions', () => {
     expect(progression.maxHp).toBe(100);
     expect(progression.armor).toBe(0);
     expect(progression.shipSpeedLevel).toBe(0);
-    expect(progression.spreadUnlocked).toBe(false);
+    expect(Object.hasOwn(progression, 'spreadUnlocked')).toBe(false);
     expect(progression.deflectorLevel).toBe(1);
     expect(progression.ownedWarpUnlockIds).toContain('bossBeacon');
     expect(progression.ownedWarpUnlockIds).toContain('droneSystems');

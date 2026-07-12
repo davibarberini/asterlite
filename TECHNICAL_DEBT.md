@@ -6,27 +6,11 @@ Current engineering shape:
 - `GameScene.ts` is the largest orchestration file and mixes Phaser lifecycle, HUD rendering, shop/modal DOM, tutorial triggers, purchases, travel, and settings.
 - `VectorRenderer.ts` still owns broad visual language for ships, asteroids, bosses, bullets, drones, particles, level shockwaves, saucers, and special ship effects.
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
-- Save loading intentionally clears incompatible versions, but still carries several legacy normalization paths from old weapons/drone/reset-era systems.
+- Save loading intentionally clears incompatible versions, but still carries several legacy normalization paths from old drone/reset-era systems.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
 - `styles.css` has grown into a monolithic stylesheet with unrelated HUD, modal, map, tree, hangar, tutorial, and settings rules in one file.
 
 ## Ready
-
-### Normalize Legacy Weapon Save State
-
-Remove old weapon-mode concepts from active runtime surfaces while preserving save compatibility.
-
-Context:
-- Combat identity now comes from ship frames and the Weapons tab has been removed.
-- Legacy fields such as `weaponMode`, `spreadUnlocked`, `piercingUnlocked`, `spreadBattery`, and `piercingRail` still exist for old saves and ship-run persistence.
-- Current tests already assert that legacy weapon state does not change standard ship firing behavior.
-
-Acceptance:
-- Decide which legacy fields must remain in saved v2 data and which can be normalized away during load.
-- Keep old saves loading without changing standard ship firing behavior.
-- Remove active runtime dependencies that imply manual weapon selection.
-- Add or update tests for legacy save compatibility.
-- Run `pnpm test` and `pnpm run build`.
 
 ### Split Save Readers By Domain
 

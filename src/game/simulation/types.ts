@@ -50,11 +50,8 @@ export type WarpUnlockId =
   | 'deflectorFrame'
   | 'shieldBubble'
   | 'bossBeacon'
-  | 'spreadBattery'
   | 'rangerHangar'
-  | 'missileFoundry'
-  | 'piercingRail';
-export type WeaponMode = 'cannon' | 'spread' | 'piercing';
+  | 'missileFoundry';
 export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet' | 'ricochet';
 
 export type ShipState = {
@@ -387,7 +384,6 @@ export type ShipRunState = {
   shipLevel: number;
   shipSkillPoints: number;
   spentShipSkillPoints: number;
-  weaponMode: WeaponMode;
   mapUnlocked: boolean;
   travelLevel: number;
   currentZoneIndex: number;
@@ -424,9 +420,6 @@ export type ProgressionState = {
   shipLevel: number;
   shipSkillPoints: number;
   spentShipSkillPoints: number;
-  weaponMode: WeaponMode;
-  spreadUnlocked: boolean;
-  piercingUnlocked: boolean;
   mapUnlocked: boolean;
   travelLevel: number;
   currentZoneIndex: number;

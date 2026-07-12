@@ -3433,10 +3433,8 @@ export class GameScene extends Phaser.Scene {
       deflectorFrame: 'Estrutura Defletora',
       shieldBubble: 'Bolha de Escudo',
       bossBeacon: 'Sinalizador de Boss',
-      spreadBattery: 'Bateria Spread',
       rangerHangar: 'Hangar Ranger',
-      missileFoundry: 'Fundição de Mísseis',
-      piercingRail: 'Trilho Perfurante'
+      missileFoundry: 'Fundição de Mísseis'
     };
     return titles[id];
   }

@@ -25,11 +25,9 @@ describe('ship weapons and drone damage', () => {
     expect(state.ship.fireCooldown).toBeGreaterThanOrEqual(balance.shop.ship.fireRate.minimumInterval);
   });
 
-  it('keeps standard ships on the baseline cannon even with legacy weapon mode state', () => {
+  it('keeps standard ships on the baseline cannon', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'vector';
-    state.progression.spreadUnlocked = true;
-    state.progression.weaponMode = 'spread';
     state.progression.shipDamageLevel = 10;
 
     firePlayerWeapon(state);
@@ -43,11 +41,9 @@ describe('ship weapons and drone damage', () => {
     );
   });
 
-  it('keeps standard ship piercing legacy state from changing its shot pattern', () => {
+  it('keeps standard ships from firing piercing shots', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'vector';
-    state.progression.piercingUnlocked = true;
-    state.progression.weaponMode = 'piercing';
 
     firePlayerWeapon(state);
 
@@ -56,11 +52,9 @@ describe('ship weapons and drone damage', () => {
     expect(state.bullets[0]?.pierceLeft).toBe(0);
   });
 
-  it('fires prism as a spread ship without the spread technology mode', () => {
+  it('fires prism as a spread ship from its frame identity', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'prism';
-    state.progression.spreadUnlocked = false;
-    state.progression.weaponMode = 'cannon';
     state.progression.shipDamageLevel = 10;
 
     firePlayerWeapon(state);
@@ -72,11 +66,9 @@ describe('ship weapons and drone damage', () => {
     );
   });
 
-  it('fires needle as a piercing ship without the piercing technology mode', () => {
+  it('fires needle as a piercing ship from its frame identity', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'needle';
-    state.progression.piercingUnlocked = false;
-    state.progression.weaponMode = 'cannon';
 
     firePlayerWeapon(state);
 
