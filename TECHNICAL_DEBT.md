@@ -8,7 +8,7 @@ Current engineering shape:
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
 - Save loading intentionally clears incompatible versions, and the Nova Crown/survival readers now live outside the main save orchestration file.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
-- `styles.css` still mixes several surfaces (shop/modal, map, hangar, settings), but main menu, skill/warp tree, tutorial, bottom-nav, and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
+- `styles.css` still mixes several surfaces (shop/modal, map, hangar), but main menu, skill/warp tree, tutorial, bottom-nav, settings, and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
 
 ## Ready
 
@@ -17,9 +17,9 @@ Current engineering shape:
 Keep reducing CSS coupling as new UI surfaces settle.
 
 Context:
-- `styles.css` remains large and still mixes shop/modal, map, hangar, and settings rules.
+- `styles.css` remains large and still mixes shop/modal, map, and hangar rules.
 - Main menu, HUD, and skill/warp tree surfaces have already been extracted, which gives the next split a clear pattern.
-- Tutorial guide and bottom-nav styles have also been extracted, so the next useful split should target a larger interactive surface.
+- Tutorial guide, bottom-nav, and settings styles have also been extracted, so the next useful split should target a larger interactive surface.
 
 Acceptance:
 - Extract another coherent surface, such as shop/modal, hangar, tutorial, bottom-nav, or settings, into a separate imported stylesheet.
@@ -66,6 +66,15 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Split Stylesheet By Surface — Settings controls
+
+Extracted the settings/input controls into their own stylesheet.
+
+- Moved `.settings-modal-control*`, `.settings-danger-*`, and `.input-mode-*` rules into `src/styles/settings.css`.
+- Imported the new stylesheet in `main.ts` before the remaining shared `styles.css`.
+- Kept the shared modal shell in `styles.css`; this split only moves settings-specific controls used by audio, input mode, and reset/danger actions.
+- Follow-up: shop/modal, map, and hangar remain in `styles.css`.
 
 ### Split Stylesheet By Surface — Bottom navigation
 

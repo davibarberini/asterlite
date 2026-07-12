@@ -54,6 +54,7 @@ Gameplay rules should stay in serializable simulation/progression modules. Phase
 
 - `BACKLOG.md`: player-facing features and gameplay work.
 - `TECHNICAL_DEBT.md`: engineering improvements and refactors.
+- `RULESET.md`: repo rules, patterns, and implementation expectations for agents.
 - `AGENTS.md`: Codex workflows for `develop-feature` and `develop-improvement`.
 
 ## Mobile Path
