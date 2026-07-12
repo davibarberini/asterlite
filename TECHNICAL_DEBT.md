@@ -12,18 +12,7 @@ Current engineering shape:
 
 ## Ready
 
-### Continue Simulation System Boundary Pass
-
-Keep reducing `collisions.ts` by extracting cohesive simulation domains.
-
-Context:
-- Player damage/death handling now lives in `playerDamage.ts`.
-- `collisions.ts` still owns asteroid destruction rewards, level shockwaves, aura damage, bullet impact side effects, and contact/deflector handling.
-
-Acceptance:
-- Extract one additional cohesive simulation domain, such as asteroid destruction rewards, level shockwave resolution, or contact/deflector handling.
-- Keep simulation state serializable and renderer-free.
-- Preserve existing tests.
+No ready engineering items right now. Promote one item from Later when we want the next improvement pass.
 
 ## Later
 
@@ -51,6 +40,21 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Simulation System Boundary Pass — Collision domains
+
+Finished the current `collisions.ts` boundary pass.
+
+- Extracted asteroid destruction, rewards, boss unlock side effects, XP grants, payout feed, particles, and asteroid splitting into `src/game/simulation/systems/asteroidDestruction.ts`.
+- Extracted level-up shockwave asteroid clearing into `src/game/simulation/systems/levelShockwaves.ts`.
+- Extracted aura ship damage into `src/game/simulation/systems/shipAura.ts`.
+- Extracted hazard particle/explosion spread helpers into `src/game/simulation/systems/hazardEffects.ts`.
+- Extracted ship contact, shield bubble absorption, asteroid/meteor threat checks, ram collision damage, knockback, and deflector collision handling into `src/game/simulation/systems/shipContact.ts`.
+- Extracted projectile impact side effects for boss ricochet, missile splash, and flak splash into `src/game/simulation/systems/projectileImpacts.ts`.
+- `collisions.ts` is now mostly the collision orchestration loop plus unlock synchronization.
+- Follow-up: if this area gets hot again, split the remaining `resolveCollisions` loop by collision pair (`bullet vs asteroid`, `ship vs hazard`, etc.) only after new behavior creates real pressure.
+
+### Simulation System Boundary Pass — Player damage
 
 ### Simulation System Boundary Pass — Player damage
 
