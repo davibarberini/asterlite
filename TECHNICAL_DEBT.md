@@ -8,7 +8,7 @@ Current engineering shape:
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
 - Save loading intentionally clears incompatible versions, and the Nova Crown/survival readers now live outside the main save orchestration file.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
-- `styles.css` still owns broad app UI styling, but skill/warp tree styles now live in their own surface stylesheet.
+- `styles.css` still owns broad app UI styling, but main menu and skill/warp tree styles now live in their own surface stylesheets.
 
 ## Ready
 
@@ -17,8 +17,8 @@ Current engineering shape:
 Keep reducing CSS coupling as new UI surfaces settle.
 
 Context:
-- `styles.css` remains large and still mixes HUD, modal, map, hangar, tutorial, settings, and menu rules.
-- The skill/warp tree surface has already been extracted, which gives the next split a clear pattern.
+- `styles.css` remains large and still mixes HUD, modal, map, hangar, tutorial, and settings rules.
+- The main menu and skill/warp tree surfaces have already been extracted, which gives the next split a clear pattern.
 
 Acceptance:
 - Extract another coherent surface, such as HUD, hangar, tutorial, or settings, into a separate imported stylesheet.

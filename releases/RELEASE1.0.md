@@ -995,6 +995,17 @@ Notes:
 
 ## Technical Debt Completed
 
+### Split Main Menu Stylesheet
+
+Moved the start screen and language menu styling out of the main stylesheet.
+
+Notes:
+- Added `styles/main-menu.css` for the main menu overlay, language picker, tap-to-start state, launch warp streaks, and menu-specific keyframes.
+- Imported the new stylesheet from `main.ts` between the base app stylesheet and other extracted surfaces.
+- Kept global app travel visibility and app shake behavior in `styles.css`, because those classes are also used outside the menu.
+- Preserved existing selectors and visual values without redesigning the UI.
+- Validated with `pnpm run build`.
+
 ### Split Skill Tree Stylesheet
 
 Moved the skill and warp tree UI styling out of the main stylesheet.
