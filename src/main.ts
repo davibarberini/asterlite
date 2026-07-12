@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import './styles/hud.css';
 import './styles/skillTree.css';
 import './styles.css';
 import { GameScene } from './phaser/scenes/GameScene';

@@ -7,7 +7,7 @@ Current engineering shape:
 - `VectorRenderer.ts` now owns most visual language: ships, asteroids, bosses, hazards, survival events, particles, level shockwaves, and special ship effects.
 - Save loading intentionally clears incompatible versions, but still carries several legacy normalization paths from old weapons/drone/reset-era systems.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
-- `styles.css` has grown into a monolithic stylesheet with unrelated HUD, modal, map, tree, hangar, tutorial, and settings rules in one file.
+- `styles.css` still mixes several surfaces (menu, shop/modal, map, hangar, tutorial, bottom-nav), but the skill tree and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
 
 ## Ready
 
@@ -50,6 +50,16 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Split Stylesheet By Surface — HUD surface
+
+Follow-up slice of the stylesheet split: extracted the in-game HUD / overlay surface.
+
+- Moved the contiguous HUD block (boss health bar, `.hud-panel*`, `.money-readout`, HP / ship-xp meters, `.map-toggle`/`.route-toggle`/`.settings-*` toggles, `.survival-*`, `.run-modifier*`, `.first-warp-goal*`, and `.reward-feed-item*` plus its keyframes) into `src/styles/hud.css` (715 lines).
+- Imported it in `main.ts` before `./styles/skillTree.css` and `./styles.css`, matching the original top-to-bottom order so base HUD rules keep their cascade position ahead of the shared `:focus-visible` rules, the higher-specificity `#app.is-zone-travel` state rules, and the `@media (max-width: 720px)` overrides that still live in `styles.css`.
+- Verified integrity (715 extracted + 1977 remaining + 1 collapsed blank = 2693) and that the bundled CSS keeps the same byte size (54.42 kB) with base HUD rules first and the responsive overrides last.
+- No selectors renamed and no DOM changes; `pnpm run build` and `pnpm test` (111) are green.
+- Follow-up: shop/modal and bottom-nav are the next natural CSS extractions.
 
 ### Split Stylesheet By Surface
 
