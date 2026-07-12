@@ -5,6 +5,7 @@ import './styles/tutorial.css';
 import './styles/bottomNav.css';
 import './styles/skillTree.css';
 import './styles/settings.css';
+import './styles/shopModal.css';
 import './styles.css';
 import { GameScene } from './phaser/scenes/GameScene';
 

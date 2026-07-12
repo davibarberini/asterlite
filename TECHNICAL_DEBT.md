@@ -8,7 +8,7 @@ Current engineering shape:
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
 - Save loading intentionally clears incompatible versions, and the Nova Crown/survival readers now live outside the main save orchestration file.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
-- `styles.css` still mixes several surfaces (shop/modal, map, hangar), but main menu, skill/warp tree, tutorial, bottom-nav, settings, and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
+- `styles.css` still mixes map and hangar surfaces, but main menu, skill/warp tree, tutorial, bottom-nav, settings, shop/modal, and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
 
 ## Ready
 
@@ -17,9 +17,9 @@ Current engineering shape:
 Keep reducing CSS coupling as new UI surfaces settle.
 
 Context:
-- `styles.css` remains large and still mixes shop/modal, map, and hangar rules.
+- `styles.css` remains large and still mixes map and hangar rules.
 - Main menu, HUD, and skill/warp tree surfaces have already been extracted, which gives the next split a clear pattern.
-- Tutorial guide, bottom-nav, and settings styles have also been extracted, so the next useful split should target a larger interactive surface.
+- Tutorial guide, bottom-nav, settings, and shop/modal styles have also been extracted, so the next useful split should target map or hangar.
 
 Acceptance:
 - Extract another coherent surface, such as shop/modal, hangar, tutorial, bottom-nav, or settings, into a separate imported stylesheet.
@@ -66,6 +66,15 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Split Stylesheet By Surface — Shop and modal shell
+
+Extracted the shop drawer and shared modal shell into their own stylesheet.
+
+- Moved shop drawer rules (`.shop-panel*`, `.shop-action-*`, `.shop-buy*`, drone deploy controls, achievements list) into `src/styles/shopModal.css`.
+- Moved shared modal rules (`.ui-modal*`, priority popup, modal facts/bullets, boss reward choices, Nova Crown difficulty modal content) into the same stylesheet.
+- Preserved mobile overrides for the shop drawer and modal panels inside the new stylesheet's own `@media (max-width: 720px)` block.
+- Left hangar-specific rules (`.action-panel*`, `.ship-frame-*`) and map rules in `styles.css` for later dedicated splits.
 
 ### Split Stylesheet By Surface — Settings controls
 
