@@ -11,20 +11,6 @@ Current engineering shape:
 
 ## Ready
 
-### Split Save Readers By Domain
-
-Make save loading easier to change as Nova Crown, ships, skill trees, and technologies evolve.
-
-Context:
-- `saveData.ts` is over 750 lines and contains readers for achievements, ship unlocks, ship runs, drones, talents, bosses, Nova Crown difficulty, rare spawns, survival, and offline income.
-- The project now intentionally clears incompatible save versions, so the current code can be structured around v2 domain readers instead of one long procedural file.
-
-Acceptance:
-- Extract at least one cohesive reader group, such as ship runs/unlocks or Nova Crown/survival, into a focused module.
-- Keep `loadGameState`, `saveGameState`, and `clearAllAsteridleData` public behavior unchanged.
-- Preserve existing save/load tests.
-- Run `pnpm test` and `pnpm run build`.
-
 ### Split Stylesheet By Surface
 
 Reduce CSS risk as HUD, modal, map, tree, hangar, and tutorial UI keep growing.
@@ -78,6 +64,16 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Split Save Readers By Domain
+
+Started breaking the monolithic `saveData.ts` into domain-focused save readers.
+
+- Added `saveSerialization.ts` with the shared defensive primitives (`isRecord`, `isFiniteNumber`, `readNumber`, `readNonNegativeNumber`) so domain readers can reuse them without importing the large `saveData` module (avoids import cycles).
+- Added `survivalSave.ts` owning the Nova Crown survival domain readers (`readSurvival`, `readRareSpawns`).
+- `saveData.ts` now imports these instead of defining them inline, and dropped the now-unused `createRareSpawnState`/`getSurvivalThreatLevel` imports.
+- `loadGameState`, `saveGameState`, and `clearAllAsteridleData` behavior is unchanged; existing save/load tests still pass (`pnpm test`, 111) and `pnpm run build` is green.
+- Follow-up (still worthwhile): extract the larger ship-run/unlock reader group next, which shares more helpers (`readDroneCounts`, `readTalentRanks`, `readShipLevelProgress`).
 
 ### Normalize Legacy Weapon Save State
 

@@ -18,12 +18,13 @@ import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
 import { captureActiveShipRun } from './shipRuns';
-import { createRareSpawnState } from '../simulation/systems/rareSpawns';
-import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/systems/survival';
+import { createSurvivalState } from '../simulation/systems/survival';
 import { createShipUnlockProgress, normalizeShipUnlockProgress } from './shipUnlocks';
 import { getOfflineIncomeRate } from './offlineIncome';
 import { normalizeNovaCrownDifficulty } from './novaCrownDifficulty';
 import { normalizeNovaCrownCoreRewardedDifficultyKeys } from './novaCrownRewards';
+import { isRecord, readNonNegativeNumber, readNumber } from './saveSerialization';
+import { readRareSpawns, readSurvival } from './survivalSave';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
@@ -56,18 +57,6 @@ type SavedGameV2 = {
 };
 
 type SavedGame = SavedGameV2;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
-
-const readNumber = (value: unknown, fallback: number): number =>
-  isFiniteNumber(value) ? value : fallback;
-
-const readNonNegativeNumber = (value: unknown, fallback: number): number =>
-  Math.max(0, readNumber(value, fallback));
 
 const readNonNegativeNumberRecord = (value: unknown): Record<string, number> => {
   if (!isRecord(value)) {
@@ -210,42 +199,6 @@ const readBossRewards = (value: unknown): BossRewardState => {
     pendingChoiceIds: readBossRewardIds(value.pendingChoiceIds),
     activeIds: readBossRewardIds(value.activeIds)
   });
-};
-
-const readSurvival = (value: unknown): SurvivalState => {
-  if (!isRecord(value)) {
-    return createSurvivalState();
-  }
-
-  const currentSeconds = readNonNegativeNumber(value.currentSeconds, 0);
-  const difficulty = normalizeNovaCrownDifficulty(readNumber(value.difficulty, 1));
-  const threatLevel = Math.max(0, Math.floor(readNumber(value.threatLevel, currentSeconds > 0 ? getSurvivalThreatLevel(currentSeconds, difficulty) : 0)));
-  return {
-    active: value.active === true && currentSeconds > 0,
-    difficulty,
-    currentSeconds,
-    threatLevel,
-    lastAnnouncedThreatLevel: Math.max(0, Math.floor(readNumber(value.lastAnnouncedThreatLevel, threatLevel))),
-    nextRewardThreatLevel: Math.max(1, Math.floor(readNumber(value.nextRewardThreatLevel, 10))),
-    hazardSpawnCooldown: readNonNegativeNumber(value.hazardSpawnCooldown, 0),
-    hunterSpawnCooldown: readNonNegativeNumber(value.hunterSpawnCooldown, 0),
-    timedEventCooldown: readNonNegativeNumber(value.timedEventCooldown, 0),
-    gravityPulseCooldown: readNonNegativeNumber(value.gravityPulseCooldown, 0),
-    damageFieldCooldown: readNonNegativeNumber(value.damageFieldCooldown, 0)
-  };
-};
-
-const readRareSpawns = (value: unknown): RareSpawnState => {
-  const fallback = createRareSpawnState();
-  if (!isRecord(value) || !isRecord(value.cooldowns)) {
-    return fallback;
-  }
-
-  return {
-    cooldowns: {
-      proximityMine: readNonNegativeNumber(value.cooldowns.proximityMine, fallback.cooldowns.proximityMine)
-    }
-  };
 };
 
 const createShipRunFromProgression = (progression: ProgressionState, money: number, crystals: number): ShipRunState => ({
