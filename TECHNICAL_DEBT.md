@@ -11,20 +11,6 @@ Current engineering shape:
 
 ## Ready
 
-### Extract Survival Event Renderer
-
-Keep the vector renderer from absorbing every Nova Crown visual rule.
-
-Context:
-- `VectorRenderer.ts` is over 1,200 lines and owns timed meteor lanes, gravity wells, toxic fields, survival hazards, elite saucers, ships, drones, and asteroids.
-- Nova Crown will keep gaining hazards and readability tweaks, so survival-specific rendering needs its own boundary.
-
-Acceptance:
-- Move survival timed event drawing helpers out of `VectorRenderer.ts` into a focused Phaser renderer/helper module.
-- Keep renderer objects disposable and Phaser-only.
-- Preserve meteor lane, gravity pulse, toxic field, mine, hunter, and elite saucer readability.
-- Run `pnpm run build`.
-
 ### Normalize Legacy Weapon Save State
 
 Remove old weapon-mode concepts from active runtime surfaces while preserving save compatibility.
@@ -106,3 +92,14 @@ Acceptance:
 - Configure iOS bundle signing/team settings for device/TestFlight builds.
 - Replace default native app icons and launch/splash assets with Asteridle assets.
 - Document Play Console/TestFlight build commands and artifact locations.
+
+## Done
+
+### Extract Survival Event Renderer
+
+Survival timed events and hazards now render through a dedicated Phaser helper.
+
+- Added `src/phaser/view/SurvivalEventRenderer.ts` owning meteor lanes, gravity pulses, toxic (damage) fields, proximity mines, and hunters (with trails).
+- `VectorRenderer.ts` delegates to it via a small `SurvivalRenderView` adapter that exposes the shared world-to-screen transforms and arc drawing, keeping the new renderer disposable and Phaser-only.
+- Readability for meteor lanes, gravity pulses, toxic fields, mines, hunters, and elite saucers is unchanged; drawing logic was moved verbatim.
+- Verified with `pnpm run build` and `pnpm test` (111 passing).
