@@ -11,20 +11,6 @@ Current engineering shape:
 
 ## Ready
 
-### Split Stylesheet By Surface
-
-Reduce CSS risk as HUD, modal, map, tree, hangar, and tutorial UI keep growing.
-
-Context:
-- `styles.css` is over 3,500 lines.
-- Recent changes keep adding specialized modal/tree/HUD rules, making accidental selector coupling more likely.
-
-Acceptance:
-- Split at least one coherent surface into a separate imported stylesheet, starting with skill tree/modal tree styles or HUD styles.
-- Preserve Vite CSS loading and current visual output.
-- Keep selectors scoped to the same DOM structure; do not redesign the UI in this task.
-- Run `pnpm run build`.
-
 ## Later
 
 ### Simulation System Boundary Pass
@@ -64,6 +50,16 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Split Stylesheet By Surface
+
+Extracted the skill/talent/warp tech-tree surface out of the monolithic `styles.css`.
+
+- Moved the contiguous tree block (`.skill-tree*`, `.skill-branch*`, `.skill-node*`, `.talent-tree*`, `.talent-node*`, `.talent-tooltip*`, `.warp-tree*`, `.warp-node*`, `.warp-tooltip*`) into `src/styles/skillTree.css` (875 lines).
+- Imported it in `main.ts` before `./styles.css` so the base tree rules keep their original cascade position ahead of the shared `:focus-visible`, `.skill-node:disabled`, and `@media (max-width: 720px)` overrides that still live in `styles.css`.
+- Verified nothing was lost (875 extracted + 2693 remaining + 1 collapsed blank line = 3569 original) and that the bundled CSS keeps the same order and byte size (54.42 kB): tree rules first, then the rest of `styles.css`, then the responsive media block last.
+- No selectors renamed and no DOM changes; `pnpm run build` and `pnpm test` are green.
+- Follow-up: HUD, shop/modal, and bottom-nav surfaces are the next natural extractions.
 
 ### Split Save Readers By Domain
 

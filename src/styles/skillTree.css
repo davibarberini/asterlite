@@ -1,0 +1,884 @@
+/*
+ * Skill / talent / warp tech-tree surface styles.
+ *
+ * Extracted from styles.css to give the growing tree UI its own file.
+ * Imported before styles.css so base tree rules keep their original
+ * cascade position ahead of the shared focus, disabled and
+ * responsive (max-width: 720px) overrides that still live in styles.css.
+ */
+
+.skill-tree-root {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skill-tree {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.skill-branch {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-branch-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(216, 255, 245, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.skill-branch-header strong {
+  display: block;
+  color: rgba(245, 253, 255, 0.96);
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.skill-branch-kicker {
+  display: block;
+  color: rgba(156, 198, 224, 0.82);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.skill-branch-meta {
+  display: block;
+  margin-top: 3px;
+  color: rgba(198, 222, 238, 0.76);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+}
+
+.skill-branch-track {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-branch-link {
+  width: 2px;
+  height: 12px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, rgba(131, 255, 220, 0.7), rgba(131, 255, 220, 0.08));
+}
+
+.skill-node {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid rgba(216, 255, 245, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 253, 255, 0.94);
+  text-align: left;
+}
+
+.skill-node.is-active {
+  border-color: rgba(131, 255, 220, 0.44);
+  background: rgba(131, 255, 220, 0.1);
+}
+
+.skill-node.is-complete {
+  border-color: rgba(216, 255, 245, 0.18);
+  background: rgba(131, 255, 220, 0.06);
+}
+
+.skill-node.is-locked {
+  color: rgba(198, 222, 238, 0.42);
+}
+
+.skill-node-level,
+.skill-node-meta,
+.skill-node-effect {
+  display: block;
+}
+
+.skill-node-level {
+  color: rgba(156, 198, 224, 0.82);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.skill-node strong {
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.skill-node-effect {
+  color: rgba(216, 255, 245, 0.82);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+}
+
+.skill-node-meta {
+  color: rgba(198, 222, 238, 0.78);
+  font-size: 11px;
+}
+
+.skill-node:disabled {
+  cursor: not-allowed;
+}
+
+.talent-tree-board {
+  position: relative;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid rgba(208, 233, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.talent-tree-lines {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  pointer-events: none;
+}
+
+.talent-tree-line {
+  stroke: rgba(131, 255, 220, 0.14);
+  stroke-width: 2;
+}
+
+.talent-tree-line.is-unlocked {
+  stroke: rgba(131, 255, 220, 0.55);
+}
+
+.zone-map-root {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.zone-map {
+  position: relative;
+  min-height: min(68vh, 620px);
+  overflow: hidden;
+  border: 1px solid rgba(208, 233, 255, 0.12);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 18% 30%, rgba(131, 255, 220, 0.13), transparent 20%),
+    radial-gradient(circle at 72% 64%, rgba(255, 241, 168, 0.12), transparent 24%),
+    radial-gradient(circle at 50% 105%, rgba(146, 223, 255, 0.1), transparent 36%),
+    #020609;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.72);
+}
+
+.zone-map::before,
+.zone-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.zone-map::before {
+  opacity: 0.62;
+  background-image:
+    radial-gradient(circle, rgba(245, 253, 255, 0.9) 0 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(131, 255, 220, 0.58) 0 1px, transparent 1.7px),
+    radial-gradient(circle, rgba(255, 241, 168, 0.52) 0 1px, transparent 1.5px);
+  background-position: 12px 18px, 54px 40px, 92px 12px;
+  background-size: 86px 86px, 128px 128px, 170px 170px;
+}
+
+.zone-map::after {
+  opacity: 0.4;
+  background:
+    linear-gradient(120deg, transparent 0 28%, rgba(131, 255, 220, 0.08) 36%, transparent 46%),
+    radial-gradient(circle at 28% 74%, rgba(216, 255, 245, 0.08), transparent 22%);
+}
+
+.zone-map-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.zone-map-line {
+  stroke: rgba(208, 233, 255, 0.24);
+  stroke-width: 0.6;
+}
+
+.zone-map-line.is-unlocked {
+  stroke: rgba(131, 255, 220, 0.8);
+}
+
+.zone-map-nodes {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.zone-node {
+  --zone-accent: rgba(131, 255, 220, 0.9);
+  position: absolute;
+  display: inline-grid;
+  grid-template-columns: 28px minmax(0, max-content);
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 3px 9px 3px 4px;
+  border: 1px solid rgba(216, 255, 245, 0.2);
+  border-radius: 999px;
+  background: rgba(4, 8, 12, 0.72);
+  color: rgba(245, 253, 255, 0.94);
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(5px);
+}
+
+.zone-node strong {
+  display: block;
+  max-width: 116px;
+  overflow: hidden;
+  color: rgba(245, 253, 255, 0.96);
+  font-size: 11px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zone-node__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.zone-node__meta {
+  overflow: hidden;
+  max-width: 138px;
+  color: rgba(198, 222, 238, 0.62);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.zone-node__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--zone-accent), transparent 56%);
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--zone-accent), transparent 72%), rgba(131, 255, 220, 0.08));
+  color: var(--zone-accent);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.zone-node.is-current {
+  border-color: color-mix(in srgb, var(--zone-accent), white 22%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--zone-accent), transparent 78%), 0 0 22px color-mix(in srgb, var(--zone-accent), transparent 82%);
+}
+
+.zone-node.is-unlocked {
+  background: rgba(8, 28, 30, 0.78);
+}
+
+.zone-node.is-locked {
+  color: rgba(198, 222, 238, 0.44);
+  opacity: 0.5;
+}
+
+.talent-tree-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--talent-grid-columns), minmax(118px, 1fr));
+  grid-template-rows: repeat(var(--talent-grid-rows), minmax(88px, auto));
+  gap: 10px;
+  min-width: 680px;
+}
+
+.talent-tree-board--compact {
+  width: max-content;
+  min-width: 330px;
+  min-height: 468px;
+  max-width: 100%;
+  justify-self: center;
+  overflow: hidden;
+  padding: 10px;
+  overscroll-behavior: contain;
+  contain: layout paint;
+}
+
+.talent-tree-board--draggable {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: min(58vh, 560px);
+  max-height: min(62vh, 600px);
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(216, 255, 245, 0.14);
+  background:
+    linear-gradient(90deg, rgba(131, 255, 220, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(131, 255, 220, 0.026) 1px, transparent 1px),
+    rgba(255, 255, 255, 0.018);
+  background-size: 36px 36px, 36px 36px, auto;
+}
+
+.talent-tree-viewport {
+  position: relative;
+  min-height: min(58vh, 560px);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.talent-tree-board--draggable.is-grabbing .talent-tree-viewport {
+  cursor: grabbing;
+}
+
+.talent-tree-pan {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--talent-world-width);
+  height: var(--talent-world-height);
+  will-change: transform;
+}
+
+.talent-tree-board--draggable:not(.is-panning) .talent-tree-pan {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.talent-tree-board--draggable .talent-tree-lines {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.talent-tree-board--draggable .talent-tree-grid--compact {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(var(--talent-grid-columns), 72px);
+  grid-template-rows: repeat(var(--talent-grid-rows), 72px);
+  gap: 0;
+}
+
+.talent-tree-board--draggable .talent-node--compact {
+  place-self: center;
+}
+
+.talent-tree-board--draggable .talent-tooltip-layer {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.talent-tree-recenter {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(216, 255, 245, 0.18);
+  border-radius: 999px;
+  background: rgba(4, 8, 12, 0.76);
+  color: rgba(216, 255, 245, 0.9);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.talent-tree-recenter svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.talent-tree-recenter:active {
+  transform: translateY(1px);
+}
+
+.warp-tree-board {
+  min-width: 246px;
+  min-height: 532px;
+  border-color: rgba(167, 211, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(167, 211, 255, 0.07), transparent 34%),
+    linear-gradient(90deg, rgba(131, 255, 220, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(131, 255, 220, 0.028) 1px, transparent 1px),
+    rgba(255, 255, 255, 0.02);
+  background-size: auto, 36px 36px, 36px 36px, auto;
+}
+
+.warp-tree-board--inline {
+  width: 100%;
+  justify-self: stretch;
+  margin-bottom: 2px;
+}
+
+.talent-tooltip-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  min-width: 330px;
+  min-height: 468px;
+  pointer-events: none;
+}
+
+.warp-tooltip-layer {
+  min-width: 246px;
+  min-height: 532px;
+}
+
+.talent-tree-grid--compact {
+  grid-template-columns: repeat(var(--talent-grid-columns), 54px);
+  grid-template-rows: repeat(var(--talent-grid-rows), 54px);
+  gap: 10px;
+  min-width: 310px;
+  justify-content: center;
+}
+
+.warp-tree-grid {
+  min-width: 226px;
+}
+
+.talent-node {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-height: 88px;
+  padding: 8px;
+  border: 1px solid rgba(216, 255, 245, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 253, 255, 0.94);
+  text-align: left;
+  font: inherit;
+}
+
+.talent-node--compact {
+  position: relative;
+  place-items: center;
+  align-content: center;
+  width: 54px;
+  min-height: 54px;
+  padding: 0;
+  touch-action: manipulation;
+}
+
+.talent-node--compact.is-selected {
+  border-color: rgba(245, 253, 255, 0.82);
+  box-shadow:
+    0 0 0 1px rgba(245, 253, 255, 0.2),
+    0 0 16px rgba(131, 255, 220, 0.22);
+}
+
+.talent-node-icon {
+  display: grid;
+  place-items: center;
+  color: rgba(245, 253, 255, 0.96);
+}
+
+.talent-node-icon svg,
+.talent-tooltip__icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+.talent-node-dot {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(198, 222, 238, 0.38);
+}
+
+.talent-node.is-available .talent-node-dot {
+  background: rgba(131, 255, 220, 0.92);
+  box-shadow: 0 0 8px rgba(131, 255, 220, 0.48);
+}
+
+.talent-node.is-maxed .talent-node-dot {
+  background: rgba(255, 241, 168, 0.9);
+}
+
+.talent-node--core {
+  border-color: rgba(255, 241, 168, 0.28);
+  background: rgba(255, 241, 168, 0.05);
+}
+
+.talent-node--impact {
+  border-color: rgba(255, 132, 112, 0.32);
+  background: rgba(255, 132, 112, 0.06);
+}
+
+.talent-node--speed {
+  border-color: rgba(131, 255, 220, 0.3);
+  background: rgba(131, 255, 220, 0.055);
+}
+
+.talent-node--semiAuto {
+  border-color: rgba(131, 255, 220, 0.28);
+  background: rgba(131, 255, 220, 0.05);
+}
+
+.talent-node--shotgun {
+  border-color: rgba(146, 223, 255, 0.28);
+  background: rgba(146, 223, 255, 0.05);
+}
+
+.talent-node--missile {
+  border-color: rgba(255, 195, 111, 0.28);
+  background: rgba(255, 195, 111, 0.05);
+}
+
+.talent-node.is-available {
+  border-color: rgba(131, 255, 220, 0.44);
+  box-shadow: 0 0 0 1px rgba(131, 255, 220, 0.12);
+}
+
+.talent-node.is-partial {
+  border-color: rgba(216, 255, 245, 0.34);
+}
+
+.talent-node.is-maxed {
+  border-color: rgba(216, 255, 245, 0.24);
+  opacity: 0.92;
+}
+
+.talent-node.is-locked {
+  opacity: 0.48;
+}
+
+.warp-node {
+  border-color: rgba(167, 211, 255, 0.3);
+  background: rgba(167, 211, 255, 0.06);
+}
+
+.warp-node--drones {
+  border-color: rgba(131, 255, 220, 0.34);
+  background: rgba(131, 255, 220, 0.07);
+}
+
+.warp-node--boss {
+  border-color: rgba(255, 220, 138, 0.34);
+  background: rgba(255, 220, 138, 0.07);
+}
+
+.warp-node--weapons {
+  border-color: rgba(164, 214, 255, 0.34);
+  background: rgba(164, 214, 255, 0.07);
+}
+
+.warp-node--defense {
+  border-color: rgba(255, 142, 142, 0.32);
+  background: rgba(255, 142, 142, 0.065);
+}
+
+.warp-node.is-owned {
+  border-color: rgba(255, 241, 168, 0.58);
+  background: rgba(255, 241, 168, 0.09);
+  box-shadow: 0 0 0 1px rgba(255, 241, 168, 0.16), 0 0 16px rgba(255, 241, 168, 0.14);
+}
+
+.warp-node.is-available {
+  border-color: rgba(131, 255, 220, 0.5);
+  box-shadow: 0 0 0 1px rgba(131, 255, 220, 0.12);
+}
+
+.warp-node.is-unaffordable {
+  border-color: rgba(167, 211, 255, 0.22);
+  opacity: 0.72;
+}
+
+.warp-node.is-locked {
+  opacity: 0.42;
+}
+
+.warp-node.is-owned .warp-node-dot {
+  background: rgba(255, 241, 168, 0.92);
+  box-shadow: 0 0 8px rgba(255, 241, 168, 0.42);
+}
+
+.warp-node.is-available .warp-node-dot {
+  background: rgba(131, 255, 220, 0.92);
+  box-shadow: 0 0 8px rgba(131, 255, 220, 0.48);
+}
+
+.warp-node-icon {
+  color: rgba(245, 253, 255, 0.96);
+}
+
+.technology-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.technology-icon__shell,
+.technology-icon__core {
+  fill: rgba(245, 253, 255, 0.08);
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 2.1;
+}
+
+.technology-icon__core {
+  fill: rgba(245, 253, 255, 0.14);
+  stroke-width: 1.8;
+}
+
+.technology-icon__line {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.warp-node--drones .technology-icon {
+  color: rgba(131, 255, 220, 0.96);
+}
+
+.warp-node--boss .technology-icon {
+  color: rgba(255, 220, 138, 0.96);
+}
+
+.warp-node--weapons .technology-icon {
+  color: rgba(164, 214, 255, 0.96);
+}
+
+.warp-node--defense .technology-icon {
+  color: rgba(255, 142, 142, 0.94);
+}
+
+.talent-node-rank {
+  color: rgba(156, 198, 224, 0.82);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.talent-node--compact .talent-node-rank {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  color: rgba(216, 255, 245, 0.82);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.talent-node strong {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.talent-node-summary {
+  color: rgba(198, 222, 238, 0.78);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.talent-node-meta {
+  color: rgba(216, 255, 245, 0.82);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+}
+
+.talent-node:disabled {
+  cursor: not-allowed;
+}
+
+.talent-tooltip {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  gap: 8px;
+  width: 188px;
+  padding: 10px;
+  border: 1px solid rgba(216, 255, 245, 0.2);
+  border-radius: 8px;
+  background: rgba(4, 8, 12, 0.9);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42), 0 0 18px rgba(131, 255, 220, 0.1);
+  pointer-events: auto;
+  transform: translateZ(0);
+}
+
+.talent-tooltip::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: inherit;
+  border-right: 0;
+  border-bottom: 0;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.talent-tooltip[data-placement="right"]::after {
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.talent-tooltip[data-placement="left"]::after {
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%) rotate(135deg);
+}
+
+.talent-tooltip[data-placement="below"]::after {
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.talent-tooltip[data-placement="above"]::after {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(225deg);
+}
+
+.talent-tooltip--core {
+  border-color: rgba(255, 241, 168, 0.3);
+}
+
+.talent-tooltip--impact {
+  border-color: rgba(255, 132, 112, 0.34);
+}
+
+.talent-tooltip--speed {
+  border-color: rgba(131, 255, 220, 0.34);
+}
+
+.talent-tooltip--semiAuto {
+  border-color: rgba(131, 255, 220, 0.32);
+}
+
+.talent-tooltip--shotgun {
+  border-color: rgba(146, 223, 255, 0.32);
+}
+
+.talent-tooltip--missile {
+  border-color: rgba(255, 195, 111, 0.32);
+}
+
+.warp-tooltip {
+  width: 196px;
+  border-color: rgba(167, 211, 255, 0.3);
+  background: rgba(4, 8, 14, 0.92);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42), 0 0 18px rgba(167, 211, 255, 0.12);
+}
+
+.warp-tooltip.is-owned {
+  border-color: rgba(255, 241, 168, 0.38);
+}
+
+.warp-tooltip.is-available {
+  border-color: rgba(131, 255, 220, 0.38);
+}
+
+.talent-tooltip__heading {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.talent-tooltip__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(216, 255, 245, 0.2);
+  border-radius: 8px;
+  background: rgba(131, 255, 220, 0.1);
+  color: var(--accent-strong);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-weight: 900;
+}
+
+.warp-tooltip__icon {
+  background: rgba(167, 211, 255, 0.12);
+  color: rgba(221, 240, 255, 0.96);
+  font-size: 10px;
+}
+
+.warp-tooltip__icon .technology-icon {
+  width: 27px;
+  height: 27px;
+}
+
+.warp-tooltip__buy {
+  min-height: 34px;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.talent-tooltip__heading strong {
+  display: block;
+  color: rgba(245, 253, 255, 0.96);
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.talent-tooltip__heading div > span {
+  color: rgba(156, 198, 224, 0.82);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+}
+
+.talent-tooltip p {
+  margin: 0;
+  color: rgba(198, 222, 238, 0.82);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.warp-tooltip__impact {
+  padding: 7px 8px;
+  border: 1px solid rgba(131, 255, 220, 0.16);
+  border-radius: 6px;
+  background: rgba(131, 255, 220, 0.07);
+  color: rgba(245, 253, 255, 0.92);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.talent-tooltip__meta {
+  color: rgba(216, 255, 245, 0.82);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+}
+
+.talent-tooltip__buy {
+  min-height: 36px;
+}
