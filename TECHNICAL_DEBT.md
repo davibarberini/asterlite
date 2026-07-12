@@ -8,39 +8,24 @@ Current engineering shape:
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
 - Save loading intentionally clears incompatible versions, and the Nova Crown/survival readers now live outside the main save orchestration file.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
-- `styles.css` still mixes map and hangar surfaces, but main menu, skill/warp tree, tutorial, bottom-nav, settings, shop/modal, and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
+- Surface CSS is now split by main UI area under `src/styles/`; `styles.css` only keeps global app/body rules, transition overlays, shared focus/disabled rules, and remaining responsive HUD/map-toggle overrides.
 
 ## Ready
 
-### Continue Stylesheet Surface Splits
+### Continue Simulation System Boundary Pass
 
-Keep reducing CSS coupling as new UI surfaces settle.
-
-Context:
-- `styles.css` remains large and still mixes map and hangar rules.
-- Main menu, HUD, and skill/warp tree surfaces have already been extracted, which gives the next split a clear pattern.
-- Tutorial guide, bottom-nav, settings, and shop/modal styles have also been extracted, so the next useful split should target map or hangar.
-
-Acceptance:
-- Extract another coherent surface, such as shop/modal, hangar, tutorial, bottom-nav, or settings, into a separate imported stylesheet.
-- Preserve Vite CSS loading and current visual output.
-- Keep selectors scoped to the same DOM structure; do not redesign the UI in this task.
-- Run `pnpm run build`.
-
-## Later
-
-### Simulation System Boundary Pass
-
-Review high-churn simulation systems once the current Nova Crown and skill tree loops settle.
+Keep reducing `collisions.ts` by extracting cohesive simulation domains.
 
 Context:
-- `collisions.ts` is over 800 lines and owns bullet hits, asteroid destruction, hazards, aura damage, shockwaves, ship damage, unlock progress, rewards, and death handling.
-- This file changes often because many features need collision side effects.
+- Player damage/death handling now lives in `playerDamage.ts`.
+- `collisions.ts` still owns asteroid destruction rewards, level shockwaves, aura damage, bullet impact side effects, and contact/deflector handling.
 
 Acceptance:
-- Identify one cohesive extraction, such as player damage resolution, asteroid destruction rewards, or shockwave resolution.
+- Extract one additional cohesive simulation domain, such as asteroid destruction rewards, level shockwave resolution, or contact/deflector handling.
 - Keep simulation state serializable and renderer-free.
 - Preserve existing tests.
+
+## Later
 
 ### UI Interaction Regression Harness
 
@@ -66,6 +51,25 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Simulation System Boundary Pass — Player damage
+
+Started reducing `collisions.ts` by extracting player damage/death resolution.
+
+- Added `src/game/simulation/systems/playerDamage.ts` for ship damage, armor mitigation, Wraith phase absorption, death penalties, repair cost, boss cleanup, and respawn state transition.
+- `collisions.ts` now imports `damageShip` instead of owning the player death pipeline directly.
+- Kept the module simulation-only: no Phaser or renderer dependencies.
+- Follow-up: asteroid destruction rewards, shockwaves, aura damage, and contact/deflector handling are still good extraction candidates.
+
+### Split Stylesheet By Surface — Hangar and map
+
+Finished the current stylesheet surface split pass.
+
+- Moved hangar/ship selector rules (`.action-panel*`, `.ship-frame-*`) into `src/styles/hangar.css`.
+- Moved zone map rules (`.zone-map*`, `.zone-node*`) out of `skillTree.css` and into `src/styles/zoneMap.css`.
+- Moved the related mobile zone-map overrides into `zoneMap.css`.
+- Imported both stylesheets in `main.ts`, preserving the surface stylesheet pattern.
+- Follow-up: `styles.css` now only carries global app/body rules, overlays, shared focus/disabled rules, and a few responsive HUD/map-toggle overrides.
 
 ### Split Stylesheet By Surface — Shop and modal shell
 
