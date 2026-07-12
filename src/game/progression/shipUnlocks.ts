@@ -85,6 +85,12 @@ export const SHIP_UNLOCK_DEFINITIONS: ShipUnlockDefinition[] = [
     target: 30,
     getCurrent: (progression) => progression.survivalBestThreatLevel,
     getDescription: (language) => language === 'pt-BR' ? 'Atinja threat level 30 em Nova Crown' : 'Reach threat level 30 in Nova Crown'
+  },
+  {
+    id: 'hisoka',
+    target: 35,
+    getCurrent: (progression) => progression.survivalBestThreatLevel,
+    getDescription: (language) => language === 'pt-BR' ? 'Atinja threat level 35 em Nova Crown' : 'Reach threat level 35 in Nova Crown'
   }
 ];
 

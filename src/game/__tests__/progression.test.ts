@@ -1644,7 +1644,7 @@ describe('boss gates and global progression', () => {
     state.progression.shipUnlockProgress.meteorImpactsSurvived = 250;
     state.progression.shipUnlockProgress.wraithNoDamageSeconds = 180;
     state.progression.survivalBestSeconds = 600;
-    state.progression.survivalBestThreatLevel = 30;
+    state.progression.survivalBestThreatLevel = 35;
 
     syncShipUnlocks(state);
 
@@ -1658,7 +1658,8 @@ describe('boss gates and global progression', () => {
       'voidRunner',
       'wraith',
       'aurora',
-      'nivitron'
+      'nivitron',
+      'hisoka'
     ]);
   });
 

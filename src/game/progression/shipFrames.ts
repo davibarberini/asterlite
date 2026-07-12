@@ -1,7 +1,16 @@
 import type { ProgressionState, ShipFrameId, Vec2 } from '../simulation/types';
 
 export type ShipFrameRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type ShipWeaponIdentity = 'standard' | 'spread' | 'piercing' | 'turret' | 'aura' | 'velocity' | 'ram' | 'phase';
+export type ShipWeaponIdentity =
+  | 'standard'
+  | 'spread'
+  | 'piercing'
+  | 'turret'
+  | 'aura'
+  | 'velocity'
+  | 'ram'
+  | 'phase'
+  | 'ricochet';
 
 export type ShipFrameDefinition = {
   id: ShipFrameId;
@@ -240,6 +249,31 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     bonuses: {
       fireRateMultiplier: 1.08,
       damageMultiplier: 1.06
+    }
+  },
+  {
+    id: 'hisoka',
+    name: 'Hi-soka',
+    rarity: 'legendary',
+    unlockExchange: 0,
+    weaponIdentity: 'ricochet',
+    shape: [
+      { x: 25, y: 0 },
+      { x: 12, y: 7 },
+      { x: 7, y: 18 },
+      { x: -1, y: 9 },
+      { x: -12, y: 19 },
+      { x: -18, y: 7 },
+      { x: -10, y: 0 },
+      { x: -18, y: -7 },
+      { x: -12, y: -19 },
+      { x: -1, y: -9 },
+      { x: 7, y: -18 },
+      { x: 12, y: -7 }
+    ],
+    bonuses: {
+      damageMultiplier: 1.08,
+      speedMultiplier: 1.05
     }
   }
 ];

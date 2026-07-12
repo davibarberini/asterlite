@@ -323,6 +323,9 @@ export class HangarController {
     if (identity === 'phase') {
       return language === 'pt-BR' ? 'Fase' : 'Phase';
     }
+    if (identity === 'ricochet') {
+      return language === 'pt-BR' ? 'Ricochete' : 'Ricochet';
+    }
     return language === 'pt-BR' ? 'Canhão' : 'Cannon';
   }
 }

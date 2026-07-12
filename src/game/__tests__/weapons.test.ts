@@ -224,6 +224,88 @@ describe('ship weapons and drone damage', () => {
     expect(state.ship.fireCooldown).toBeGreaterThan(0);
   });
 
+  it('fires Hi-soka as a pink ricochet weapon from its frame identity', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'hisoka';
+    state.progression.unlockedShipFrameIds = ['vector', 'hisoka'];
+    state.progression.shipDamageLevel = 10;
+
+    firePlayerWeapon(state);
+
+    expect(getShipFrameWeaponIdentity(state.progression)).toBe('ricochet');
+    expect(state.bullets).toHaveLength(1);
+    expect(state.bullets[0]?.kind).toBe('playerRicochet');
+    expect(state.bullets[0]?.radius).toBe(balance.weapons.radius.playerRicochet);
+    expect(state.bullets[0]?.damage).toBeCloseTo(
+      10 *
+        balance.weapons.playerDamageMultiplier *
+        1.08 *
+        balance.weapons.hisokaRicochetDamageMultiplier
+    );
+    expect(state.ship.fireCooldown).toBeCloseTo(
+      getPlayerFireInterval(state.progression, balance.weapons.playerFireInterval * balance.weapons.hisokaRicochetCooldownMultiplier)
+    );
+  });
+
+  it('keeps Hi-soka ricochet bullets alive while they have damage remaining', () => {
+    const state = createGameState(800, 600);
+    const asteroid = createAsteroid(state, 'small', { x: 100, y: 100 }, { x: 0, y: 0 }, 'common');
+    asteroid.hp = 4;
+    asteroid.maxHp = 4;
+    state.asteroids = [asteroid];
+    state.bullets = [
+      {
+        id: 999,
+        owner: 'player',
+        position: { x: 100, y: 100 },
+        velocity: { x: 100, y: 0 },
+        age: 0,
+        radius: balance.weapons.radius.playerRicochet,
+        damage: 10,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'playerRicochet',
+        homingTargetId: null
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.asteroids).toHaveLength(0);
+    expect(state.bullets).toHaveLength(1);
+    expect(state.bullets[0]?.damage).toBeCloseTo(6);
+    expect(state.bullets[0]?.velocity.x).toBeLessThan(0);
+  });
+
+  it('removes Hi-soka ricochet bullets when an asteroid consumes their remaining damage', () => {
+    const state = createGameState(800, 600);
+    const asteroid = createAsteroid(state, 'small', { x: 100, y: 100 }, { x: 0, y: 0 }, 'common');
+    asteroid.hp = 10;
+    asteroid.maxHp = 10;
+    state.asteroids = [asteroid];
+    state.bullets = [
+      {
+        id: 999,
+        owner: 'player',
+        position: { x: 100, y: 100 },
+        velocity: { x: 100, y: 0 },
+        age: 0,
+        radius: balance.weapons.radius.playerRicochet,
+        damage: 6,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'playerRicochet',
+        homingTargetId: null
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.asteroids).toHaveLength(1);
+    expect(state.asteroids[0]?.hp).toBeCloseTo(4);
+    expect(state.bullets).toHaveLength(0);
+  });
+
   it('scales drone damage from the current ship damage', () => {
     const state = createGameState(800, 600);
     state.progression.droneCounts.sentry = 1;

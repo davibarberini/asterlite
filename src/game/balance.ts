@@ -198,6 +198,10 @@ export const balance = {
     nivitronTurretCooldownMultiplier: 1.32,
     nivitronTurretDamageMultiplier: 0.9,
     nivitronTurretStepAngle: Math.PI / 18,
+    hisokaRicochetCooldownMultiplier: 1.12,
+    hisokaRicochetDamageMultiplier: 1.18,
+    hisokaRicochetSpeedMultiplier: 1.1,
+    hisokaRicochetMinimumDamage: 0.05,
     bulletCullMargin: 24,
     missileTurnRate: 5.5,
     spawnOffset: 18,
@@ -207,7 +211,8 @@ export const balance = {
       saucer: 3.4,
       boss: 4.2,
       missile: 3.2,
-      ricochet: 4.6
+      ricochet: 4.6,
+      playerRicochet: 4.2
     },
     droneSpeedMultiplier: {
       sentry: 1,

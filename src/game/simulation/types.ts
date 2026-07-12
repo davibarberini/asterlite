@@ -18,7 +18,8 @@ export type ShipFrameId =
   | 'ember'
   | 'wraith'
   | 'aurora'
-  | 'nivitron';
+  | 'nivitron'
+  | 'hisoka';
 export type TalentId =
   | 'refineryYield'
   | 'combatBounty'
@@ -52,7 +53,7 @@ export type WarpUnlockId =
   | 'bossBeacon'
   | 'rangerHangar'
   | 'missileFoundry';
-export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet' | 'ricochet';
+export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet' | 'ricochet' | 'playerRicochet';
 
 export type ShipState = {
   position: Vec2;

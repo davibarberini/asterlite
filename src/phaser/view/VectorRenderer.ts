@@ -158,6 +158,8 @@ export class VectorRenderer {
     if (state.progression.activeShipFrameId === 'nivitron') {
       this.drawNivitronHand(state, ship, viewScale);
       this.drawNivitronTurret(state, ship);
+    } else if (state.progression.activeShipFrameId === 'hisoka') {
+      this.drawHisokaShip(state, ship, viewScale);
     } else {
       const points = getActiveShipFrame(state.progression).shape
         .map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y)));
@@ -187,6 +189,57 @@ export class VectorRenderer {
       this.graphics.lineTo(flameC.x, flameC.y);
       this.graphics.strokePath();
     }
+  }
+
+  private drawHisokaShip(state: GameState, ship: ShipState, viewScale: number): void {
+    const shipX = this.toScreenX(state, ship.position.x);
+    const shipY = this.toScreenY(state, ship.position.y);
+    const hull = getActiveShipFrame(state.progression).shape
+      .map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, shipX, shipY));
+    const inner = getActiveShipFrame(state.progression).shape
+      .map((point) => this.rotatePoint(point.x * 0.52 * viewScale, point.y * 0.46 * viewScale, ship.rotation, shipX, shipY));
+    const pulse = 0.5 + Math.sin(this.scene.time.now * 0.006) * 0.5;
+
+    this.graphics.fillStyle(0xff4fd8, 0.08 + pulse * 0.04);
+    this.graphics.beginPath();
+    this.graphics.moveTo(hull[0].x, hull[0].y);
+    hull.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
+    this.graphics.closePath();
+    this.graphics.fillPath();
+
+    this.graphics.lineStyle(2, 0xff4fd8, 0.94);
+    this.graphics.beginPath();
+    this.graphics.moveTo(hull[0].x, hull[0].y);
+    hull.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
+    this.graphics.closePath();
+    this.graphics.strokePath();
+
+    this.graphics.lineStyle(1, 0xfff1a8, 0.34 + pulse * 0.2);
+    this.graphics.beginPath();
+    this.graphics.moveTo(inner[0].x, inner[0].y);
+    inner.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
+    this.graphics.closePath();
+    this.graphics.strokePath();
+
+    const topFang = this.rotatePoint(-7 * viewScale, -12 * viewScale, ship.rotation, shipX, shipY);
+    const bottomFang = this.rotatePoint(-7 * viewScale, 12 * viewScale, ship.rotation, shipX, shipY);
+    const nose = this.rotatePoint(16 * viewScale, 0, ship.rotation, shipX, shipY);
+    this.graphics.lineStyle(2, 0xff8fe7, 0.58);
+    this.graphics.lineBetween(topFang.x, topFang.y, nose.x, nose.y);
+    this.graphics.lineBetween(bottomFang.x, bottomFang.y, nose.x, nose.y);
+
+    const core = [
+      { x: 2, y: -5 },
+      { x: 7, y: 0 },
+      { x: 2, y: 5 },
+      { x: -4, y: 0 }
+    ].map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, shipX, shipY));
+    this.graphics.fillStyle(0xfff1a8, 0.78);
+    this.graphics.beginPath();
+    this.graphics.moveTo(core[0].x, core[0].y);
+    core.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
+    this.graphics.closePath();
+    this.graphics.fillPath();
   }
 
   private drawShipAuraWeapon(state: GameState): void {
@@ -644,13 +697,32 @@ export class VectorRenderer {
     const color = this.getBulletColor(bullet);
     const x = this.toScreenX(state, bullet.position.x);
     const y = this.toScreenY(state, bullet.position.y);
+    const viewScale = this.getViewScale(state);
+
+    if (bullet.kind === 'playerRicochet') {
+      const speed = Math.max(1, Math.hypot(bullet.velocity.x, bullet.velocity.y));
+      const tail = {
+        x: x - (bullet.velocity.x / speed) * (22 + bullet.radius * 2.6) * viewScale,
+        y: y - (bullet.velocity.y / speed) * (22 + bullet.radius * 2.6) * viewScale
+      };
+      this.graphics.lineStyle(2, color, 0.62);
+      this.graphics.lineBetween(tail.x, tail.y, x, y);
+      this.graphics.fillStyle(color, 0.94);
+      this.graphics.fillCircle(x, y, bullet.radius * viewScale);
+      this.graphics.lineStyle(1, 0xfff1a8, 0.46);
+      this.graphics.strokeCircle(x, y, (bullet.radius + 5) * viewScale);
+      this.graphics.lineStyle(1, color, 0.25);
+      this.graphics.strokeCircle(x, y, (bullet.radius + 9) * viewScale);
+      return;
+    }
+
     this.graphics.fillStyle(color, 0.95);
-    this.graphics.fillCircle(x, y, bullet.radius * this.getViewScale(state));
+    this.graphics.fillCircle(x, y, bullet.radius * viewScale);
     if (simple && bullet.owner === 'drone') {
       return;
     }
     this.graphics.lineStyle(1, color, 0.45);
-    this.graphics.strokeCircle(x, y, (bullet.radius + 4) * this.getViewScale(state));
+    this.graphics.strokeCircle(x, y, (bullet.radius + 4) * viewScale);
   }
 
   private drawHostileBullet(state: GameState, bullet: BulletState): void {
@@ -683,6 +755,9 @@ export class VectorRenderer {
   }
 
   private getBulletColor(bullet: BulletState): number {
+    if (bullet.kind === 'playerRicochet') {
+      return 0xff4fd8;
+    }
     if (bullet.kind === 'ricochet') {
       return 0xd9c7ff;
     }

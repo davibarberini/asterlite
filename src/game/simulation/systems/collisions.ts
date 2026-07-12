@@ -31,7 +31,7 @@ import {
   isNearShip,
   repelShipFromContact
 } from './shipContact';
-import { explodeFlak, explodeMissile, tryRicochetBulletOffAsteroid } from './projectileImpacts';
+import { bounceBulletOffAsteroid, explodeFlak, explodeMissile, tryRicochetBulletOffAsteroid } from './projectileImpacts';
 
 export const resolveCollisions = (state: GameState, dt = 0): void => {
   const asteroidDestroyCountBefore = state.progression.achievementStats.asteroidsDestroyed;
@@ -45,7 +45,34 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
   for (const bullet of state.bullets) {
     if (bullet.owner === 'player' || bullet.owner === 'drone') {
       for (const asteroid of nextAsteroids) {
-        if (!destroyedAsteroidIds.has(asteroid.id) && distance(bullet.position, asteroid.position) < bullet.radius + asteroid.radius * balance.asteroids.bulletHitRadiusMultiplier) {
+        const hitRadius = bullet.radius + asteroid.radius * balance.asteroids.bulletHitRadiusMultiplier;
+        if (!destroyedAsteroidIds.has(asteroid.id) && distance(bullet.position, asteroid.position) < hitRadius) {
+          if (bullet.kind === 'playerRicochet') {
+            const asteroidHpBefore = Math.max(0, asteroid.hp);
+            const hitDamage = bullet.damage;
+            const remainingDamage = hitDamage - Math.min(hitDamage, asteroidHpBefore);
+            asteroid.hp -= hitDamage;
+            bullet.damage = remainingDamage;
+
+            if (asteroid.hp <= 0) {
+              destroyedAsteroidIds.add(asteroid.id);
+              destroyAsteroid(state, asteroid, nextAsteroids);
+            } else {
+              emitAudio(state, { type: 'asteroidHit' });
+              burstParticles(state, asteroid.position, 5, asteroid.radius * 1.6);
+            }
+
+            if (remainingDamage <= balance.weapons.hisokaRicochetMinimumDamage) {
+              destroyedBulletIds.add(bullet.id);
+              burstParticles(state, bullet.position, 7, asteroid.radius * 0.8);
+            } else {
+              bounceBulletOffAsteroid(bullet, asteroid, hitRadius);
+              emitAudio(state, { type: 'asteroidHit' });
+              burstParticles(state, bullet.position, 8, asteroid.radius);
+            }
+            break;
+          }
+
           let hitDamage = bullet.damage;
           if (bullet.kind === 'pellet' && asteroid.variant === 'dense') {
             hitDamage = getShotgunPelletDamage(state.progression, 'dense');

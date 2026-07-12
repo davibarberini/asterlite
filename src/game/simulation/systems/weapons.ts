@@ -51,9 +51,11 @@ export const fireBullet = (
           ? balance.weapons.radius.saucer
           : kind === 'missile'
             ? balance.weapons.radius.missile
-            : owner === 'drone'
-              ? balance.weapons.radius.drone
-              : balance.weapons.radius.player,
+            : kind === 'playerRicochet'
+              ? balance.weapons.radius.playerRicochet
+              : owner === 'drone'
+                ? balance.weapons.radius.drone
+                : balance.weapons.radius.player,
     damage,
     pierceLeft,
     ricochetLeft,
@@ -110,6 +112,25 @@ export const firePlayerWeapon = (state: GameState): void => {
     ship.fireCooldown = getShipFireInterval(
       state,
       balance.weapons.playerFireInterval * balance.weapons.nivitronTurretCooldownMultiplier
+    );
+    return;
+  }
+
+  if (shipWeaponIdentity === 'ricochet') {
+    fireBullet(
+      state,
+      'player',
+      ship.position,
+      ship.rotation,
+      balance.weapons.bulletSpeed * balance.weapons.hisokaRicochetSpeedMultiplier,
+      Math.max(0.05, baseDamage * balance.weapons.hisokaRicochetDamageMultiplier),
+      ship.velocity,
+      0,
+      'playerRicochet'
+    );
+    ship.fireCooldown = getShipFireInterval(
+      state,
+      balance.weapons.playerFireInterval * balance.weapons.hisokaRicochetCooldownMultiplier
     );
     return;
   }

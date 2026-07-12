@@ -9,6 +9,29 @@ import { distance, normalize } from '../vector';
 import { destroyAsteroid } from './asteroidDestruction';
 import { burstParticles } from './particles';
 
+export const bounceBulletOffAsteroid = (
+  bullet: GameState['bullets'][number],
+  asteroid: GameState['asteroids'][number],
+  hitRadius: number
+): void => {
+  const normal = normalize({
+    x: bullet.position.x - asteroid.position.x,
+    y: bullet.position.y - asteroid.position.y
+  });
+  const fallbackNormal = Math.hypot(normal.x, normal.y) === 0
+    ? normalize({ x: -bullet.velocity.x || 1, y: -bullet.velocity.y })
+    : normal;
+  const dot = bullet.velocity.x * fallbackNormal.x + bullet.velocity.y * fallbackNormal.y;
+  bullet.velocity = {
+    x: bullet.velocity.x - 2 * dot * fallbackNormal.x,
+    y: bullet.velocity.y - 2 * dot * fallbackNormal.y
+  };
+  bullet.position = {
+    x: asteroid.position.x + fallbackNormal.x * (hitRadius + 3),
+    y: asteroid.position.y + fallbackNormal.y * (hitRadius + 3)
+  };
+};
+
 export const tryRicochetBulletOffAsteroid = (
   state: GameState,
   bullet: GameState['bullets'][number],
@@ -36,22 +59,7 @@ export const tryRicochetBulletOffAsteroid = (
       return true;
     }
 
-    const normal = normalize({
-      x: bullet.position.x - asteroid.position.x,
-      y: bullet.position.y - asteroid.position.y
-    });
-    const fallbackNormal = Math.hypot(normal.x, normal.y) === 0
-      ? normalize({ x: -bullet.velocity.x || 1, y: -bullet.velocity.y })
-      : normal;
-    const dot = bullet.velocity.x * fallbackNormal.x + bullet.velocity.y * fallbackNormal.y;
-    bullet.velocity = {
-      x: bullet.velocity.x - 2 * dot * fallbackNormal.x,
-      y: bullet.velocity.y - 2 * dot * fallbackNormal.y
-    };
-    bullet.position = {
-      x: asteroid.position.x + fallbackNormal.x * (hitRadius + 3),
-      y: asteroid.position.y + fallbackNormal.y * (hitRadius + 3)
-    };
+    bounceBulletOffAsteroid(bullet, asteroid, hitRadius);
     bullet.ricochetLeft -= 1;
     emitAudio(state, { type: 'asteroidHit' });
     burstParticles(state, bullet.position, 8, asteroid.radius);
