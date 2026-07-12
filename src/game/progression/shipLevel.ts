@@ -3,10 +3,11 @@ import { emitAudio, emitReward } from '../simulation/events';
 import { getLevelShockwaveSkillMultiplier } from './talentEffects';
 
 export const maxShipLevel = 25;
+const shipXpDifficultyMultiplier = 5;
 
 export const getShipXpForNextLevel = (level: number): number => {
   const safeLevel = Math.max(1, Math.min(maxShipLevel, Math.floor(level)));
-  return Math.round(70 * 1.18 ** (safeLevel - 1));
+  return Math.round(70 * shipXpDifficultyMultiplier * 1.18 ** (safeLevel - 1));
 };
 
 export const getAvailableShipSkillPoints = (progression: ProgressionState): number =>

@@ -27,10 +27,13 @@ import {
   TALENT_DEFINITIONS,
   getLevelShockwaveSkillMultiplier,
   getPropulsionSkillMultiplier,
+  getSemiAutoRangeBonus,
   getShipSkillFireIntervalMultiplier,
   getSkillIncomingDamageMultiplier,
   getSpentTalentPointCost,
-  getTalentPointCost
+  getTalentPointCost,
+  hasDroneTalentAccess,
+  isDroneTalentRegionUnlocked
 } from '../progression/talentTree';
 import { formatCompactNumber, formatMoney } from '../numberFormat';
 import { resolveCollisions } from '../simulation/systems/collisions';
@@ -291,14 +294,14 @@ describe('save loading', () => {
     expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
   });
 
-  it('loads old weapon fields without keeping manual weapon selection state', () => {
+  it('normalizes away legacy weapon-mode save fields without changing standard firing', () => {
     const progression = createProgression();
     const savedProgression = {
       ...progression,
       weaponMode: 'spread',
       spreadUnlocked: true,
       piercingUnlocked: true,
-      ownedWarpUnlockIds: ['droneSystems', 'spreadBattery', 'piercingRail']
+      ownedWarpUnlockIds: ['spreadBattery', 'piercingRail']
     };
 
     window.localStorage.setItem(
@@ -320,11 +323,16 @@ describe('save loading', () => {
 
     const state = loadGameState(800, 600);
 
+    expect(state.progression).not.toHaveProperty('weaponMode');
+    expect(state.progression).not.toHaveProperty('spreadUnlocked');
+    expect(state.progression).not.toHaveProperty('piercingUnlocked');
+    expect(state.progression.ownedWarpUnlockIds).toEqual([]);
+
+    firePlayerWeapon(state);
+
     expect(getShipFrameWeaponIdentity(state.progression)).toBe('standard');
-    expect(Object.hasOwn(state.progression, 'weaponMode')).toBe(false);
-    expect(Object.hasOwn(state.progression, 'spreadUnlocked')).toBe(false);
-    expect(Object.hasOwn(state.progression, 'piercingUnlocked')).toBe(false);
-    expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
+    expect(state.bullets).toHaveLength(1);
+    expect(state.bullets[0]?.pierceLeft).toBe(0);
   });
 
   it('defaults shield bubble state for saves without shield data', () => {
@@ -825,7 +833,7 @@ describe('crystal spending and talents', () => {
     expect(state.crystals).toBe(4);
   });
 
-  it('buys talent ranks with ship skill points and refuses locked branches', () => {
+  it('buys talent ranks with ship skill points and reveals drone talents through technologies', () => {
     const state = createGameState(800, 600);
     state.crystals = 5;
     state.progression.shipLevel = 3;
@@ -841,13 +849,42 @@ describe('crystal spending and talents', () => {
     expect(getAvailableShipSkillPoints(state.progression)).toBe(0);
     expect(purchaseTalentRank(state, 'semiAutoOptics')).toBe(false);
     expect(state.progression.talentRanks.semiAutoOptics).toBe(0);
+    expect(isDroneTalentRegionUnlocked(state.progression)).toBe(false);
 
     state.progression.shipSkillPoints = 4;
-    state.progression.droneCounts.sentry = 1;
+    state.progression.ownedWarpUnlockIds = ['droneSystems'];
+    expect(isDroneTalentRegionUnlocked(state.progression)).toBe(true);
+    expect(hasDroneTalentAccess(state.progression, 'sentry')).toBe(true);
     expect(purchaseTalentRank(state, 'semiAutoOptics')).toBe(true);
     expect(state.progression.talentRanks.semiAutoOptics).toBe(1);
     expect(state.crystals).toBe(5);
     expect(getAvailableShipSkillPoints(state.progression)).toBe(0);
+  });
+
+  it('keeps later drone branches gated by their drone technologies', () => {
+    const state = createGameState(800, 600);
+    state.progression.shipSkillPoints = 4;
+    state.progression.ownedWarpUnlockIds = ['droneSystems'];
+
+    expect(isDroneTalentRegionUnlocked(state.progression)).toBe(true);
+    expect(hasDroneTalentAccess(state.progression, 'ranger')).toBe(false);
+    expect(purchaseTalentRank(state, 'shotgunLoad')).toBe(false);
+
+    state.progression.ownedWarpUnlockIds = ['droneSystems', 'rangerHangar'];
+    expect(hasDroneTalentAccess(state.progression, 'ranger')).toBe(true);
+    expect(purchaseTalentRank(state, 'shotgunLoad')).toBe(true);
+    expect(state.progression.talentRanks.shotgunLoad).toBe(1);
+  });
+
+  it('applies unlocked drone region node effects to semi-auto drones', () => {
+    const state = createGameState(800, 600);
+    state.progression.shipSkillPoints = 2;
+    state.progression.ownedWarpUnlockIds = ['droneSystems'];
+
+    expect(purchaseTalentRank(state, 'semiAutoOptics')).toBe(true);
+    expect(purchaseTalentRank(state, 'semiAutoRange')).toBe(true);
+
+    expect(getSemiAutoRangeBonus(state.progression)).toBe(90);
   });
 
   it('respecs spent talent ranks with crystals while preserving ship level and XP', () => {

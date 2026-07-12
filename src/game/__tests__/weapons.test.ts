@@ -25,7 +25,7 @@ describe('ship weapons and drone damage', () => {
     expect(state.ship.fireCooldown).toBeGreaterThanOrEqual(balance.shop.ship.fireRate.minimumInterval);
   });
 
-  it('keeps standard ships on the baseline cannon', () => {
+  it('keeps the standard ship on a single baseline cannon shot', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'vector';
     state.progression.shipDamageLevel = 10;
@@ -34,22 +34,12 @@ describe('ship weapons and drone damage', () => {
 
     expect(getShipFrameWeaponIdentity(state.progression)).toBe('standard');
     expect(state.bullets).toHaveLength(1);
+    expect(state.bullets[0]?.pierceLeft).toBe(0);
     expect(state.ship.fireCooldown).toBeCloseTo(balance.weapons.playerFireInterval);
     expect(state.bullets[0]?.damage).toBeCloseTo(
       state.progression.shipDamageLevel *
         balance.weapons.playerDamageMultiplier
     );
-  });
-
-  it('keeps standard ships from firing piercing shots', () => {
-    const state = createGameState(800, 600);
-    state.progression.activeShipFrameId = 'vector';
-
-    firePlayerWeapon(state);
-
-    expect(getShipFrameWeaponIdentity(state.progression)).toBe('standard');
-    expect(state.bullets).toHaveLength(1);
-    expect(state.bullets[0]?.pierceLeft).toBe(0);
   });
 
   it('fires prism as a spread ship from its frame identity', () => {

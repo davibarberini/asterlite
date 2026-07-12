@@ -4,6 +4,18 @@ Completed backlog and technical debt items moved out for the 1.0 release snapsho
 
 ## Backlog Completed
 
+### Skill Tree Hidden Drone Region
+
+Moved drone talents into a fogged side region of the draggable skill tree.
+
+Notes:
+- Expanded the skill tree canvas to 11 columns and moved semi-auto, shotgun, and missile nodes outside the initial core/impact/speed path.
+- Added a locked drone region overlay that hides/fogs drone nodes until Drone Systems is installed.
+- Changed drone talent access to be technology-gated: Drone Systems opens semi-auto, Ranger Hangar opens shotgun, and Missile Foundry opens missile talents.
+- Kept existing drone talent effects and added tests for locked/unlocked access plus a semi-auto range effect.
+- Updated the skill tree UI with hidden-region node/line styling and compact locked-region copy.
+- Validated with `pnpm test` and `pnpm run build`.
+
 ### Skill Tree Draggable Canvas
 
 Made the skill tree modal behave like a panning tree map instead of a fixed compact board.
@@ -1011,8 +1023,8 @@ Notes:
 Moved the skill and warp tree UI styling out of the main stylesheet.
 
 Notes:
-- Added `styles/skill-tree.css` for skill tree layout, draggable talent tree, warp tree nodes, icons, tooltips, focus states, and mobile tree layout.
-- Imported the new stylesheet from `main.ts` after the base app stylesheet.
+- Added `styles/skillTree.css` for skill tree layout, draggable talent tree, warp tree nodes, icons, tooltips, focus states, and mobile tree layout.
+- Imported the tree stylesheet from `main.ts` alongside the other extracted UI surfaces.
 - Left shared modal stat styling in `styles.css` because it is used outside the tree surface.
 - Preserved existing selectors and visual values without redesigning the UI.
 - Validated with `pnpm run build`.
@@ -1022,7 +1034,7 @@ Notes:
 Moved Nova Crown save normalization out of the main save orchestration file.
 
 Notes:
-- Added `saveNovaCrownReaders.ts` for Nova Crown difficulty, best times, rewarded core keys, survival state, and rare spawn cooldown normalization.
+- Added `saveSerialization.ts` and `survivalSave.ts` for shared save parsing primitives, survival state, and rare spawn cooldown normalization.
 - Kept `saveData.ts` focused on save migration orchestration and composing normalized domain state.
 - Preserved existing public save APIs and v2 save/load behavior.
 - Validated with `pnpm test` and `pnpm run build`.

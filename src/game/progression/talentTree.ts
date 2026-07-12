@@ -18,7 +18,7 @@ export type TalentDefinition = {
   grid: { col: number; row: number };
 };
 
-export const TALENT_GRID_COLUMNS = 7;
+export const TALENT_GRID_COLUMNS = 11;
 export const TALENT_GRID_ROWS = 7;
 
 export const TALENT_DEFINITIONS: TalentDefinition[] = [
@@ -123,7 +123,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 1,
     requiresDrone: 'sentry',
     requires: [],
-    grid: { col: 1, row: 1 }
+    grid: { col: 8, row: 1 }
   },
   {
     id: 'semiAutoRange',
@@ -135,7 +135,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 1,
     requiresDrone: 'sentry',
     requires: [{ id: 'semiAutoOptics', rank: 1 }],
-    grid: { col: 1, row: 2 }
+    grid: { col: 8, row: 2 }
   },
   {
     id: 'semiAutoPierce',
@@ -147,7 +147,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'sentry',
     requires: [{ id: 'semiAutoOptics', rank: 1 }],
-    grid: { col: 1, row: 3 }
+    grid: { col: 9, row: 2 }
   },
   {
     id: 'semiAutoCadence',
@@ -159,7 +159,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'sentry',
     requires: [{ id: 'semiAutoPierce', rank: 1 }],
-    grid: { col: 1, row: 4 }
+    grid: { col: 9, row: 3 }
   },
   {
     id: 'semiAutoOverdrive',
@@ -174,7 +174,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
       { id: 'semiAutoCadence', rank: 1 },
       { id: 'semiAutoPierce', rank: 1 }
     ],
-    grid: { col: 1, row: 5 }
+    grid: { col: 9, row: 4 }
   },
   {
     id: 'shotgunLoad',
@@ -186,7 +186,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 1,
     requiresDrone: 'ranger',
     requires: [],
-    grid: { col: 3, row: 4 }
+    grid: { col: 8, row: 5 }
   },
   {
     id: 'shotgunChoke',
@@ -198,7 +198,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'ranger',
     requires: [{ id: 'shotgunLoad', rank: 1 }],
-    grid: { col: 2, row: 5 }
+    grid: { col: 8, row: 6 }
   },
   {
     id: 'shotgunSpread',
@@ -210,7 +210,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'ranger',
     requires: [{ id: 'shotgunLoad', rank: 1 }],
-    grid: { col: 4, row: 5 }
+    grid: { col: 9, row: 6 }
   },
   {
     id: 'shotgunBarrage',
@@ -222,7 +222,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'ranger',
     requires: [{ id: 'shotgunChoke', rank: 1 }],
-    grid: { col: 2, row: 6 }
+    grid: { col: 8, row: 7 }
   },
   {
     id: 'shotgunSlag',
@@ -237,7 +237,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
       { id: 'shotgunSpread', rank: 1 },
       { id: 'shotgunBarrage', rank: 1 }
     ],
-    grid: { col: 4, row: 6 }
+    grid: { col: 9, row: 7 }
   },
   {
     id: 'missileGuidance',
@@ -249,7 +249,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 1,
     requiresDrone: 'breaker',
     requires: [],
-    grid: { col: 5, row: 1 }
+    grid: { col: 11, row: 1 }
   },
   {
     id: 'missileYield',
@@ -261,7 +261,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileGuidance', rank: 1 }],
-    grid: { col: 5, row: 2 }
+    grid: { col: 10, row: 2 }
   },
   {
     id: 'missileReload',
@@ -273,7 +273,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileGuidance', rank: 1 }],
-    grid: { col: 5, row: 3 }
+    grid: { col: 11, row: 2 }
   },
   {
     id: 'missileWarhead',
@@ -285,7 +285,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 2,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileYield', rank: 1 }],
-    grid: { col: 5, row: 4 }
+    grid: { col: 10, row: 3 }
   },
   {
     id: 'missileShrapnel',
@@ -297,7 +297,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 1,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileWarhead', rank: 1 }],
-    grid: { col: 5, row: 5 }
+    grid: { col: 10, row: 4 }
   },
   {
     id: 'missileChain',
@@ -309,7 +309,7 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     pointCost: 3,
     requiresDrone: 'breaker',
     requires: [{ id: 'missileShrapnel', rank: 2 }],
-    grid: { col: 5, row: 6 }
+    grid: { col: 10, row: 5 }
   }
 ];
 
@@ -335,6 +335,27 @@ export const getTalentRank = (progression: ProgressionState, id: TalentId): numb
 export const getTalentPointCost = (id: TalentId): number =>
   Math.max(1, Math.floor(TALENT_BY_ID[id].pointCost));
 
+export const isDroneTalent = (id: TalentId): boolean => {
+  const branch = TALENT_BY_ID[id].branch;
+  return branch === 'semiAuto' || branch === 'shotgun' || branch === 'missile';
+};
+
+export const isDroneTalentRegionUnlocked = (progression: ProgressionState): boolean =>
+  progression.ownedWarpUnlockIds.includes('droneSystems') ||
+  progression.droneCounts.sentry > 0 ||
+  progression.droneCounts.ranger > 0 ||
+  progression.droneCounts.breaker > 0;
+
+export const hasDroneTalentAccess = (progression: ProgressionState, type: DroneType): boolean => {
+  if (type === 'sentry') {
+    return isDroneTalentRegionUnlocked(progression);
+  }
+  if (type === 'ranger') {
+    return progression.ownedWarpUnlockIds.includes('rangerHangar') || progression.droneCounts.ranger > 0;
+  }
+  return progression.ownedWarpUnlockIds.includes('missileFoundry') || progression.droneCounts.breaker > 0;
+};
+
 export const getSpentTalentPointCost = (ranks: TalentRanks): number =>
   TALENT_DEFINITIONS.reduce((total, talent) => {
     const rank = Math.max(0, Math.min(talent.maxRank, Math.floor(ranks[talent.id] ?? 0)));
@@ -346,7 +367,10 @@ export const countUnlockedTalentRanks = (progression: ProgressionState): number 
 
 export const meetsTalentRequirements = (progression: ProgressionState, id: TalentId): boolean => {
   const talent = TALENT_BY_ID[id];
-  if (talent.requiresDrone && progression.droneCounts[talent.requiresDrone] <= 0) {
+  if (isDroneTalent(id) && !isDroneTalentRegionUnlocked(progression)) {
+    return false;
+  }
+  if (talent.requiresDrone && !hasDroneTalentAccess(progression, talent.requiresDrone)) {
     return false;
   }
 

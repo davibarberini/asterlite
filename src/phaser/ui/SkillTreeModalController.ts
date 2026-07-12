@@ -7,7 +7,10 @@ import {
   getTalentNodeState,
   getTalentPointCost,
   getTalentRank,
-  getTalentRankLabel
+  getTalentRankLabel,
+  hasDroneTalentAccess,
+  isDroneTalent,
+  isDroneTalentRegionUnlocked
 } from '../../game/progression/talentTree';
 import type { LanguageCode } from '../../game/i18n';
 import type { DroneType, ProgressionState, TalentId } from '../../game/simulation/types';
@@ -22,6 +25,12 @@ type SkillTreeRenderState = {
 
 const talentCompactNodeWidth = 72;
 const talentCompactNodeHeight = 72;
+const droneRegionBounds = {
+  colStart: 8,
+  rowStart: 1,
+  colSpan: 4,
+  rowSpan: 7
+};
 const droneLabels: Record<DroneType, string> = {
   sentry: 'Semi-Auto',
   ranger: 'Shotgun',
@@ -101,9 +110,12 @@ export class SkillTreeModalController {
   render(state: SkillTreeRenderState): HTMLElement {
     this.nodeById.clear();
     this.selectedTalentId = state.selectedTalentId;
+    const droneRegionUnlocked = isDroneTalentRegionUnlocked(state.progression);
     const board = document.createElement('div');
     this.board = board;
     board.className = 'talent-tree-board talent-tree-board--compact talent-tree-board--draggable';
+    board.classList.toggle('is-drone-region-locked', !droneRegionUnlocked);
+    board.classList.toggle('is-drone-region-unlocked', droneRegionUnlocked);
     board.style.setProperty('--talent-grid-columns', TALENT_GRID_COLUMNS.toString());
     board.style.setProperty('--talent-grid-rows', TALENT_GRID_ROWS.toString());
     board.style.setProperty('--talent-world-width', `${TALENT_GRID_COLUMNS * talentCompactNodeWidth}px`);
@@ -128,6 +140,9 @@ export class SkillTreeModalController {
     const panContent = document.createElement('div');
     panContent.className = 'talent-tree-pan';
     panContent.append(lines, grid, tooltipLayer);
+    if (!droneRegionUnlocked) {
+      panContent.append(this.createDroneRegionGate(state.language));
+    }
     this.panContent = panContent;
 
     const viewport = document.createElement('div');
@@ -308,6 +323,7 @@ export class SkillTreeModalController {
   }
 
   private appendTalentConnections(svg: SVGSVGElement, progression: ProgressionState): void {
+    const droneRegionUnlocked = isDroneTalentRegionUnlocked(progression);
     TALENT_DEFINITIONS.forEach((talent) => {
       talent.requires.forEach((requirement) => {
         const from = TALENT_BY_ID[requirement.id];
@@ -317,11 +333,16 @@ export class SkillTreeModalController {
         const unlocked =
           getTalentRank(progression, requirement.id) >= requirement.rank &&
           getTalentNodeState(progression, talent.id) !== 'locked';
+        const hiddenRegionLine = !droneRegionUnlocked && (isDroneTalent(talent.id) || isDroneTalent(from.id));
         line.setAttribute('x1', start.x.toString());
         line.setAttribute('y1', start.y.toString());
         line.setAttribute('x2', end.x.toString());
         line.setAttribute('y2', end.y.toString());
-        line.setAttribute('class', unlocked ? 'talent-tree-line is-unlocked' : 'talent-tree-line');
+        line.setAttribute('class', [
+          'talent-tree-line',
+          unlocked ? 'is-unlocked' : '',
+          hiddenRegionLine ? 'is-region-hidden' : ''
+        ].filter(Boolean).join(' '));
         svg.append(line);
       });
     });
@@ -339,14 +360,22 @@ export class SkillTreeModalController {
     const rank = getTalentRank(state.progression, id);
     const nodeState = getTalentNodeState(state.progression, id);
     const text = getTalentText(id, state.language);
+    const hiddenDroneRegion = isDroneTalent(id) && !isDroneTalentRegionUnlocked(state.progression);
 
     const node = document.createElement('button');
     node.type = 'button';
     node.className = `talent-node talent-node--compact talent-node--${talent.branch} talent-node--${talent.nodeType} is-${nodeState}`;
     node.classList.toggle('is-selected', state.selectedTalentId === id);
+    node.classList.toggle('is-region-hidden', hiddenDroneRegion);
+    node.disabled = hiddenDroneRegion;
     node.style.gridColumn = `${talent.grid.col}`;
     node.style.gridRow = `${talent.grid.row}`;
-    node.setAttribute('aria-label', `${text.name}. ${formatRankLabel(state.language, state.progression, id)}.`);
+    node.setAttribute(
+      'aria-label',
+      hiddenDroneRegion
+        ? (state.language === 'pt-BR' ? 'Região de drones bloqueada. Instale Sistemas de Drones.' : 'Drone region locked. Install Drone Systems.')
+        : `${text.name}. ${formatRankLabel(state.language, state.progression, id)}.`
+    );
     node.setAttribute('aria-pressed', (state.selectedTalentId === id).toString());
     const toggleTalent = (): void => {
       state.onSelectTalent(this.selectedTalentId === id ? null : id);
@@ -429,7 +458,9 @@ export class SkillTreeModalController {
     meta.className = 'talent-tooltip__meta';
     if (nodeState === 'maxed') {
       meta.textContent = state.language === 'pt-BR' ? 'Máximo' : 'Maxed';
-    } else if (talent.requiresDrone && state.progression.droneCounts[talent.requiresDrone] <= 0) {
+    } else if (isDroneTalent(id) && !isDroneTalentRegionUnlocked(state.progression)) {
+      meta.textContent = state.language === 'pt-BR' ? 'Instale Sistemas de Drones' : 'Install Drone Systems';
+    } else if (talent.requiresDrone && !hasDroneTalentAccess(state.progression, talent.requiresDrone)) {
       meta.textContent = state.language === 'pt-BR' ? `Precisa de ${droneLabels[talent.requiresDrone]}` : `Needs ${droneLabels[talent.requiresDrone]}`;
     } else if (nodeState === 'locked') {
       meta.textContent = state.language === 'pt-BR' ? 'Bloqueado' : 'Locked';
@@ -450,6 +481,26 @@ export class SkillTreeModalController {
 
     panel.append(heading, summary, meta, buyButton);
     return panel;
+  }
+
+  private createDroneRegionGate(language: LanguageCode): HTMLElement {
+    const gate = document.createElement('div');
+    gate.className = 'talent-drone-region-gate';
+    const left = (droneRegionBounds.colStart - 1) * talentCompactNodeWidth - 8;
+    const top = (droneRegionBounds.rowStart - 1) * talentCompactNodeHeight - 8;
+    gate.style.left = `${left}px`;
+    gate.style.top = `${top}px`;
+    gate.style.width = `${droneRegionBounds.colSpan * talentCompactNodeWidth + 16}px`;
+    gate.style.height = `${droneRegionBounds.rowSpan * talentCompactNodeHeight + 16}px`;
+
+    const title = document.createElement('strong');
+    title.textContent = language === 'pt-BR' ? 'Região de drones' : 'Drone region';
+    const copy = document.createElement('span');
+    copy.textContent = language === 'pt-BR'
+      ? 'Instale Sistemas de Drones para revelar.'
+      : 'Install Drone Systems to reveal.';
+    gate.append(title, copy);
+    return gate;
   }
 
   private positionTalentTooltip(panel: HTMLElement, col: number, row: number): void {

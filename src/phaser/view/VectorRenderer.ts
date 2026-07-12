@@ -4,6 +4,7 @@ import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
 import type { AsteroidState, AsteroidVariant, BossType, BulletState, DroneState, GameState, LevelShockwaveState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
+import { SurvivalEventRenderer } from './SurvivalEventRenderer';
 import {
   NIVITRON_HAND_DIAMOND_RADIUS,
   NIVITRON_HAND_GAME_SIZE,
@@ -11,7 +12,6 @@ import {
   NIVITRON_HAND_TEXTURE_KEY,
   createNivitronHandDataUri
 } from './nivitronHandShape';
-import { SurvivalEventRenderer } from './SurvivalEventRenderer';
 
 const MAX_DETAILED_DRONES = 36;
 const MAX_SWARM_DOTS = 42;
@@ -38,9 +38,9 @@ type AsteroidFlash = AsteroidSnapshot & {
 export class VectorRenderer {
   private readonly graphics: Phaser.GameObjects.Graphics;
   private readonly nivitronHandImage: Phaser.GameObjects.Image;
-  private readonly survivalEvents: SurvivalEventRenderer;
   private readonly asteroidSnapshots = new Map<number, AsteroidSnapshot>();
   private readonly asteroidFlashes = new Map<number, AsteroidFlash>();
+  private readonly survivalEventRenderer: SurvivalEventRenderer;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.nivitronHandImage = scene.add.image(0, 0, '__MISSING');
@@ -59,7 +59,15 @@ export class VectorRenderer {
 
     this.graphics = scene.add.graphics();
     this.graphics.setDepth(1);
-    this.survivalEvents = new SurvivalEventRenderer(this.graphics);
+
+    this.survivalEventRenderer = new SurvivalEventRenderer(this.graphics, {
+      getViewScale: (state) => this.getViewScale(state),
+      toScreenX: (state, worldX) => this.toScreenX(state, worldX),
+      toScreenY: (state, worldY) => this.toScreenY(state, worldY),
+      isCircleOnScreen: (state, worldX, worldY, radius) => this.isCircleOnScreen(state, worldX, worldY, radius),
+      drawArcSegments: (x, y, radius, startAngle, arcLength, segments) =>
+        this.drawArcSegments(x, y, radius, startAngle, arcLength, segments)
+    });
   }
 
   clear(): void {
@@ -73,7 +81,7 @@ export class VectorRenderer {
     this.updateAsteroidReadabilityState(state, now);
     this.drawZoneFieldTint(state);
     this.drawGridGlow(state);
-    state.survivalEvents.forEach((event) => this.survivalEvents.renderTimedEvent(state, event));
+    state.survivalEvents.forEach((event) => this.survivalEventRenderer.drawTimedEvent(state, event));
 
     state.asteroids.forEach((asteroid) => {
       if (this.isCircleOnScreen(state, asteroid.position.x, asteroid.position.y, asteroid.radius + 12)) {
@@ -82,7 +90,7 @@ export class VectorRenderer {
     });
     state.hazards.forEach((hazard) => {
       if (this.isCircleOnScreen(state, hazard.position.x, hazard.position.y, hazard.radius + 18)) {
-        this.survivalEvents.renderHazard(state, hazard);
+        this.survivalEventRenderer.drawHazard(state, hazard);
       }
     });
     this.drawAsteroidFlashes(state, now);

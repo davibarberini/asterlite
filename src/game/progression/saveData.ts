@@ -21,13 +21,10 @@ import { captureActiveShipRun } from './shipRuns';
 import { createSurvivalState } from '../simulation/systems/survival';
 import { createShipUnlockProgress, normalizeShipUnlockProgress } from './shipUnlocks';
 import { getOfflineIncomeRate } from './offlineIncome';
-import {
-  readNovaCrownBestSecondsByDifficulty,
-  readNovaCrownCoreRewardKeys,
-  readNovaCrownDifficulty,
-  readRareSpawns,
-  readSurvival
-} from './saveNovaCrownReaders';
+import { normalizeNovaCrownDifficulty } from './novaCrownDifficulty';
+import { normalizeNovaCrownCoreRewardedDifficultyKeys } from './novaCrownRewards';
+import { isRecord, readNonNegativeNumber, readNumber } from './saveSerialization';
+import { readRareSpawns, readSurvival } from './survivalSave';
 
 const SAVE_KEY = 'asteridle.save.v1';
 const STORAGE_PREFIX = 'asteridle.';
@@ -61,17 +58,17 @@ type SavedGameV2 = {
 
 type SavedGame = SavedGameV2;
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const readNonNegativeNumberRecord = (value: unknown): Record<string, number> => {
+  if (!isRecord(value)) {
+    return {};
+  }
 
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
-
-const readNumber = (value: unknown, fallback: number): number =>
-  isFiniteNumber(value) ? value : fallback;
-
-const readNonNegativeNumber = (value: unknown, fallback: number): number =>
-  Math.max(0, readNumber(value, fallback));
+  return Object.entries(value).reduce<Record<string, number>>((record, [key, rawValue]) => {
+    const normalizedKey = normalizeNovaCrownDifficulty(Number(key)).toString();
+    record[normalizedKey] = Math.max(record[normalizedKey] ?? 0, readNonNegativeNumber(rawValue, 0));
+    return record;
+  }, {});
+};
 
 const readDroneCounts = (value: unknown, legacyDroneCount: number): Record<DroneType, number> => {
   if (!isRecord(value)) {
@@ -476,10 +473,10 @@ const readProgression = (value: unknown): ProgressionState | null => {
     guidedMissions: readGuidedMissions(value.guidedMissions),
     survivalBestSeconds: readNonNegativeNumber(value.survivalBestSeconds, 0),
     survivalBestThreatLevel: Math.max(0, Math.floor(readNumber(value.survivalBestThreatLevel, 0))),
-    novaCrownHighestDifficulty: readNovaCrownDifficulty(value.novaCrownHighestDifficulty),
-    novaCrownSelectedDifficulty: readNovaCrownDifficulty(value.novaCrownSelectedDifficulty),
-    novaCrownBestSecondsByDifficulty: readNovaCrownBestSecondsByDifficulty(value.novaCrownBestSecondsByDifficulty),
-    novaCrownCoreRewardedDifficultyKeys: readNovaCrownCoreRewardKeys(value.novaCrownCoreRewardedDifficultyKeys),
+    novaCrownHighestDifficulty: normalizeNovaCrownDifficulty(readNumber(value.novaCrownHighestDifficulty, 1)),
+    novaCrownSelectedDifficulty: normalizeNovaCrownDifficulty(readNumber(value.novaCrownSelectedDifficulty, 1)),
+    novaCrownBestSecondsByDifficulty: readNonNegativeNumberRecord(value.novaCrownBestSecondsByDifficulty),
+    novaCrownCoreRewardedDifficultyKeys: normalizeNovaCrownCoreRewardedDifficultyKeys(value.novaCrownCoreRewardedDifficultyKeys),
     activeShipFrameId,
     unlockedShipFrameIds,
     shipUnlockProgress: readShipUnlockProgress(value.shipUnlockProgress),

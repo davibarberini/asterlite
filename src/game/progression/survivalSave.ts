@@ -2,37 +2,15 @@ import type { RareSpawnState, SurvivalState } from '../simulation/types';
 import { createRareSpawnState } from '../simulation/systems/rareSpawns';
 import { createSurvivalState, getSurvivalThreatLevel } from '../simulation/systems/survival';
 import { normalizeNovaCrownDifficulty } from './novaCrownDifficulty';
-import { normalizeNovaCrownCoreRewardedDifficultyKeys } from './novaCrownRewards';
+import { isRecord, readNonNegativeNumber, readNumber } from './saveSerialization';
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
-
-const readNumber = (value: unknown, fallback: number): number =>
-  isFiniteNumber(value) ? value : fallback;
-
-const readNonNegativeNumber = (value: unknown, fallback: number): number =>
-  Math.max(0, readNumber(value, fallback));
-
-export const readNovaCrownBestSecondsByDifficulty = (value: unknown): Record<string, number> => {
-  if (!isRecord(value)) {
-    return {};
-  }
-
-  return Object.entries(value).reduce<Record<string, number>>((record, [key, rawValue]) => {
-    const normalizedKey = normalizeNovaCrownDifficulty(Number(key)).toString();
-    record[normalizedKey] = Math.max(record[normalizedKey] ?? 0, readNonNegativeNumber(rawValue, 0));
-    return record;
-  }, {});
-};
-
-export const readNovaCrownDifficulty = (value: unknown, fallback = 1): number =>
-  normalizeNovaCrownDifficulty(readNumber(value, fallback));
-
-export const readNovaCrownCoreRewardKeys = (value: unknown): string[] =>
-  normalizeNovaCrownCoreRewardedDifficultyKeys(value);
+/**
+ * Nova Crown survival domain save readers.
+ *
+ * Keeps survival run state and rare-spawn cooldown parsing in one focused module
+ * so the growing Nova Crown feature set has a clear save boundary separate from
+ * the main progression reader.
+ */
 
 export const readSurvival = (value: unknown): SurvivalState => {
   if (!isRecord(value)) {
@@ -40,12 +18,8 @@ export const readSurvival = (value: unknown): SurvivalState => {
   }
 
   const currentSeconds = readNonNegativeNumber(value.currentSeconds, 0);
-  const difficulty = readNovaCrownDifficulty(value.difficulty);
-  const threatLevel = Math.max(
-    0,
-    Math.floor(readNumber(value.threatLevel, currentSeconds > 0 ? getSurvivalThreatLevel(currentSeconds, difficulty) : 0))
-  );
-
+  const difficulty = normalizeNovaCrownDifficulty(readNumber(value.difficulty, 1));
+  const threatLevel = Math.max(0, Math.floor(readNumber(value.threatLevel, currentSeconds > 0 ? getSurvivalThreatLevel(currentSeconds, difficulty) : 0)));
   return {
     active: value.active === true && currentSeconds > 0,
     difficulty,

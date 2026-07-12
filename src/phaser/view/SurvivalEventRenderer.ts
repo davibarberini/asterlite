@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import { balance } from '../../game/balance';
 import { getMeteorLaneMeteorPosition, getNormal, isSurvivalTimedEventActive } from '../../game/simulation/systems/survivalEvents';
 import type {
@@ -9,10 +9,33 @@ import type {
   SurvivalTimedEventState
 } from '../../game/simulation/types';
 
-export class SurvivalEventRenderer {
-  constructor(private readonly graphics: Phaser.GameObjects.Graphics) {}
+/**
+ * View helpers the survival renderer borrows from the main VectorRenderer so
+ * that world-to-screen math and shared arc drawing stay in one place.
+ */
+export interface SurvivalRenderView {
+  getViewScale(state: GameState): number;
+  toScreenX(state: GameState, worldX: number): number;
+  toScreenY(state: GameState, worldY: number): number;
+  isCircleOnScreen(state: GameState, worldX: number, worldY: number, radius: number): boolean;
+  drawArcSegments(x: number, y: number, radius: number, startAngle: number, arcLength: number, segments: number): void;
+}
 
-  renderTimedEvent(state: GameState, event: SurvivalTimedEventState): void {
+/**
+ * Focused Phaser renderer for Nova Crown survival timed events and hazards.
+ *
+ * This keeps meteor lanes, gravity pulses, toxic fields, proximity mines and
+ * hunters out of VectorRenderer so survival-specific readability rules have a
+ * clear boundary. The class is renderer-only and disposable: it draws into a
+ * shared Graphics object and holds no simulation state.
+ */
+export class SurvivalEventRenderer {
+  constructor(
+    private readonly graphics: Phaser.GameObjects.Graphics,
+    private readonly view: SurvivalRenderView
+  ) {}
+
+  drawTimedEvent(state: GameState, event: SurvivalTimedEventState): void {
     if (event.kind === 'gravityPulse') {
       this.drawGravityPulse(state, event);
       return;
@@ -22,10 +45,10 @@ export class SurvivalEventRenderer {
       return;
     }
 
-    const viewScale = this.getViewScale(state);
+    const viewScale = this.view.getViewScale(state);
     const center = {
-      x: this.toScreenX(state, event.center.x),
-      y: this.toScreenY(state, event.center.y)
+      x: this.view.toScreenX(state, event.center.x),
+      y: this.view.toScreenY(state, event.center.y)
     };
     const normal = getNormal(event.direction);
     const halfLength = event.length * viewScale * 0.5;
@@ -70,7 +93,7 @@ export class SurvivalEventRenderer {
     event.meteors.forEach((meteor) => this.drawMeteorLaneRock(state, event, meteor, active, pulse));
   }
 
-  renderHazard(state: GameState, hazard: SurvivalHazardState): void {
+  drawHazard(state: GameState, hazard: SurvivalHazardState): void {
     if (hazard.kind === 'survivalHunter') {
       this.drawSurvivalHunter(state, hazard);
       return;
@@ -79,13 +102,13 @@ export class SurvivalEventRenderer {
   }
 
   private drawGravityPulse(state: GameState, event: Extract<SurvivalTimedEventState, { kind: 'gravityPulse' }>): void {
-    if (!this.isCircleOnScreen(state, event.center.x, event.center.y, event.radius + 18)) {
+    if (!this.view.isCircleOnScreen(state, event.center.x, event.center.y, event.radius + 18)) {
       return;
     }
 
-    const viewScale = this.getViewScale(state);
-    const x = this.toScreenX(state, event.center.x);
-    const y = this.toScreenY(state, event.center.y);
+    const viewScale = this.view.getViewScale(state);
+    const x = this.view.toScreenX(state, event.center.x);
+    const y = this.view.toScreenY(state, event.center.y);
     const radius = event.radius * viewScale;
     const pulse = 0.5 + Math.sin((event.age + event.id * 0.19) * 5.2) * 0.5;
 
@@ -102,7 +125,7 @@ export class SurvivalEventRenderer {
     this.graphics.fillStyle(0x010308, 0.94);
     this.graphics.fillCircle(x, y, coreRadius * 1.55);
     this.graphics.lineStyle(Math.max(1, radius * 0.012), 0xfff1a8, 0.4 + pulse * 0.22);
-    this.drawArcSegments(x, y, coreRadius * 2.25, event.age * 2.4, Math.PI * 1.65, 10);
+    this.view.drawArcSegments(x, y, coreRadius * 2.25, event.age * 2.4, Math.PI * 1.65, 10);
 
     this.graphics.lineStyle(1, 0x92dfff, 0.16 + pulse * 0.16);
     for (let index = 0; index < 14; index += 1) {
@@ -119,13 +142,13 @@ export class SurvivalEventRenderer {
   }
 
   private drawDamageField(state: GameState, event: Extract<SurvivalTimedEventState, { kind: 'damageField' }>): void {
-    if (!this.isCircleOnScreen(state, event.center.x, event.center.y, event.radius + 18)) {
+    if (!this.view.isCircleOnScreen(state, event.center.x, event.center.y, event.radius + 18)) {
       return;
     }
 
-    const viewScale = this.getViewScale(state);
-    const x = this.toScreenX(state, event.center.x);
-    const y = this.toScreenY(state, event.center.y);
+    const viewScale = this.view.getViewScale(state);
+    const x = this.view.toScreenX(state, event.center.x);
+    const y = this.view.toScreenY(state, event.center.y);
     const radius = event.radius * viewScale;
     const pulse = 0.5 + Math.sin((event.age + event.id * 0.23) * 2.8) * 0.5;
 
@@ -169,18 +192,18 @@ export class SurvivalEventRenderer {
     active: boolean,
     pulse: number
   ): void {
-    const viewScale = this.getViewScale(state);
+    const viewScale = this.view.getViewScale(state);
     const worldPosition = getMeteorLaneMeteorPosition(event, meteor);
     if (!worldPosition) {
       return;
     }
 
-    if (!this.isCircleOnScreen(state, worldPosition.x, worldPosition.y, meteor.radius + 54)) {
+    if (!this.view.isCircleOnScreen(state, worldPosition.x, worldPosition.y, meteor.radius + 54)) {
       return;
     }
 
-    const x = this.toScreenX(state, worldPosition.x);
-    const y = this.toScreenY(state, worldPosition.y);
+    const x = this.view.toScreenX(state, worldPosition.x);
+    const y = this.view.toScreenY(state, worldPosition.y);
     const radius = meteor.radius * viewScale;
     const alpha = active ? 0.86 : 0.12 + pulse * 0.18;
 
@@ -261,9 +284,9 @@ export class SurvivalEventRenderer {
   }
 
   private drawProximityMine(state: GameState, hazard: SurvivalHazardState): void {
-    const viewScale = this.getViewScale(state);
-    const x = this.toScreenX(state, hazard.position.x);
-    const y = this.toScreenY(state, hazard.position.y);
+    const viewScale = this.view.getViewScale(state);
+    const x = this.view.toScreenX(state, hazard.position.x);
+    const y = this.view.toScreenY(state, hazard.position.y);
     const radius = balance.survival.mines.visualRadius * viewScale;
     const areaRadius = hazard.radius * viewScale;
     const fuseRatio = hazard.fuseFor > 0
@@ -288,9 +311,9 @@ export class SurvivalEventRenderer {
   }
 
   private drawSurvivalHunter(state: GameState, hazard: SurvivalHazardState): void {
-    const viewScale = this.getViewScale(state);
-    const x = this.toScreenX(state, hazard.position.x);
-    const y = this.toScreenY(state, hazard.position.y);
+    const viewScale = this.view.getViewScale(state);
+    const x = this.view.toScreenX(state, hazard.position.x);
+    const y = this.view.toScreenY(state, hazard.position.y);
     const radius = hazard.radius * viewScale;
     const angle = Math.atan2(hazard.velocity.y, hazard.velocity.x);
     const nose = {
@@ -339,46 +362,11 @@ export class SurvivalEventRenderer {
       const alpha = index / hazard.trail.length;
       this.graphics.lineStyle(Math.max(1, 4.4 * viewScale * alpha), 0xff2446, 0.05 + alpha * 0.32);
       this.graphics.lineBetween(
-        this.toScreenX(state, previous.x),
-        this.toScreenY(state, previous.y),
-        this.toScreenX(state, current.x),
-        this.toScreenY(state, current.y)
+        this.view.toScreenX(state, previous.x),
+        this.view.toScreenY(state, previous.y),
+        this.view.toScreenX(state, current.x),
+        this.view.toScreenY(state, current.y)
       );
     }
-  }
-
-  private drawArcSegments(x: number, y: number, radius: number, startAngle: number, arcLength: number, segments: number): void {
-    if (arcLength <= 0) {
-      return;
-    }
-
-    const segmentCount = Math.max(1, Math.ceil(segments * (arcLength / (Math.PI * 2))));
-    for (let index = 0; index < segmentCount; index += 1) {
-      const segmentStart = startAngle + (index / segmentCount) * arcLength;
-      const segmentEnd = startAngle + ((index + 0.58) / segmentCount) * arcLength;
-      this.graphics.beginPath();
-      this.graphics.arc(x, y, radius, segmentStart, Math.min(startAngle + arcLength, segmentEnd));
-      this.graphics.strokePath();
-    }
-  }
-
-  private toScreenX(state: GameState, worldX: number): number {
-    return (worldX - state.camera.x) * this.getViewScale(state) + state.width / 2;
-  }
-
-  private toScreenY(state: GameState, worldY: number): number {
-    return (worldY - state.camera.y) * this.getViewScale(state) + state.height / 2;
-  }
-
-  private getViewScale(state: GameState): number {
-    return state.width <= 720 ? 0.78 : 1;
-  }
-
-  private isCircleOnScreen(state: GameState, worldX: number, worldY: number, radius: number): boolean {
-    const viewScale = this.getViewScale(state);
-    const screenX = this.toScreenX(state, worldX);
-    const screenY = this.toScreenY(state, worldY);
-    const scaledRadius = radius * viewScale;
-    return screenX + scaledRadius >= 0 && screenX - scaledRadius <= state.width && screenY + scaledRadius >= 0 && screenY - scaledRadius <= state.height;
   }
 }
