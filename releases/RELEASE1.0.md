@@ -995,6 +995,17 @@ Notes:
 
 ## Technical Debt Completed
 
+### Split Skill Tree Stylesheet
+
+Moved the skill and warp tree UI styling out of the main stylesheet.
+
+Notes:
+- Added `styles/skill-tree.css` for skill tree layout, draggable talent tree, warp tree nodes, icons, tooltips, focus states, and mobile tree layout.
+- Imported the new stylesheet from `main.ts` after the base app stylesheet.
+- Left shared modal stat styling in `styles.css` because it is used outside the tree surface.
+- Preserved existing selectors and visual values without redesigning the UI.
+- Validated with `pnpm run build`.
+
 ### Split Save Readers By Domain
 
 Moved Nova Crown save normalization out of the main save orchestration file.

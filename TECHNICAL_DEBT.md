@@ -8,20 +8,20 @@ Current engineering shape:
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
 - Save loading intentionally clears incompatible versions, and the Nova Crown/survival readers now live outside the main save orchestration file.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
-- `styles.css` has grown into a monolithic stylesheet with unrelated HUD, modal, map, tree, hangar, tutorial, and settings rules in one file.
+- `styles.css` still owns broad app UI styling, but skill/warp tree styles now live in their own surface stylesheet.
 
 ## Ready
 
-### Split Stylesheet By Surface
+### Continue Stylesheet Surface Splits
 
-Reduce CSS risk as HUD, modal, map, tree, hangar, and tutorial UI keep growing.
+Keep reducing CSS coupling as new UI surfaces settle.
 
 Context:
-- `styles.css` is over 3,500 lines.
-- Recent changes keep adding specialized modal/tree/HUD rules, making accidental selector coupling more likely.
+- `styles.css` remains large and still mixes HUD, modal, map, hangar, tutorial, settings, and menu rules.
+- The skill/warp tree surface has already been extracted, which gives the next split a clear pattern.
 
 Acceptance:
-- Split at least one coherent surface into a separate imported stylesheet, starting with skill tree/modal tree styles or HUD styles.
+- Extract another coherent surface, such as HUD, hangar, tutorial, or settings, into a separate imported stylesheet.
 - Preserve Vite CSS loading and current visual output.
 - Keep selectors scoped to the same DOM structure; do not redesign the UI in this task.
 - Run `pnpm run build`.

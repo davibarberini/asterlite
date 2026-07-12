@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import './styles.css';
+import './styles/skill-tree.css';
 import { GameScene } from './phaser/scenes/GameScene';
 
 const installMobileZoomGuards = (): void => {
