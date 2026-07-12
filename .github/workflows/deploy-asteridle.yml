@@ -1,0 +1,46 @@
+name: Deploy web build to asteridle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+
+      - name: Push dist to davibarberini/asteridle
+        env:
+          DEPLOY_TOKEN: ${{ secrets.ASTERIDLE_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "ASTERIDLE_DEPLOY_TOKEN is not configured. Skipping deploy."
+            echo "Add a PAT with repo write access to asteridle in asteride-repo secrets."
+            exit 0
+          fi
+
+          cd dist
+          git init -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "deploy: asteride-repo @ ${GITHUB_SHA::7}"
+          git remote add deploy "https://x-access-token:${DEPLOY_TOKEN}@github.com/davibarberini/asteridle.git"
+          git push deploy HEAD:main --force
