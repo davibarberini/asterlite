@@ -3,9 +3,10 @@ export type TutorialTargetId =
   | 'nav-upgrades'
   | 'upgrade-affordable'
   | 'nav-map'
-  | 'zone-node-unlocked';
+  | 'zone-node-unlocked'
+  | 'nav-skills';
 
-export type TutorialFlowId = 'first-upgrade' | 'zone-travel';
+export type TutorialFlowId = 'first-upgrade' | 'zone-travel' | 'first-skill-point';
 
 export type TutorialStep = {
   id: string;
@@ -282,7 +283,9 @@ export class TutorialGuideController {
       if (!Array.isArray(parsed)) {
         return [];
       }
-      return parsed.filter((id): id is TutorialFlowId => id === 'first-upgrade' || id === 'zone-travel');
+      return parsed.filter(
+        (id): id is TutorialFlowId => id === 'first-upgrade' || id === 'zone-travel' || id === 'first-skill-point'
+      );
     } catch {
       return [];
     }

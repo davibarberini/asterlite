@@ -3,7 +3,21 @@ import { emitAudio, emitReward } from '../simulation/events';
 import { getLevelShockwaveSkillMultiplier } from './talentEffects';
 
 export const baseMaxShipLevel = 20;
-const shipXpDifficultyMultiplier = 5;
+
+/**
+ * XP required to go from level 1 to level 2.
+ *
+ * Kept high on purpose: a single asteroid/boss (or a level-up shockwave clearing
+ * several rocks) should never grant a whole level, so leveling never chains into
+ * multiple level-ups at once.
+ */
+const shipXpBaseRequirement = 2400;
+
+/**
+ * Per-level XP growth. Each level costs ~1.32x the previous one, so early levels
+ * stay reachable while late levels (toward the level-20 cap) take a long grind.
+ */
+const shipXpGrowthPerLevel = 1.32;
 
 /**
  * Extra ship levels granted by future global technologies.
@@ -19,7 +33,7 @@ export const getMaxShipLevel = (progression: ProgressionState): number =>
 
 export const getShipXpForNextLevel = (level: number): number => {
   const safeLevel = Math.max(1, Math.floor(level));
-  return Math.round(70 * shipXpDifficultyMultiplier * 1.18 ** (safeLevel - 1));
+  return Math.round(shipXpBaseRequirement * shipXpGrowthPerLevel ** (safeLevel - 1));
 };
 
 export const getAvailableShipSkillPoints = (progression: ProgressionState): number =>

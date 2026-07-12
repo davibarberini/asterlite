@@ -117,6 +117,13 @@ const ZONE_TRAVEL_TUTORIAL: TutorialFlow = {
     { id: 'choose-zone', targetId: 'zone-node-unlocked', padding: 8, shape: 'rect' }
   ]
 };
+const FIRST_SKILL_POINT_TUTORIAL: TutorialFlow = {
+  id: 'first-skill-point',
+  steps: [
+    { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
+    { id: 'open-skills', targetId: 'nav-skills', padding: 9, shape: 'rect' }
+  ]
+};
 
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
@@ -912,6 +919,8 @@ export class GameScene extends Phaser.Scene {
         button.dataset.tutorialTarget = 'nav-upgrades';
       } else if (button.dataset.tab === 'map') {
         button.dataset.tutorialTarget = 'nav-map';
+      } else if (button.dataset.tab === 'skills') {
+        button.dataset.tutorialTarget = 'nav-skills';
       }
     });
     document.getElementById('idle-dock')?.setAttribute('aria-label', translate(this.language, 'hud.idleSystems'));
@@ -1048,6 +1057,7 @@ export class GameScene extends Phaser.Scene {
 
   private shouldShowSkillsTab(): boolean {
     return (
+      this.state.progression.shipSkillPoints > 0 ||
       this.state.progression.achievementStats.crystalsCollected > 0 ||
       this.getCrystalBalance() > 0 ||
       countUnlockedTalentRanks(this.state.progression) > 0
@@ -1922,11 +1932,18 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.tutorialGuide.hasCompleted('first-upgrade') || !this.hasAffordableCoreUpgrade()) {
+    if (!this.tutorialGuide.hasCompleted('first-upgrade') && this.hasAffordableCoreUpgrade()) {
+      this.startTutorialGuide(FIRST_UPGRADE_TUTORIAL);
       return;
     }
 
-    this.startTutorialGuide(FIRST_UPGRADE_TUTORIAL);
+    if (!this.tutorialGuide.hasCompleted('first-skill-point') && this.hasUnspentSkillPointToGuide()) {
+      this.startTutorialGuide(FIRST_SKILL_POINT_TUTORIAL);
+    }
+  }
+
+  private hasUnspentSkillPointToGuide(): boolean {
+    return this.isShopTabVisible('skills') && getAvailableShipSkillPoints(this.state.progression) > 0;
   }
 
   private shouldDeferTutorialGuide(): boolean {
