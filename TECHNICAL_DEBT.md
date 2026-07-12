@@ -56,8 +56,6 @@ Finished the current `collisions.ts` boundary pass.
 
 ### Simulation System Boundary Pass — Player damage
 
-### Simulation System Boundary Pass — Player damage
-
 Started reducing `collisions.ts` by extracting player damage/death resolution.
 
 - Added `src/game/simulation/systems/playerDamage.ts` for ship damage, armor mitigation, Wraith phase absorption, death penalties, repair cost, boss cleanup, and respawn state transition.
