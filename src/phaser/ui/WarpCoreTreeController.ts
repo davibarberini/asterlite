@@ -59,12 +59,6 @@ const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect:
     effect: 'Libera o botão de invocar boss em Technologies.',
     impact: 'Painel Technologies: adiciona invocação manual de boss.'
   },
-  spreadBattery: {
-    title: 'Bateria Spread',
-    summary: 'Registro legado do antigo modo de arma em leque.',
-    effect: 'Agora a identidade Spread pertence a naves como Prism.',
-    impact: 'Hangar: identidade de arma por nave.'
-  },
   rangerHangar: {
     title: 'Hangar Ranger',
     summary: 'Amplia a baía para drones shotgun.',
@@ -76,12 +70,6 @@ const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect:
     summary: 'Abre os sistemas necessários para drones de míssil.',
     effect: 'Permite comprar drones de míssil com créditos.',
     impact: 'Aba Drones: libera a compra de drones de Míssil.'
-  },
-  piercingRail: {
-    title: 'Trilho Perfurante',
-    summary: 'Registro legado do antigo modo de tiros perfurantes.',
-    effect: 'Agora a identidade Piercing pertence a naves como Needle.',
-    impact: 'Hangar: identidade de arma por nave.'
   }
 };
 
@@ -328,14 +316,6 @@ export class WarpCoreTreeController {
         make('circle', { cx: '24', cy: '24', r: '8', class: 'technology-icon__core' }),
         make('path', { d: 'M24 6 V12 M24 36 V42 M6 24 H12 M36 24 H42 M12 12 L16 16 M36 12 L32 16 M12 36 L16 32 M36 36 L32 32', class: 'technology-icon__line' }),
         make('path', { d: 'M18 24 C20 18 28 18 30 24 C28 30 20 30 18 24 Z', class: 'technology-icon__shell' })
-      );
-      return svg;
-    }
-
-    if (id === 'spreadBattery') {
-      svg.append(
-        make('path', { d: 'M12 34 L24 10 L36 34 Z', class: 'technology-icon__shell' }),
-        make('path', { d: 'M24 16 V38 M17 22 L8 34 M31 22 L40 34', class: 'technology-icon__line' })
       );
       return svg;
     }

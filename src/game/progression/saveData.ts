@@ -13,7 +13,7 @@ import { getSpentTalentPointCost, migrateLegacyDroneSkills, normalizeTalentRanks
 import { maxShipLevel } from './shipLevel';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, normalizeShipFrameIds } from './shipFrames';
-import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentId, TalentRanks, Vec2, WarpUnlockId, WeaponMode } from '../simulation/types';
+import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentId, TalentRanks, Vec2, WarpUnlockId } from '../simulation/types';
 import { maxTravelLevel } from '../simulation/zones';
 import { balance } from '../balance';
 import { WARP_UNLOCK_BY_ID, applyOwnedWarpUnlockEffects } from './warpUnlocks';
@@ -153,16 +153,6 @@ const readShipLevelProgress = (
   };
 };
 
-const readWeaponMode = (value: unknown, spreadUnlocked: boolean, piercingUnlocked: boolean): WeaponMode => {
-  if (value === 'spread' && spreadUnlocked) {
-    return 'spread';
-  }
-  if (value === 'piercing' && piercingUnlocked) {
-    return 'piercing';
-  }
-  return 'cannon';
-};
-
 const readAchievementStats = (value: unknown): AchievementStats => {
   if (!isRecord(value)) {
     return createAchievementStats();
@@ -275,7 +265,6 @@ const createShipRunFromProgression = (progression: ProgressionState, money: numb
   shipLevel: progression.shipLevel,
   shipSkillPoints: progression.shipSkillPoints,
   spentShipSkillPoints: progression.spentShipSkillPoints,
-  weaponMode: progression.weaponMode,
   mapUnlocked: progression.mapUnlocked,
   travelLevel: progression.travelLevel,
   currentZoneIndex: progression.currentZoneIndex,
@@ -296,8 +285,6 @@ const readShipRun = (value: unknown): ShipRunState | null => {
   const legacyDroneCount = Math.max(0, Math.floor(readNumber(value.dronesPurchased, 0)));
   const droneCounts = readDroneCounts(value.droneCounts, legacyDroneCount);
   const activeDroneCounts = readActiveDroneCounts(value.activeDroneCounts, droneCounts);
-  const spreadUnlocked = value.spreadUnlocked === true;
-  const piercingUnlocked = value.piercingUnlocked === true;
   const legacySkills = readLegacyDroneSkillLevels(value.droneSkillLevels);
   const talentRanks = readTalentRanks(value.talentRanks, legacySkills);
   const shipLevelProgress = readShipLevelProgress(value, talentRanks);
@@ -318,7 +305,6 @@ const readShipRun = (value: unknown): ShipRunState | null => {
     activeDroneCounts,
     talentRanks,
     ...shipLevelProgress,
-    weaponMode: readWeaponMode(value.weaponMode, spreadUnlocked, piercingUnlocked),
     mapUnlocked: value.mapUnlocked === true || unlockedZoneIndex > 0,
     travelLevel: unlockedZoneIndex,
     currentZoneIndex: Math.max(0, Math.min(unlockedZoneIndex, Math.floor(readNumber(value.currentZoneIndex, unlockedZoneIndex)))),
@@ -470,8 +456,6 @@ const readProgression = (value: unknown): ProgressionState | null => {
   const legacyDroneCount = Math.max(0, Math.floor(readNumber(value.dronesPurchased, 0)));
   const droneCounts = readDroneCounts(value.droneCounts, legacyDroneCount);
   const activeDroneCounts = readActiveDroneCounts(value.activeDroneCounts, droneCounts);
-  const spreadUnlocked = value.spreadUnlocked === true;
-  const piercingUnlocked = value.piercingUnlocked === true;
   const shipDamageLevel = Math.max(1, Math.floor(readNumber(value.shipDamageLevel, 1)));
   const shipFireRateLevel = Math.max(0, Math.floor(readNumber(value.shipFireRateLevel, 0)));
   const shipSpeedLevel = Math.max(0, Math.floor(readNumber(value.shipSpeedLevel, 0)));
@@ -526,9 +510,6 @@ const readProgression = (value: unknown): ProgressionState | null => {
     activeDroneCounts,
     talentRanks,
     ...shipLevelProgress,
-    weaponMode: readWeaponMode(value.weaponMode, spreadUnlocked, piercingUnlocked),
-    spreadUnlocked,
-    piercingUnlocked,
     mapUnlocked: value.mapUnlocked === true || unlockedZoneIndex > 0,
     travelLevel: unlockedZoneIndex,
     currentZoneIndex,

@@ -11,22 +11,6 @@ Current engineering shape:
 
 ## Ready
 
-### Normalize Legacy Weapon Save State
-
-Remove old weapon-mode concepts from active runtime surfaces while preserving save compatibility.
-
-Context:
-- Combat identity now comes from ship frames and the Weapons tab has been removed.
-- Legacy fields such as `weaponMode`, `spreadUnlocked`, `piercingUnlocked`, `spreadBattery`, and `piercingRail` still exist for old saves and ship-run persistence.
-- Current tests already assert that legacy weapon state does not change standard ship firing behavior.
-
-Acceptance:
-- Decide which legacy fields must remain in saved v2 data and which can be normalized away during load.
-- Keep old saves loading without changing standard ship firing behavior.
-- Remove active runtime dependencies that imply manual weapon selection.
-- Add or update tests for legacy save compatibility.
-- Run `pnpm test` and `pnpm run build`.
-
 ### Split Save Readers By Domain
 
 Make save loading easier to change as Nova Crown, ships, skill trees, and technologies evolve.
@@ -94,6 +78,16 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Normalize Legacy Weapon Save State
+
+Manual weapon-mode selection is gone from active runtime surfaces; combat identity comes entirely from ship frames.
+
+- Removed the `WeaponMode` type and the `weaponMode`/`spreadUnlocked`/`piercingUnlocked` fields from `ProgressionState`, plus `weaponMode` from `ShipRunState` and its ship-run persistence in `shipRuns.ts`.
+- Dropped the dead `spreadBattery`/`piercingRail` warp-unlock ids (no definition or effect remained) from the `WarpUnlockId` union and the warp tree / hangar UI copy.
+- `saveData.ts` no longer reads or writes these fields; old v2 saves keep loading and their legacy fields are normalized away (extra JSON keys ignored, and `ownedWarpUnlockIds` already filters unknown ids like `spreadBattery`/`piercingRail`).
+- Standard ship firing is unchanged: ship-frame identity still drives cannon/spread/piercing behavior.
+- Tests: updated `weapons.test.ts` (frame-driven firing) and added a `progression.test.ts` case asserting a legacy v2 save loads without the removed fields and fires a single standard bullet. Verified with `pnpm test` (111 passing) and `pnpm run build`.
 
 ### Extract Survival Event Renderer
 
