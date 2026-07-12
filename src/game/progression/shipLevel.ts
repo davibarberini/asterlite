@@ -2,18 +2,30 @@ import type { GameState, ProgressionState } from '../simulation/types';
 import { emitAudio, emitReward } from '../simulation/events';
 import { getLevelShockwaveSkillMultiplier } from './talentEffects';
 
-export const maxShipLevel = 25;
+export const baseMaxShipLevel = 20;
 const shipXpDifficultyMultiplier = 5;
 
+/**
+ * Extra ship levels granted by future global technologies.
+ *
+ * No technology raises the pilot's level ceiling yet. This is the seam the level
+ * cap reads from so a later backlog item can grant bonus levels (and therefore
+ * more skill points) without touching every caller.
+ */
+export const getShipLevelCapBonus = (_progression: ProgressionState): number => 0;
+
+export const getMaxShipLevel = (progression: ProgressionState): number =>
+  baseMaxShipLevel + Math.max(0, Math.floor(getShipLevelCapBonus(progression)));
+
 export const getShipXpForNextLevel = (level: number): number => {
-  const safeLevel = Math.max(1, Math.min(maxShipLevel, Math.floor(level)));
+  const safeLevel = Math.max(1, Math.floor(level));
   return Math.round(70 * shipXpDifficultyMultiplier * 1.18 ** (safeLevel - 1));
 };
 
 export const getAvailableShipSkillPoints = (progression: ProgressionState): number =>
   Math.max(0, Math.floor(progression.shipSkillPoints) - Math.floor(progression.spentShipSkillPoints));
 
-export const getTotalShipSkillPointCap = (): number => maxShipLevel - 1;
+export const getTotalShipSkillPointCap = (progression: ProgressionState): number => getMaxShipLevel(progression) - 1;
 
 const createLevelShockwave = (state: GameState, levelsGained: number): void => {
   const maxRadius = (540 + Math.min(3, Math.max(0, levelsGained - 1)) * 90) *
@@ -30,15 +42,16 @@ const createLevelShockwave = (state: GameState, levelsGained: number): void => {
 };
 
 export const grantShipXp = (state: GameState, amount: number): void => {
-  if (state.progression.shipLevel >= maxShipLevel) {
-    state.progression.shipLevel = maxShipLevel;
+  const maxLevel = getMaxShipLevel(state.progression);
+  if (state.progression.shipLevel >= maxLevel) {
+    state.progression.shipLevel = maxLevel;
     state.progression.shipXp = 0;
     return;
   }
 
   state.progression.shipXp += Math.max(0, Math.floor(amount));
   let levelsGained = 0;
-  while (state.progression.shipLevel < maxShipLevel) {
+  while (state.progression.shipLevel < maxLevel) {
     const needed = getShipXpForNextLevel(state.progression.shipLevel);
     if (state.progression.shipXp < needed) {
       break;
@@ -49,8 +62,8 @@ export const grantShipXp = (state: GameState, amount: number): void => {
     levelsGained += 1;
   }
 
-  if (state.progression.shipLevel >= maxShipLevel) {
-    state.progression.shipLevel = maxShipLevel;
+  if (state.progression.shipLevel >= maxLevel) {
+    state.progression.shipLevel = maxLevel;
     state.progression.shipXp = 0;
   }
 

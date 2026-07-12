@@ -4,21 +4,21 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Skill Tree Level Cap and Balance Pass
+### Technology-Based Max Ship Level
 
-Balance the larger tree around finite points and future technology-based level cap increases.
+Let global technologies raise the pilot's level ceiling above the base cap.
 
 Design:
-- Set a clear base ship level cap target, likely 20.
-- Leave room for future global technologies to increase max ship level.
-- Tune point income and node costs so players cannot fill the entire tree at base cap.
-- Keep crystals as support/rebuild currency for now rather than mandatory node purchase currency.
+- Build on the existing `getShipLevelCapBonus(progression)` seam in `shipLevel.ts`, which currently always returns 0.
+- Grant bonus max levels from a global source (e.g. a new warp-core/technology node), not from a single ship frame.
+- Each bonus level should keep granting one skill point, so the point economy stays below total tree cost unless several technologies are owned.
+- Update the save reader clamp (currently `baseMaxShipLevel`) to account for the earned bonus so high-level saves are not clipped.
 
 Acceptance:
-- Base skill point cap is lower than total available tree cost.
-- UI communicates level, XP, available points, spent points, and respec cost clearly.
-- Existing tests are updated for the new cap and point economy.
-- Add follow-up backlog notes for technology-based max level increases if not implemented in this slice.
+- At least one technology increases max ship level through `getShipLevelCapBonus`.
+- Skill point cap scales with the bonus and remains below total tree cost at the base tier.
+- Skills UI shows the raised cap (level `x/max`).
+- Add tests for the bonus cap and its skill-point income.
 
 ### Space Masters Naming Pass
 
@@ -114,6 +114,18 @@ Acceptance:
 - Add tests for at least first, mid, and late ship unlock pacing.
 
 ## Done
+
+### Skill Tree Level Cap and Balance Pass
+
+Lowered the base ship level ceiling and left a seam for future technology-based increases.
+
+- Base ship level cap is now `baseMaxShipLevel = 20` (down from 25), so the base skill-point cap is 19 — well below the ~56 point total cost of the full tree, forcing build tradeoffs.
+- Added `getShipLevelCapBonus(progression)` (currently 0) and `getMaxShipLevel(progression)` so global technologies can raise the ceiling later without touching callers; `getTotalShipSkillPointCap` now takes progression.
+- `grantShipXp`, HUD XP meter, the skills modal, and the save reader clamp all use the dynamic/base cap; old saves above level 20 normalize down to the new cap.
+- Skills modal now shows level as `current/max` and adds a `Spent` points stat alongside available points and respec cost.
+- Crystals stay a respec/support currency; node costs were left unchanged.
+- Tests updated for the new cap and point economy (`pnpm test`, 118) and `pnpm run build` is green.
+- Follow-up added to `Ready`: `Technology-Based Max Ship Level`.
 
 ### Skill Tree Hidden Drone Region
 

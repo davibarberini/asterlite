@@ -10,7 +10,7 @@ import {
 } from './achievements';
 import { createBossRewardState, isBossRewardId, normalizeBossRewardState } from './bossRewards';
 import { getSpentTalentPointCost, migrateLegacyDroneSkills, normalizeTalentRanks, TALENT_DEFINITIONS } from './talentTree';
-import { maxShipLevel } from './shipLevel';
+import { baseMaxShipLevel } from './shipLevel';
 import { createGuidedMissionState } from './guidedMissions';
 import { SHIP_FRAME_BY_ID, getShipFrameBonusMultiplier, normalizeShipFrameIds } from './shipFrames';
 import type { AchievementId, AchievementStats, BossDiscoveryState, BossRewardId, BossRewardState, DroneType, GameState, GuidedMissionId, GuidedMissionState, ProgressionState, RareSpawnState, ShieldBubbleState, ShipFrameId, ShipRunState, ShipUnlockProgress, SurvivalState, TalentId, TalentRanks, Vec2, WarpUnlockId } from '../simulation/types';
@@ -132,13 +132,13 @@ const readShipLevelProgress = (
   const shipSkillPoints = Math.max(spentShipSkillPoints, Math.floor(readNumber(value.shipSkillPoints, spentShipSkillPoints)));
   const shipLevel = Math.max(
     1,
-    Math.min(maxShipLevel, Math.floor(readNumber(value.shipLevel, Math.min(maxShipLevel, shipSkillPoints + 1))))
+    Math.min(baseMaxShipLevel, Math.floor(readNumber(value.shipLevel, Math.min(baseMaxShipLevel, shipSkillPoints + 1))))
   );
   return {
     shipXp: readNonNegativeNumber(value.shipXp, 0),
     shipLevel,
-    shipSkillPoints: Math.min(shipSkillPoints, maxShipLevel - 1),
-    spentShipSkillPoints: Math.min(spentShipSkillPoints, maxShipLevel - 1)
+    shipSkillPoints: Math.min(shipSkillPoints, baseMaxShipLevel - 1),
+    spentShipSkillPoints: Math.min(spentShipSkillPoints, baseMaxShipLevel - 1)
   };
 };
 

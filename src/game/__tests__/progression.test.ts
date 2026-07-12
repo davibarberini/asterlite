@@ -13,7 +13,7 @@ import { getFirstWarpGoal } from '../progression/firstWarpGoal';
 import { getActiveGuidedMissionProgress } from '../progression/guidedMissions';
 import { createShipFrameSwitchState } from '../progression/shipRuns';
 import { getShipFrameWeaponIdentity } from '../progression/shipFrames';
-import { getAvailableShipSkillPoints, getShipXpForNextLevel, getTotalShipSkillPointCap, maxShipLevel } from '../progression/shipLevel';
+import { baseMaxShipLevel, getAvailableShipSkillPoints, getMaxShipLevel, getShipXpForNextLevel, getTotalShipSkillPointCap } from '../progression/shipLevel';
 import {
   recordPrismBossDefeatUnlockProgress,
   syncShipUnlocks
@@ -1011,8 +1011,10 @@ describe('crystal spending and talents', () => {
     expect(state.rewardEvents.some((event) => event.text.includes('Ship level 2'))).toBe(true);
     expect(state.audioEvents.some((event) => event.type === 'shipLevelUp')).toBe(true);
     expect(state.levelShockwaves).toHaveLength(1);
-    expect(getTotalShipSkillPointCap()).toBe(maxShipLevel - 1);
-    expect(getTotalShipSkillPointCap()).toBeLessThan(
+    expect(getMaxShipLevel(state.progression)).toBe(baseMaxShipLevel);
+    expect(baseMaxShipLevel).toBe(20);
+    expect(getTotalShipSkillPointCap(state.progression)).toBe(getMaxShipLevel(state.progression) - 1);
+    expect(getTotalShipSkillPointCap(state.progression)).toBeLessThan(
       TALENT_DEFINITIONS.reduce((total, talent) => total + talent.maxRank * getTalentPointCost(talent.id), 0)
     );
   });

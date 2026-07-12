@@ -14,7 +14,7 @@ import {
   countUnlockedTalentRanks,
   getTalentRank,
 } from '../../game/progression/talentTree';
-import { getAvailableShipSkillPoints, getShipXpForNextLevel, maxShipLevel } from '../../game/progression/shipLevel';
+import { getAvailableShipSkillPoints, getMaxShipLevel, getShipXpForNextLevel } from '../../game/progression/shipLevel';
 import { formatCompactNumber, formatMoney as formatCompactMoney } from '../../game/numberFormat';
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { isSurvivalZone } from '../../game/simulation/systems/survival';
@@ -1268,7 +1268,7 @@ export class GameScene extends Phaser.Scene {
     this.updateLowHpVeil(hpPercent);
     this.setText(this.hpEl, `${formatCompactNumber(Math.ceil(this.state.ship.hp))} / ${formatCompactNumber(this.state.ship.maxHp)}`);
     const shipLevel = Math.max(1, Math.floor(this.state.progression.shipLevel));
-    const shipXpProgress = shipLevel >= maxShipLevel
+    const shipXpProgress = shipLevel >= getMaxShipLevel(this.state.progression)
       ? 1
       : Math.max(0, Math.min(1, this.state.progression.shipXp / Math.max(1, getShipXpForNextLevel(shipLevel))));
     this.setText(this.shipLevelEl, `${this.language === 'pt-BR' ? 'Nv' : 'Lv'} ${shipLevel}`);

@@ -1,5 +1,5 @@
 import { getCrystalBalance, getTalentRespecCost } from '../../game/progression/currency';
-import { getAvailableShipSkillPoints, getShipXpForNextLevel, maxShipLevel } from '../../game/progression/shipLevel';
+import { getAvailableShipSkillPoints, getMaxShipLevel, getShipXpForNextLevel } from '../../game/progression/shipLevel';
 import {
   countUnlockedTalentRanks,
   getOfflineIncomeTalentMultiplier,
@@ -62,8 +62,11 @@ export class SkillsModalController {
   }): SkillsShopContent {
     const talentCount = countUnlockedTalentRanks(options.state.progression);
     const availablePoints = getAvailableShipSkillPoints(options.state.progression);
+    const spentPoints = Math.max(0, Math.floor(options.state.progression.spentShipSkillPoints));
+    const maxLevel = getMaxShipLevel(options.state.progression);
     const respecCost = getTalentRespecCost(options.state);
-    const nextLevelXp = options.state.progression.shipLevel >= maxShipLevel
+    const atMaxLevel = options.state.progression.shipLevel >= maxLevel;
+    const nextLevelXp = atMaxLevel
       ? 'MAX'
       : `${Math.floor(options.state.progression.shipXp)}/${getShipXpForNextLevel(options.state.progression.shipLevel)}`;
 
@@ -72,9 +75,10 @@ export class SkillsModalController {
       title: translate(options.language, 'shop.skillsTitle'),
       copy: translate(options.language, 'shop.skillsCopy'),
       stats: [
-        [options.language === 'pt-BR' ? 'Nível' : 'Level', options.state.progression.shipLevel.toString()],
+        [options.language === 'pt-BR' ? 'Nível' : 'Level', `${options.state.progression.shipLevel}/${maxLevel}`],
         ['XP', nextLevelXp],
         [options.language === 'pt-BR' ? 'Pontos' : 'Points', availablePoints.toString()],
+        [options.language === 'pt-BR' ? 'Gastos' : 'Spent', spentPoints.toString()],
         [translate(options.language, 'shop.skillsStatTalents'), `${talentCount}/${options.state.progression.shipSkillPoints}`],
         [translate(options.language, 'shop.skillsStatSemiPierce'), getSemiAutoPierceLeft(options.state.progression).toString()],
         [translate(options.language, 'shop.skillsStatRefinery'), `x${getOfflineIncomeTalentMultiplier(options.state.progression).toFixed(2)}`]
