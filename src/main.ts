@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import './styles/main-menu.css';
 import './styles/hud.css';
+import './styles/tutorial.css';
+import './styles/bottomNav.css';
 import './styles/skillTree.css';
 import './styles.css';
 import { GameScene } from './phaser/scenes/GameScene';

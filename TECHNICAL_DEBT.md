@@ -8,7 +8,7 @@ Current engineering shape:
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
 - Save loading intentionally clears incompatible versions, and the Nova Crown/survival readers now live outside the main save orchestration file.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
-- `styles.css` still mixes several surfaces (shop/modal, map, hangar, tutorial, bottom-nav), but main menu, skill/warp tree, and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
+- `styles.css` still mixes several surfaces (shop/modal, map, hangar, settings), but main menu, skill/warp tree, tutorial, bottom-nav, and in-game HUD surfaces now live in their own imported stylesheets under `src/styles/`.
 
 ## Ready
 
@@ -17,8 +17,9 @@ Current engineering shape:
 Keep reducing CSS coupling as new UI surfaces settle.
 
 Context:
-- `styles.css` remains large and still mixes shop/modal, map, hangar, tutorial, settings, and bottom-nav rules.
+- `styles.css` remains large and still mixes shop/modal, map, hangar, and settings rules.
 - Main menu, HUD, and skill/warp tree surfaces have already been extracted, which gives the next split a clear pattern.
+- Tutorial guide and bottom-nav styles have also been extracted, so the next useful split should target a larger interactive surface.
 
 Acceptance:
 - Extract another coherent surface, such as shop/modal, hangar, tutorial, bottom-nav, or settings, into a separate imported stylesheet.
@@ -65,6 +66,24 @@ Acceptance:
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
+
+### Split Stylesheet By Surface — Bottom navigation
+
+Extracted the mobile-first bottom navigation surface into its own stylesheet.
+
+- Moved `.menu-toggle`, `.bottom-nav`, `.nav-button*`, `nav-label-reveal`, and the related mobile `#idle-dock`/bottom-nav overrides into `src/styles/bottomNav.css`.
+- Imported the new stylesheet in `main.ts` before the remaining shared `styles.css`, matching the existing surface stylesheet pattern.
+- Kept button visuals unchanged by moving the `.nav-button` base declarations out of the old shared `.shop-close`/`.shop-buy` group and into the bottom-nav stylesheet.
+- Follow-up: shop/modal, map, hangar, and settings remain in `styles.css`.
+
+### Split Stylesheet By Surface — Tutorial guide
+
+Extracted the tutorial overlay into its own stylesheet.
+
+- Moved `.tutorial-guide*`, the tutorial pulse keyframes, and the reduced-motion override into `src/styles/tutorial.css`.
+- Imported the new stylesheet in `main.ts` with the other surface stylesheets before the remaining shared `styles.css`.
+- Kept selectors and DOM structure unchanged; this is only a stylesheet ownership split.
+- Follow-up: shop/modal, bottom-nav, hangar, and map/settings remain good candidates for the next CSS extraction.
 
 ### Split Stylesheet By Surface — HUD surface
 

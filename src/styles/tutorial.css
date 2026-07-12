@@ -1,0 +1,59 @@
+.tutorial-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 180ms ease;
+}
+
+.tutorial-guide.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tutorial-guide__shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tutorial-guide__pulse {
+  position: absolute;
+  border: 2px solid rgba(131, 255, 220, 0.86);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(216, 255, 245, 0.22),
+    0 0 22px rgba(131, 255, 220, 0.36);
+  transform-origin: center;
+  animation: tutorial-pulse 950ms ease-in-out infinite;
+  pointer-events: none;
+}
+
+.tutorial-guide__pulse--rect {
+  border-radius: 8px;
+}
+
+.tutorial-guide.is-waiting .tutorial-guide__pulse {
+  opacity: 0;
+}
+
+@keyframes tutorial-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-guide__pulse {
+    animation: none;
+  }
+}
