@@ -310,6 +310,36 @@ export const TALENT_DEFINITIONS: TalentDefinition[] = [
     requiresDrone: 'breaker',
     requires: [{ id: 'missileShrapnel', rank: 2 }],
     grid: { col: 10, row: 5 }
+  },
+  {
+    id: 'droneCommandLink',
+    name: 'Command Link',
+    summary: '+12% all drone damage and -6% ship fire interval.',
+    branch: 'semiAuto',
+    nodeType: 'notable',
+    maxRank: 1,
+    pointCost: 2,
+    requiresDrone: 'sentry',
+    requires: [
+      { id: 'semiAutoOptics', rank: 1 },
+      { id: 'vectorNozzles', rank: 1 }
+    ],
+    grid: { col: 11, row: 6 }
+  },
+  {
+    id: 'carrierDoctrine',
+    name: 'Carrier Doctrine',
+    summary: '+20% all drone damage and -8% drone fire interval, but +10% ship fire interval.',
+    branch: 'missile',
+    nodeType: 'keystone',
+    maxRank: 1,
+    pointCost: 3,
+    requiresDrone: 'breaker',
+    requires: [
+      { id: 'droneCommandLink', rank: 1 },
+      { id: 'missileGuidance', rank: 1 }
+    ],
+    grid: { col: 11, row: 7 }
   }
 ];
 
@@ -429,7 +459,16 @@ export const getPropulsionSkillMultiplier = (progression: ProgressionState): num
 
 export const getShipSkillFireIntervalMultiplier = (progression: ProgressionState): number =>
   (getTalentRank(progression, 'vectorNozzles') > 0 ? 0.9 : 1) *
-  (getTalentRank(progression, 'afterburnerDoctrine') > 0 ? 0.84 : 1);
+  (getTalentRank(progression, 'afterburnerDoctrine') > 0 ? 0.84 : 1) *
+  (getTalentRank(progression, 'droneCommandLink') > 0 ? 0.94 : 1) *
+  (getTalentRank(progression, 'carrierDoctrine') > 0 ? 1.1 : 1);
+
+export const getDroneSkillDamageMultiplier = (progression: ProgressionState): number =>
+  (getTalentRank(progression, 'droneCommandLink') > 0 ? 1.12 : 1) *
+  (getTalentRank(progression, 'carrierDoctrine') > 0 ? 1.2 : 1);
+
+export const getDroneSkillFireIntervalMultiplier = (progression: ProgressionState): number =>
+  getTalentRank(progression, 'carrierDoctrine') > 0 ? 0.92 : 1;
 
 export const getSemiAutoPierceLeft = (progression: ProgressionState): number =>
   1 + getTalentRank(progression, 'semiAutoPierce');

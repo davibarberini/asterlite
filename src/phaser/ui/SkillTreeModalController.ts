@@ -61,7 +61,9 @@ const talentPtBr: Partial<Record<TalentId, { name: string; summary: string }>> =
   missileReload: { name: 'Recarga Rápida', summary: '-10% de intervalo de tiro de mísseis por nível.' },
   missileWarhead: { name: 'Ogiva Explosiva', summary: 'Mísseis explodem no impacto e causam dano em área.' },
   missileShrapnel: { name: 'Estilhaços', summary: '+18% de raio de explosão e +1 de dano em área por nível.' },
-  missileChain: { name: 'Detonação em Cadeia', summary: 'Explosões de míssil causam +60% de dano em área.' }
+  missileChain: { name: 'Detonação em Cadeia', summary: 'Explosões de míssil causam +60% de dano em área.' },
+  droneCommandLink: { name: 'Link de Comando', summary: '+12% de dano de todos os drones e -6% de intervalo de tiro da nave.' },
+  carrierDoctrine: { name: 'Doutrina Carrier', summary: '+20% de dano de drones e -8% de intervalo de tiro dos drones, mas +10% de intervalo de tiro da nave.' }
 };
 
 const getTalentText = (id: TalentId, language: LanguageCode): { name: string; summary: string } => {
@@ -597,6 +599,9 @@ export class SkillTreeModalController {
     }
     if (id.includes('missile')) {
       return 'skill-missile';
+    }
+    if (id.includes('droneCommand') || id.includes('carrier')) {
+      return 'skill-targeting';
     }
     return 'skill-generic';
   }

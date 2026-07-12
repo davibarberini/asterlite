@@ -4,22 +4,6 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Skill Tree Hidden Drone Region
-
-Add a drone-focused region that is hidden until drone systems are unlocked.
-
-Design:
-- Place drone nodes outside the initial visible tree path so the tree feels larger once drones unlock.
-- Hide or fog the drone region until the player owns/unlocks drone systems.
-- Add drone-focused nodes for sentry/semi-auto, ranger/shotgun, breaker/missile, and hybrid ship-drone builds.
-- Keep locked region copy compact and avoid spoiling every drone node too early.
-
-Acceptance:
-- Before drones, the drone region is visibly locked or hidden and cannot be purchased.
-- After drones unlock, the region becomes reachable/purchasable.
-- Drone node effects apply to the relevant drone mechanics.
-- Tests cover locked/unlocked drone region behavior and at least one drone node effect.
-
 ### Skill Tree Level Cap and Balance Pass
 
 Balance the larger tree around finite points and future technology-based level cap increases.
@@ -128,6 +112,17 @@ Acceptance:
 - Update the hangar card locked state to explain the requirement compactly.
 - Preserve existing saves that already unlocked ships through exchanges.
 - Add tests for at least first, mid, and late ship unlock pacing.
+
+## Done
+
+### Skill Tree Hidden Drone Region
+
+Added the hidden drone region and completed its hybrid build slice.
+
+- Drone talent nodes live outside the initial tree path and remain hidden/disabled until Drone Systems or owned drones unlock the region.
+- Sentry/semi-auto, ranger/shotgun, and breaker/missile branches are gated by their matching drone technologies.
+- Added `Command Link` and `Carrier Doctrine` hybrid nodes that connect ship-fire decisions with drone damage/fire-rate bonuses.
+- Tests cover locked/unlocked drone region behavior, drone branch gates, hybrid talent gates, and hybrid talent effects.
 
 ## Conditional
 

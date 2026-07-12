@@ -44,7 +44,9 @@ export type TalentId =
   | 'missileReload'
   | 'missileWarhead'
   | 'missileShrapnel'
-  | 'missileChain';
+  | 'missileChain'
+  | 'droneCommandLink'
+  | 'carrierDoctrine';
 export type TalentRanks = Record<TalentId, number>;
 export type WarpUnlockId =
   | 'droneSystems'

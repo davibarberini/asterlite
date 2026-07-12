@@ -2,6 +2,8 @@ import { getAchievementMultiplier } from '../../progression/achievements';
 import { getBossRewardDroneDamageMultiplier, getBossRewardDroneFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
 import {
+  getDroneSkillDamageMultiplier,
+  getDroneSkillFireIntervalMultiplier,
   getMissileDamage,
   getMissileFireIntervalMultiplier,
   getSemiAutoDamage,
@@ -69,7 +71,8 @@ export const updateDrones = (state: GameState, dt: number): void => {
 
 const getDroneDamageMultiplier = (state: GameState): number =>
   getAchievementMultiplier(state.progression, 'droneDamage') *
-  getBossRewardDroneDamageMultiplier(state);
+  getBossRewardDroneDamageMultiplier(state) *
+  getDroneSkillDamageMultiplier(state.progression);
 
 const getShipDamage = (state: GameState): number =>
   Math.max(
@@ -138,12 +141,18 @@ const fireDroneWeapon = (
 
 const getDroneFireInterval = (state: GameState, drone: GameState['drones'][number]): number => {
   if (drone.type === 'ranger') {
-    return balance.drones.fireInterval.ranger * getShotgunFireIntervalMultiplier(state.progression);
+    return balance.drones.fireInterval.ranger *
+      getShotgunFireIntervalMultiplier(state.progression) *
+      getDroneSkillFireIntervalMultiplier(state.progression);
   }
   if (drone.type === 'breaker') {
-    return balance.drones.fireInterval.breaker * getMissileFireIntervalMultiplier(state.progression);
+    return balance.drones.fireInterval.breaker *
+      getMissileFireIntervalMultiplier(state.progression) *
+      getDroneSkillFireIntervalMultiplier(state.progression);
   }
-  return balance.drones.fireInterval.sentry * getSemiAutoFireIntervalMultiplier(state.progression);
+  return balance.drones.fireInterval.sentry *
+    getSemiAutoFireIntervalMultiplier(state.progression) *
+    getDroneSkillFireIntervalMultiplier(state.progression);
 };
 
 const getDroneTargetRange = (state: GameState, drone: GameState['drones'][number]): number => {

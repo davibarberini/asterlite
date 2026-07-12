@@ -25,6 +25,8 @@ import { applyBossRewardChoice } from '../progression/bossRewards';
 import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
 import {
   TALENT_DEFINITIONS,
+  getDroneSkillDamageMultiplier,
+  getDroneSkillFireIntervalMultiplier,
   getLevelShockwaveSkillMultiplier,
   getPropulsionSkillMultiplier,
   getSemiAutoRangeBonus,
@@ -876,6 +878,25 @@ describe('crystal spending and talents', () => {
     expect(state.progression.talentRanks.shotgunLoad).toBe(1);
   });
 
+  it('gates hidden hybrid drone talents behind ship and drone branch requirements', () => {
+    const state = createGameState(800, 600);
+    state.progression.shipSkillPoints = 10;
+    state.progression.ownedWarpUnlockIds = ['droneSystems'];
+    state.progression.talentRanks.semiAutoOptics = 1;
+
+    expect(purchaseTalentRank(state, 'droneCommandLink')).toBe(false);
+
+    state.progression.talentRanks.vectorNozzles = 1;
+    expect(purchaseTalentRank(state, 'droneCommandLink')).toBe(true);
+    expect(state.progression.talentRanks.droneCommandLink).toBe(1);
+    expect(purchaseTalentRank(state, 'carrierDoctrine')).toBe(false);
+
+    state.progression.ownedWarpUnlockIds = ['droneSystems', 'missileFoundry'];
+    state.progression.talentRanks.missileGuidance = 1;
+    expect(purchaseTalentRank(state, 'carrierDoctrine')).toBe(true);
+    expect(state.progression.talentRanks.carrierDoctrine).toBe(1);
+  });
+
   it('applies unlocked drone region node effects to semi-auto drones', () => {
     const state = createGameState(800, 600);
     state.progression.shipSkillPoints = 2;
@@ -885,6 +906,16 @@ describe('crystal spending and talents', () => {
     expect(purchaseTalentRank(state, 'semiAutoRange')).toBe(true);
 
     expect(getSemiAutoRangeBonus(state.progression)).toBe(90);
+  });
+
+  it('applies hidden hybrid drone talent effects to ship and drone output', () => {
+    const state = createGameState(800, 600);
+    state.progression.talentRanks.droneCommandLink = 1;
+    state.progression.talentRanks.carrierDoctrine = 1;
+
+    expect(getShipSkillFireIntervalMultiplier(state.progression)).toBeCloseTo(0.94 * 1.1);
+    expect(getDroneSkillDamageMultiplier(state.progression)).toBeCloseTo(1.12 * 1.2);
+    expect(getDroneSkillFireIntervalMultiplier(state.progression)).toBeCloseTo(0.92);
   });
 
   it('respecs spent talent ranks with crystals while preserving ship level and XP', () => {
