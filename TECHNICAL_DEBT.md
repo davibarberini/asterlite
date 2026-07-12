@@ -6,25 +6,11 @@ Current engineering shape:
 - `GameScene.ts` is the largest orchestration file and mixes Phaser lifecycle, HUD rendering, shop/modal DOM, tutorial triggers, purchases, travel, and settings.
 - `VectorRenderer.ts` still owns broad visual language for ships, asteroids, bosses, bullets, drones, particles, level shockwaves, saucers, and special ship effects.
 - `SurvivalEventRenderer.ts` now owns Nova Crown timed event and hazard visuals.
-- Save loading intentionally clears incompatible versions, but still carries several legacy normalization paths from old drone/reset-era systems.
+- Save loading intentionally clears incompatible versions, and the Nova Crown/survival readers now live outside the main save orchestration file.
 - The new skill tree is becoming a larger touch UI surface and should keep interaction logic isolated from progression rules.
 - `styles.css` has grown into a monolithic stylesheet with unrelated HUD, modal, map, tree, hangar, tutorial, and settings rules in one file.
 
 ## Ready
-
-### Split Save Readers By Domain
-
-Make save loading easier to change as Nova Crown, ships, skill trees, and technologies evolve.
-
-Context:
-- `saveData.ts` is over 750 lines and contains readers for achievements, ship unlocks, ship runs, drones, talents, bosses, Nova Crown difficulty, rare spawns, survival, and offline income.
-- The project now intentionally clears incompatible save versions, so the current code can be structured around v2 domain readers instead of one long procedural file.
-
-Acceptance:
-- Extract at least one cohesive reader group, such as ship runs/unlocks or Nova Crown/survival, into a focused module.
-- Keep `loadGameState`, `saveGameState`, and `clearAllAsteridleData` public behavior unchanged.
-- Preserve existing save/load tests.
-- Run `pnpm test` and `pnpm run build`.
 
 ### Split Stylesheet By Surface
 

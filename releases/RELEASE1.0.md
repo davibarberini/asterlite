@@ -995,6 +995,16 @@ Notes:
 
 ## Technical Debt Completed
 
+### Split Save Readers By Domain
+
+Moved Nova Crown save normalization out of the main save orchestration file.
+
+Notes:
+- Added `saveNovaCrownReaders.ts` for Nova Crown difficulty, best times, rewarded core keys, survival state, and rare spawn cooldown normalization.
+- Kept `saveData.ts` focused on save migration orchestration and composing normalized domain state.
+- Preserved existing public save APIs and v2 save/load behavior.
+- Validated with `pnpm test` and `pnpm run build`.
+
 ### Normalize Legacy Weapon Save State
 
 Removed old manual weapon selection state from active progression and ship-run data.
