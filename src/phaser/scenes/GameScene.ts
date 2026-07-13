@@ -5,7 +5,7 @@ import { BOSS_REWARD_BY_ID, applyBossRewardChoice } from '../../game/progression
 import { clearAllAsteridleData, loadGameState, saveGameState } from '../../game/progression/saveData';
 import { emitReward } from '../../game/simulation/events';
 import { createGameState, syncActiveDrones, syncShieldBubbleState } from '../../game/simulation/state';
-import { createAsteroidField, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
+import { createAsteroidField, createPendingBoss, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
 import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, ShipFrameId, TalentId, Vec2, WarpUnlockId } from '../../game/simulation/types';
 import { getCoreUpgradeCap, getFireRateMultiplier } from '../../game/progression/idleBonuses';
 import {
@@ -122,7 +122,6 @@ const FIRST_SKILL_POINT_TUTORIAL: TutorialFlow = {
   steps: [
     { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
     { id: 'open-skills', targetId: 'nav-skills', padding: 9, shape: 'rect' },
-    { id: 'open-skill-tree', targetId: 'skill-tree-open', padding: 9, shape: 'rect' },
     { id: 'choose-skill', targetId: 'skill-node-available', padding: 9, shape: 'rect' },
     { id: 'buy-skill', targetId: 'skill-buy', padding: 9, shape: 'rect' }
   ]
@@ -2676,7 +2675,12 @@ export class GameScene extends Phaser.Scene {
     this.modalTitleEl.textContent = translate(this.language, 'settings.sound');
     this.modalCopyEl.textContent = '';
     this.modalCopyEl.classList.add('is-hidden');
-    this.modalBodyEl.replaceChildren(...this.audioSettings.render(), this.createSwipeDirectionControl(), this.createResetDataControl());
+    this.modalBodyEl.replaceChildren(
+      ...this.audioSettings.render(),
+      this.createSwipeDirectionControl(),
+      this.createSettingsTestControl(),
+      this.createResetDataControl()
+    );
   }
 
   private createSwipeDirectionControl(): HTMLElement {
@@ -2735,6 +2739,38 @@ export class GameScene extends Phaser.Scene {
       : (this.language === 'pt-BR'
         ? 'Puxe e solte contra a direção do impulso. Toque/segure para atirar. WASD também voa.'
         : 'Pull and release against the boost direction. Touch/hold to fire. WASD also flies.');
+  }
+
+  private createSettingsTestControl(): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'settings-modal-control';
+
+    const heading = document.createElement('div');
+    heading.className = 'settings-control';
+    const title = document.createElement('span');
+    title.textContent = 'Teste';
+    const status = document.createElement('strong');
+    status.textContent = this.formatBossName('mothership');
+    heading.append(title, status);
+
+    const copy = document.createElement('p');
+    copy.className = 'settings-danger-copy input-mode-copy';
+    copy.textContent = this.language === 'pt-BR'
+      ? 'Ação temporária para playtestar encontros rapidamente.'
+      : 'Temporary action for quickly playtesting encounters.';
+
+    const button = document.createElement('button');
+    button.className = 'input-mode-option';
+    button.type = 'button';
+    button.textContent = 'Teste';
+    button.addEventListener('click', () => this.runSettingsTestAction());
+
+    wrapper.append(heading, copy, button);
+    return wrapper;
+  }
+
+  private runSettingsTestAction(): void {
+    this.summonTestMothership();
   }
 
   private createResetDataControl(): HTMLElement {
@@ -3296,6 +3332,32 @@ export class GameScene extends Phaser.Scene {
     this.updateHud();
   }
 
+  private summonTestMothership(): void {
+    const novaCrown = zones.find((zone) => zone.bossType === 'mothership') ?? getZoneByIndex(maxTravelLevel);
+
+    this.state.asteroids = this.state.asteroids.filter((asteroid) => !asteroid.bossType);
+    this.state.bossMinions = [];
+    this.state.pendingBoss = null;
+    const pendingBoss = createPendingBoss(this.state, 'mothership', novaCrown.index);
+    if (!pendingBoss) {
+      return;
+    }
+
+    this.state.pendingBoss = pendingBoss;
+    this.state.progression.bossDiscovery.rareBossProgress = 0;
+    this.closeModal();
+    emitReward(
+      this.state,
+      this.language === 'pt-BR'
+        ? `${this.formatBossName(pendingBoss.bossType)} chegando`
+        : `${this.formatBossName(pendingBoss.bossType)} incoming`,
+      'boss'
+    );
+    this.retroSound.play({ type: 'bossSummoned' });
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
   private switchShipFrame(id: ShipFrameId): void {
     if (id === this.state.progression.activeShipFrameId || !this.state.progression.unlockedShipFrameIds.includes(id)) {
       return;
@@ -3453,6 +3515,7 @@ export class GameScene extends Phaser.Scene {
       deflectorFrame: 'Estrutura Defletora',
       shieldBubble: 'Bolha de Escudo',
       bossBeacon: 'Sinalizador de Boss',
+      bossSuppression: 'Supressão de Boss',
       rangerHangar: 'Hangar Ranger',
       missileFoundry: 'Fundição de Mísseis'
     };

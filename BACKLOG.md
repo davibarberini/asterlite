@@ -4,21 +4,21 @@ Use this file as the source of truth for future feature work. Keep items small e
 
 ## Ready
 
-### Boss Personality Pass - Crusher Slice
+### Mothership Boss - Polish (reward, localization, tuning)
 
-Give Crusher a distinct telegraphed attack while preserving its chase identity.
+Finish the loose ends left after the mothership slice 1.
 
 Design:
-- Reuse the existing boss phase + telegraph state.
-- Add a slow heavy shockwave/ring attack that fits Crusher's bruiser identity.
-- Escalate the ring count, speed, or recovery by HP phase.
-- Keep Crusher's direct chase movement intact.
+- Localize the boss name: `formatBossName` in `GameScene.ts` returns hardcoded English ('Nova Matriarch'); route it through the i18n `translate` layer like other UI copy.
+- Add a distinct defeat reward for the Nova Crown gate mothership (e.g. bonus cores/crystals or an unlock), since it is a climax fight, not a normal gate boss.
+- Run a difficulty/readability tuning pass on `balance.bosses.mothership` after playtesting: ring/fan counts, bullet speeds, telegraph seconds, anchor offset, and HP.
+- Consider a spiral pattern as a third telegraphed attack if variety is still lacking.
 
 Acceptance:
-- Crusher gains an HP-based phase shift.
-- Crusher telegraphs before emitting the shockwave/ring attack.
-- Movement identity is preserved.
-- Add tests for phase shift and signature attack.
+- Boss name is localized (pt-BR and en-US).
+- Defeating the mothership grants a clearly special reward and stays serializable.
+- Balance numbers are reviewed against actual play and adjusted.
+- Tests updated if reward/logic changes.
 
 ### Boss Personality Pass - Prism Slice
 
@@ -35,22 +35,6 @@ Acceptance:
 - Prism telegraphs before emitting the ricochet lattice.
 - Movement identity is preserved.
 - Add tests for phase shift and signature attack.
-
-### Mothership Boss - Polish (reward, localization, tuning)
-
-Finish the loose ends left after the mothership slice 1.
-
-Design:
-- Localize the boss name: `formatBossName` in `GameScene.ts` returns hardcoded English ('Nova Matriarch'); route it through the i18n `translate` layer like other UI copy.
-- Add a distinct defeat reward for the Nova Crown gate mothership (e.g. bonus cores/crystals or an unlock), since it is a climax fight, not a normal gate boss.
-- Run a difficulty/readability tuning pass on `balance.bosses.mothership` after playtesting: ring/fan counts, bullet speeds, telegraph seconds, anchor offset, and HP.
-- Consider a spiral pattern as a third telegraphed attack if variety is still lacking.
-
-Acceptance:
-- Boss name is localized (pt-BR and en-US).
-- Defeating the mothership grants a clearly special reward and stays serializable.
-- Balance numbers are reviewed against actual play and adjusted.
-- Tests updated if reward/logic changes.
 
 ### Technology-Based Max Ship Level
 
@@ -91,12 +75,14 @@ Design:
 - Examples: faster asteroid drift, denser crystal pockets with higher threat, dense asteroid belts that favor piercing/missiles, or limited visibility storms.
 - Keep modifiers data-driven and visible in the map/zone UI.
 - Avoid adding hazards that obscure mobile readability.
+- Change visuals so each zone has identity, maybe a subtle dark color in the background? something the player can visually now he is in a diff zone.
 
 Acceptance:
 - Zone data defines at least one gameplay modifier.
 - The simulation applies the modifier through serializable zone state/data.
 - Map or HUD copy previews the modifier compactly.
 - Add tests for at least two zone modifier effects.
+- Zone has something that visually differs it from others
 
 ### Drone Loadout Presets
 
@@ -198,6 +184,26 @@ Started the chase boss personality pass with Sentinel.
 - Sentinel keeps its existing orbit movement identity.
 - Renderer draws a readable green precision-line telegraph.
 - Tests cover phase mapping, telegraph-before-fire, phase-3 density, and preserved movement.
+
+### Boss Personality Pass - Crusher Slice
+
+Continued the chase boss personality pass with Crusher.
+
+- Crusher now uses the shared HP phase mapping.
+- Crusher keeps its direct chase movement identity.
+- Added a telegraphed heavy shockwave ring attack.
+- Shockwaves escalate by phase with denser/faster rings and shorter recovery.
+- Renderer draws readable orange shockwave telegraph circles.
+- Tests cover telegraph-before-fire, direct chase preservation, and phase-3 density.
+
+### Mothership Boss - Test Action
+
+Added a temporary settings action to speed up Nova Matriarch playtesting.
+
+- Settings now includes a `Teste` button wired through `runSettingsTestAction`.
+- Current test action clears active boss entities/minions and summons a Nova Crown `mothership` pending boss.
+- Pending boss creation is reusable through `createPendingBoss`, keeping the test action on normal serializable boss state.
+- Tests cover direct pending mothership creation.
 
 ### Skill Tree Level Cap and Balance Pass
 

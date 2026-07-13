@@ -56,7 +56,9 @@ export const destroyAsteroid = (
     emitAudio(state, { type: 'bossDefeated' });
     emitAudio(state, { type: 'zoneUnlocked' });
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');
-    state.bullets = state.bullets.filter((bullet) => bullet.owner !== 'boss');
+    state.bullets = state.bullets.filter((bullet) =>
+      bullet.owner !== 'boss' && (asteroid.bossType !== 'mothership' || bullet.owner !== 'saucer')
+    );
     state.bossMinions = [];
   }
   if (emitPayoutEvent) {

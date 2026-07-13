@@ -24,18 +24,20 @@ const getPhaseValue = (values: readonly number[], phase: number): number =>
   values[clamp(phase - 1, 0, values.length - 1)];
 
 /**
- * Camera-anchored bullet-hell boss. Instead of chasing the ship like the other
- * bosses, the mothership hovers in the upper part of the screen (tracking the
- * ship horizontally) and cycles telegraphed attack patterns that escalate as its
- * HP drops. All state lives on the serializable `AsteroidState` boss entity.
+ * Camera-edge bullet-hell boss. Instead of chasing the ship like the other
+ * bosses, the mothership occupies the edge of the camera while staying partially
+ * out of frame. Phase transitions make it leave the current edge and re-enter
+ * from another angle. All state lives on the serializable `AsteroidState` boss
+ * entity.
  */
 export const updateMothership = (state: GameState, boss: AsteroidState, dt: number): void => {
   const cfg = balance.bosses.mothership;
 
-  anchorToCamera(state, boss, cfg, dt);
   updateMothershipMinions(state, dt);
 
   const phase = getMothershipPhase(boss.hp / Math.max(1, boss.maxHp));
+  updateEdgeAnchorState(state, boss, phase, dt);
+  anchorToCameraEdge(state, boss, cfg, dt);
   boss.bossPhase = phase;
   if ((boss.bossBeamFor ?? 0) > 0) {
     updateMothershipBeam(state, boss, dt);
@@ -65,18 +67,85 @@ export const updateMothership = (state: GameState, boss: AsteroidState, dt: numb
   beginNextAttack(state, boss, cfg);
 };
 
-const anchorToCamera = (
+const updateEdgeAnchorState = (state: GameState, boss: AsteroidState, phase: number, dt: number): void => {
+  if (boss.bossEdgeAngle === undefined) {
+    boss.bossEdgeAngle = Math.atan2(boss.position.y - state.camera.y, boss.position.x - state.camera.x);
+  }
+  if (boss.bossLastPhase === undefined) {
+    boss.bossLastPhase = phase;
+  }
+  if (boss.bossLastPhase !== phase) {
+    beginEdgeRetreat(boss, phase);
+  }
+  const wasRetreating = (boss.bossRetreatFor ?? 0) > 0;
+  boss.bossRetreatFor = Math.max(0, (boss.bossRetreatFor ?? 0) - dt);
+  if (wasRetreating && (boss.bossRetreatFor ?? 0) <= 0 && boss.bossNextEdgeAngle !== undefined) {
+    boss.bossEdgeAngle = boss.bossNextEdgeAngle;
+    boss.bossNextEdgeAngle = undefined;
+    const entry = getCameraEdgePosition(state, boss.radius, boss.bossEdgeAngle, balance.bosses.mothership.edgeVisibleRadiusMultiplier, 1);
+    boss.position.x = entry.x;
+    boss.position.y = entry.y;
+    boss.velocity.x = 0;
+    boss.velocity.y = 0;
+  }
+};
+
+const beginEdgeRetreat = (boss: AsteroidState, phase: number): void => {
+  const cfg = balance.bosses.mothership;
+  boss.bossLastPhase = phase;
+  boss.bossRetreatFor = cfg.edgeRetreatSeconds;
+  boss.bossNextEdgeAngle = normalizeAngle((boss.bossEdgeAngle ?? 0) + cfg.edgeReentryAngleStep + phase * 0.37);
+};
+
+const anchorToCameraEdge = (
   state: GameState,
   boss: AsteroidState,
   cfg: typeof balance.bosses.mothership,
   _dt: number
 ): void => {
-  const trackBand = state.width * cfg.anchorHorizontalTrack;
-  const targetX = state.camera.x + clamp(state.ship.position.x - state.camera.x, -trackBand, trackBand);
-  const targetY = state.camera.y + state.height * cfg.anchorScreenOffsetY;
+  const angle = boss.bossEdgeAngle ?? 0;
+  const retreatProgress = cfg.edgeRetreatSeconds > 0
+    ? clamp((boss.bossRetreatFor ?? 0) / cfg.edgeRetreatSeconds, 0, 1)
+    : 0;
+  const target = getCameraEdgePosition(state, boss.radius, angle, cfg.edgeVisibleRadiusMultiplier, retreatProgress);
 
-  boss.velocity.x = (targetX - boss.position.x) * cfg.anchorGlideSpeed;
-  boss.velocity.y = (targetY - boss.position.y) * cfg.anchorGlideSpeed;
+  boss.velocity.x = (target.x - boss.position.x) * cfg.anchorGlideSpeed;
+  boss.velocity.y = (target.y - boss.position.y) * cfg.anchorGlideSpeed;
+  if (distance(boss.position, target) > Math.max(state.width, state.height) * 1.4) {
+    boss.position.x = target.x;
+    boss.position.y = target.y;
+    boss.velocity.x = 0;
+    boss.velocity.y = 0;
+  }
+  boss.rotation = Math.atan2(state.ship.position.y - boss.position.y, state.ship.position.x - boss.position.x);
+};
+
+const getCameraEdgePosition = (
+  state: GameState,
+  radius: number,
+  angle: number,
+  visibleRadiusMultiplier: number,
+  retreatProgress: number
+): Vec2 => {
+  const dir = { x: Math.cos(angle), y: Math.sin(angle) };
+  const halfWidth = state.width / 2;
+  const halfHeight = state.height / 2;
+  const boundaryDistance = Math.min(
+    Math.abs(dir.x) > 0.0001 ? halfWidth / Math.abs(dir.x) : Number.POSITIVE_INFINITY,
+    Math.abs(dir.y) > 0.0001 ? halfHeight / Math.abs(dir.y) : Number.POSITIVE_INFINITY
+  );
+  const visibleOffset = radius * (1 - visibleRadiusMultiplier);
+  const retreatOffset = radius * 1.45 * retreatProgress;
+  const distanceFromCamera = boundaryDistance + visibleOffset + retreatOffset;
+  return {
+    x: state.camera.x + dir.x * distanceFromCamera,
+    y: state.camera.y + dir.y * distanceFromCamera
+  };
+};
+
+const normalizeAngle = (angle: number): number => {
+  const fullTurn = Math.PI * 2;
+  return ((angle % fullTurn) + fullTurn) % fullTurn;
 };
 
 const beginNextAttack = (
@@ -92,10 +161,8 @@ const beginNextAttack = (
   boss.bossPatternCursor = cursor + 1;
   boss.bossTelegraphKind = kind;
   boss.bossTelegraphFor = kind === 'beam' ? cfg.beamTelegraphSeconds : cfg.telegraphSeconds;
-  boss.bossAimAngle = Math.atan2(
-    state.ship.position.y - boss.position.y,
-    state.ship.position.x - boss.position.x
-  );
+  const origin = getMothershipMuzzlePosition(state, boss);
+  boss.bossAimAngle = Math.atan2(state.ship.position.y - origin.y, state.ship.position.x - origin.x);
 };
 
 const fireMothershipAttack = (state: GameState, boss: AsteroidState, phase: number): void => {
@@ -125,6 +192,7 @@ const fireRing = (state: GameState, boss: AsteroidState, phase: number): void =>
   const cursor = boss.bossPatternCursor ?? 0;
   const spin = cursor * cfg.ringSpinPerCast;
   const gapStart = cursor % count;
+  const origin = getMothershipMuzzlePosition(state, boss);
 
   for (let i = 0; i < count; i += 1) {
     const withinGap = (i - gapStart + count) % count < cfg.ringGapSlots;
@@ -132,7 +200,7 @@ const fireRing = (state: GameState, boss: AsteroidState, phase: number): void =>
       continue;
     }
     const angle = spin + (i / count) * Math.PI * 2;
-    fireBullet(state, 'boss', boss.position, angle, cfg.ringBulletSpeed, damage);
+    fireBullet(state, 'boss', origin, angle, cfg.ringBulletSpeed, damage);
   }
 };
 
@@ -190,6 +258,7 @@ const isShipInsideBeam = (state: GameState, boss: AsteroidState): boolean => {
 const summonMinions = (state: GameState, boss: AsteroidState, phase: number): void => {
   const cfg = balance.bosses.mothership;
   const count = getPhaseValue(cfg.summonCountByPhase, phase);
+  const origin = getMothershipMuzzlePosition(state, boss);
   for (let index = 0; index < count; index += 1) {
     const side = index % 2 === 0 ? -1 : 1;
     const lane = Math.floor(index / 2);
@@ -198,8 +267,8 @@ const summonMinions = (state: GameState, boss: AsteroidState, phase: number): vo
       y: side * (boss.radius * 0.62 + lane * 9)
     };
     const position = {
-      x: boss.position.x + offset.x,
-      y: boss.position.y + offset.y
+      x: origin.x + offset.x,
+      y: origin.y + offset.y
     };
     const towardShip = normalize({
       x: state.ship.position.x - position.x,
@@ -262,14 +331,28 @@ const fireAimedFan = (state: GameState, boss: AsteroidState, phase: number): voi
   const cfg = balance.bosses.mothership;
   const count = getPhaseValue(cfg.fanBulletsByPhase, phase);
   const damage = getPhaseValue(cfg.bulletDamageByPhase, phase);
-  const base = boss.bossAimAngle ?? Math.atan2(
-    state.ship.position.y - boss.position.y,
-    state.ship.position.x - boss.position.x
-  );
+  const origin = getMothershipMuzzlePosition(state, boss);
+  const base = boss.bossAimAngle ?? Math.atan2(state.ship.position.y - origin.y, state.ship.position.x - origin.x);
   const step = count > 1 ? cfg.fanSpreadRadians / (count - 1) : 0;
 
   for (let i = 0; i < count; i += 1) {
     const angle = base - cfg.fanSpreadRadians / 2 + step * i;
-    fireBullet(state, 'boss', boss.position, angle, cfg.fanBulletSpeed, damage);
+    fireBullet(state, 'boss', origin, angle, cfg.fanBulletSpeed, damage);
   }
+};
+
+const getMothershipMuzzlePosition = (state: GameState, boss: AsteroidState): Vec2 => {
+  const toShip = normalize({
+    x: state.ship.position.x - boss.position.x,
+    y: state.ship.position.y - boss.position.y
+  });
+  const raw = {
+    x: boss.position.x + toShip.x * boss.radius * 0.72,
+    y: boss.position.y + toShip.y * boss.radius * 0.72
+  };
+  const margin = balance.weapons.bulletCullMargin + balance.weapons.spawnOffset + 8;
+  return {
+    x: clamp(raw.x, state.camera.x - state.width / 2 + margin, state.camera.x + state.width / 2 - margin),
+    y: clamp(raw.y, state.camera.y - state.height / 2 + margin, state.camera.y + state.height / 2 - margin)
+  };
 };

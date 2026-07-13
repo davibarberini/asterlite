@@ -27,6 +27,7 @@ const talentCompactNodeWidth = 72;
 const talentCompactNodeHeight = 72;
 const talentMinZoom = 0.62;
 const talentMaxZoom = 1.45;
+const talentDragThresholdPx = 7;
 const droneRegionBounds = {
   colStart: 8,
   rowStart: 1,
@@ -119,6 +120,7 @@ export class SkillTreeModalController {
     }
     | null = null;
   private suppressNextTalentClick = false;
+  private lastTalentPointerSelection = false;
   private readonly nodeById = new Map<TalentId, HTMLButtonElement>();
 
   render(state: SkillTreeRenderState): HTMLElement {
@@ -251,7 +253,7 @@ export class SkillTreeModalController {
 
       const dx = event.clientX - this.drag.startX;
       const dy = event.clientY - this.drag.startY;
-      if (!this.drag.moved && Math.hypot(dx, dy) > 5) {
+      if (!this.drag.moved && Math.hypot(dx, dy) > talentDragThresholdPx) {
         this.drag.moved = true;
         this.suppressNextTalentClick = true;
         this.board?.classList.add('is-panning');
@@ -501,30 +503,29 @@ export class SkillTreeModalController {
     const toggleTalent = (): void => {
       state.onSelectTalent(this.selectedTalentId === id ? null : id);
     };
-    let handledPointerSelection = false;
     node.addEventListener('pointerdown', (event) => {
-      if (event.pointerType !== 'mouse') {
-        event.preventDefault();
+      if (event.button !== 0) {
+        return;
       }
+      this.lastTalentPointerSelection = false;
     });
     node.addEventListener('pointerup', (event) => {
-      if (event.pointerType !== 'mouse') {
-        event.preventDefault();
-        handledPointerSelection = true;
-        if (this.drag?.moved || this.pinch?.moved) {
-          this.suppressNextTalentClick = false;
-          return;
-        }
-        toggleTalent();
+      if (event.button !== 0) {
+        return;
       }
+      this.lastTalentPointerSelection = true;
+      if (this.drag?.moved || this.pinch?.moved) {
+        return;
+      }
+      toggleTalent();
     });
     node.addEventListener('click', () => {
       if (this.suppressNextTalentClick) {
         this.suppressNextTalentClick = false;
         return;
       }
-      if (handledPointerSelection) {
-        handledPointerSelection = false;
+      if (this.lastTalentPointerSelection) {
+        this.lastTalentPointerSelection = false;
         return;
       }
       toggleTalent();

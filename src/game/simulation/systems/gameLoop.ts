@@ -1,6 +1,7 @@
 import type { GameState, Vec2 } from '../types';
 import type { InputActions } from '../../input/actions';
-import { createAsteroid, createPendingZoneBoss, getAsteroidSpawnPosition, getAsteroidTargetCount, hasActiveZoneBoss } from './asteroids';
+import { distance } from '../vector';
+import { createAsteroid, createPendingZoneBoss, getAsteroidSpawnPosition, getAsteroidTargetCount, hasActiveZoneBoss, isBossAsteroidSuppressionActive } from './asteroids';
 import { resolveCollisions } from './collisions';
 import { updateDrones } from './drones';
 import { updateBosses, updatePendingBoss, updateSaucer } from './enemies';
@@ -160,6 +161,18 @@ const maintainAsteroidField = (state: GameState): void => {
   }
 
   const targetCount = getAsteroidTargetCount(state);
+  if (isBossAsteroidSuppressionActive(state) && state.asteroids.length > targetCount) {
+    const removableCount = state.asteroids.filter((asteroid) => !asteroid.bossType).length;
+    const removeCount = Math.min(removableCount, state.asteroids.length - targetCount);
+    const removeIds = new Set(
+      state.asteroids
+        .filter((asteroid) => !asteroid.bossType)
+        .sort((a, b) => distance(b.position, state.ship.position) - distance(a.position, state.ship.position))
+        .slice(0, removeCount)
+        .map((asteroid) => asteroid.id)
+    );
+    state.asteroids = state.asteroids.filter((asteroid) => !removeIds.has(asteroid.id));
+  }
   while (state.asteroids.length < targetCount) {
     state.asteroids.push(createAsteroid(state, 'large', getAsteroidSpawnPosition(state)));
   }

@@ -82,6 +82,19 @@ export const updateBosses = (state: GameState, dt: number): void => {
       boss.bossFireCooldown = getSentinelCooldown(boss, phase);
       return;
     }
+    if (boss.bossType === 'crusher' && (boss.bossTelegraphFor ?? 0) > 0) {
+      const next = (boss.bossTelegraphFor ?? 0) - dt;
+      if (next > 0) {
+        boss.bossTelegraphFor = next;
+        return;
+      }
+
+      boss.bossTelegraphFor = 0;
+      fireCrusherShockwave(state, boss, phase);
+      boss.bossTelegraphKind = undefined;
+      boss.bossFireCooldown = getCrusherCooldown(boss, phase);
+      return;
+    }
 
     boss.bossFireCooldown = Math.max(0, (boss.bossFireCooldown ?? 0) - dt);
     if (boss.bossFireCooldown > 0) {
@@ -92,6 +105,13 @@ export const updateBosses = (state: GameState, dt: number): void => {
       const sentinelStats = balance.bosses.stats.sentinel;
       boss.bossTelegraphKind = 'sentinelVolley';
       boss.bossTelegraphFor = sentinelStats.signatureTelegraphSeconds;
+      boss.bossAimAngle = shipAngle;
+      return;
+    }
+    if (boss.bossType === 'crusher') {
+      const crusherStats = balance.bosses.stats.crusher;
+      boss.bossTelegraphKind = 'crusherShockwave';
+      boss.bossTelegraphFor = crusherStats.signatureTelegraphSeconds;
       boss.bossAimAngle = shipAngle;
       return;
     }
@@ -113,6 +133,32 @@ export const updateBosses = (state: GameState, dt: number): void => {
     });
     boss.bossFireCooldown = Math.max(bossStats.fireCooldownMin, bossStats.fireCooldownBase - (boss.bossZoneIndex ?? 0) * bossStats.fireCooldownPerZone);
   });
+};
+
+const getCrusherCooldown = (boss: AsteroidState, phase: number): number => {
+  const stats = balance.bosses.stats.crusher;
+  const base = Math.max(stats.fireCooldownMin, stats.fireCooldownBase - (boss.bossZoneIndex ?? 0) * stats.fireCooldownPerZone);
+  return base * getPhaseValue(stats.signatureCooldownMultiplierByPhase, phase);
+};
+
+const fireCrusherShockwave = (state: GameState, boss: AsteroidState, phase: number): void => {
+  const stats = balance.bosses.stats.crusher;
+  const count = getPhaseValue(stats.signatureBulletCountByPhase, phase);
+  const speed = getPhaseValue(stats.signatureBulletSpeedByPhase, phase);
+  const damage = stats.bulletDamage * stats.signatureDamageMultiplier;
+  const spin = (boss.bossPatternCursor ?? 0) * 0.18;
+  boss.bossPatternCursor = (boss.bossPatternCursor ?? 0) + 1;
+
+  for (let index = 0; index < count; index += 1) {
+    fireBullet(
+      state,
+      'boss',
+      boss.position,
+      spin + (index / count) * Math.PI * 2,
+      speed,
+      damage
+    );
+  }
 };
 
 const getSentinelCooldown = (boss: AsteroidState, phase: number): number => {

@@ -352,7 +352,7 @@
   width: 54px;
   min-height: 54px;
   padding: 0;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .talent-node--compact.is-selected {

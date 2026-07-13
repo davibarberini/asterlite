@@ -7,7 +7,7 @@ export type AsteroidSize = 'large' | 'medium' | 'small';
 export type AsteroidVariant = 'common' | 'metallic' | 'crystal' | 'dense';
 export type BossType = 'sentinel' | 'crusher' | 'prism' | 'mothership';
 
-export type BossAttackKind = 'ring' | 'aimedFan' | 'beam' | 'summon' | 'sentinelVolley';
+export type BossAttackKind = 'ring' | 'aimedFan' | 'beam' | 'summon' | 'sentinelVolley' | 'crusherShockwave';
 export type DroneType = 'sentry' | 'ranger' | 'breaker';
 export type ShipFrameId =
   | 'vector'
@@ -55,6 +55,7 @@ export type WarpUnlockId =
   | 'deflectorFrame'
   | 'shieldBubble'
   | 'bossBeacon'
+  | 'bossSuppression'
   | 'rangerHangar'
   | 'missileFoundry';
 export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet' | 'ricochet' | 'playerRicochet';
@@ -116,6 +117,10 @@ export type AsteroidState = {
   bossBeamAngle?: number;
   bossBeamSweepDirection?: number;
   bossBeamHitCooldown?: number;
+  bossEdgeAngle?: number;
+  bossNextEdgeAngle?: number;
+  bossRetreatFor?: number;
+  bossLastPhase?: number;
 };
 
 export type PendingBossState = {

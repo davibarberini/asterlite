@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createGameState } from '../simulation/state';
 import { getMothershipPhase, updateMothership } from '../simulation/systems/bossMothership';
+import { resolveCollisions } from '../simulation/systems/collisions';
 import { getChaseBossPhase, updateBosses } from '../simulation/systems/enemies';
 import type { AsteroidState, GameState } from '../simulation/types';
 
@@ -10,7 +11,7 @@ const createMothership = (overrides: Partial<AsteroidState> = {}): AsteroidState
   velocity: { x: 0, y: 0 },
   rotation: 0,
   rotationSpeed: 0.18,
-  radius: 128,
+  radius: 256,
   size: 'large',
   variant: 'dense',
   hp: 200,
@@ -40,6 +41,24 @@ const createSentinel = (overrides: Partial<AsteroidState> = {}): AsteroidState =
   ...overrides
 });
 
+const createCrusher = (overrides: Partial<AsteroidState> = {}): AsteroidState => ({
+  id: 3,
+  position: { x: 260, y: 0 },
+  velocity: { x: 0, y: 0 },
+  rotation: 0,
+  rotationSpeed: -0.8,
+  radius: 92,
+  size: 'large',
+  variant: 'dense',
+  hp: 140,
+  maxHp: 140,
+  shape: [1, 1, 1],
+  bossType: 'crusher',
+  bossZoneIndex: 1,
+  bossFireCooldown: 0,
+  ...overrides
+});
+
 const centerState = (): GameState => {
   const state = createGameState(800, 600);
   state.camera = { x: 0, y: 0 };
@@ -58,13 +77,12 @@ describe('mothership boss', () => {
     expect(getMothershipPhase(0.05)).toBe(3);
   });
 
-  it('steers toward a camera-relative anchor above the ship instead of chasing', () => {
+  it('anchors partially outside the camera edge instead of chasing the ship', () => {
     const state = centerState();
     const boss = createMothership();
 
     updateMothership(state, boss, 0.016);
 
-    // Anchor sits up and toward the camera, so it should pull the boss up-left.
     expect(boss.velocity.x).toBeLessThan(0);
     expect(boss.velocity.y).toBeLessThan(0);
 
@@ -74,8 +92,54 @@ describe('mothership boss', () => {
       boss.position.y += boss.velocity.y * 0.05;
     }
 
-    expect(Math.abs(boss.position.x)).toBeLessThan(40);
-    expect(boss.position.y).toBeLessThan(0);
+    expect(Math.abs(boss.position.x) > state.width / 2 || Math.abs(boss.position.y) > state.height / 2).toBe(true);
+    const aimDelta = Math.atan2(
+      Math.sin(Math.atan2(state.ship.position.y - boss.position.y, state.ship.position.x - boss.position.x) - boss.rotation),
+      Math.cos(Math.atan2(state.ship.position.y - boss.position.y, state.ship.position.x - boss.position.x) - boss.rotation)
+    );
+    expect(Math.abs(aimDelta)).toBeLessThan(0.2);
+  });
+
+  it('does not retreat out of view just because a new attack starts', () => {
+    const state = centerState();
+    const boss = createMothership({
+      position: { x: state.width / 2 + 80, y: 0 },
+      bossEdgeAngle: 0,
+      bossLastPhase: 1,
+      bossFireCooldown: 0
+    });
+
+    updateMothership(state, boss, 0.016);
+
+    expect(boss.bossTelegraphKind).toBeDefined();
+    expect(boss.bossRetreatFor ?? 0).toBe(0);
+    expect(boss.bossNextEdgeAngle).toBeUndefined();
+    expect(boss.bossEdgeAngle).toBe(0);
+  });
+
+  it('retreats out of view and re-enters from a new camera edge on HP phase changes', () => {
+    const state = centerState();
+    const boss = createMothership({
+      position: { x: state.width / 2 + 80, y: 0 },
+      hp: 100,
+      maxHp: 200,
+      bossEdgeAngle: 0,
+      bossLastPhase: 1,
+      bossFireCooldown: 1
+    });
+
+    updateMothership(state, boss, 0.016);
+
+    expect(boss.bossRetreatFor ?? 0).toBeGreaterThan(0);
+    expect(boss.bossNextEdgeAngle).toBeDefined();
+    expect(boss.bossEdgeAngle).toBe(0);
+
+    updateMothership(state, boss, 0.8);
+
+    expect(boss.bossRetreatFor).toBe(0);
+    expect(boss.bossNextEdgeAngle).toBeUndefined();
+    expect(boss.bossEdgeAngle).not.toBe(0);
+    expect(Math.abs(boss.position.x) > state.width / 2 || Math.abs(boss.position.y) > state.height / 2).toBe(true);
   });
 
   it('telegraphs an attack before firing any bullets', () => {
@@ -93,6 +157,26 @@ describe('mothership boss', () => {
     expect(state.bullets.length).toBeGreaterThan(0);
     expect(boss.bossTelegraphFor).toBe(0);
     expect(boss.bossFireCooldown ?? 0).toBeGreaterThan(0);
+  });
+
+  it('fires the opening ring from the visible camera edge', () => {
+    const state = centerState();
+    const boss = createMothership({
+      position: { x: state.width / 2 + 96, y: 0 },
+      bossEdgeAngle: 0,
+      bossTelegraphKind: 'ring',
+      bossTelegraphFor: 0.01
+    });
+
+    updateMothership(state, boss, 1);
+
+    expect(state.bullets.length).toBeGreaterThan(0);
+    expect(state.bullets.some((bullet) =>
+      bullet.position.x >= state.camera.x - state.width / 2 &&
+      bullet.position.x <= state.camera.x + state.width / 2 &&
+      bullet.position.y >= state.camera.y - state.height / 2 &&
+      bullet.position.y <= state.camera.y + state.height / 2
+    )).toBe(true);
   });
 
   it('fires denser ring volleys in later phases', () => {
@@ -172,6 +256,58 @@ describe('mothership boss', () => {
     expect(phase3State.bullets.length).toBeGreaterThan(phase1State.bullets.length);
     expect(phase3State.bossMinions.length).toBeGreaterThan(0);
   });
+
+  it('removes Mothership seekers when the mothership is defeated', () => {
+    const state = centerState();
+    const boss = createMothership({ hp: 1, maxHp: 200 });
+    state.asteroids = [boss];
+    state.bossMinions = [
+      {
+        id: 90,
+        position: { x: 20, y: 20 },
+        velocity: { x: 0, y: 0 },
+        radius: 14,
+        hp: 10,
+        maxHp: 10,
+        damage: 14,
+        fireCooldown: 1,
+        alive: true
+      }
+    ];
+    state.bullets = [
+      {
+        id: 81,
+        owner: 'player',
+        position: { ...boss.position },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 8,
+        damage: 4,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      },
+      {
+        id: 82,
+        owner: 'saucer',
+        position: { x: 40, y: 40 },
+        velocity: { x: 0, y: 0 },
+        age: 0,
+        radius: 6,
+        damage: 10,
+        pierceLeft: 0,
+        ricochetLeft: 0,
+        kind: 'standard',
+        homingTargetId: null
+      }
+    ];
+
+    resolveCollisions(state);
+
+    expect(state.bossMinions).toHaveLength(0);
+    expect(state.bullets.every((bullet) => bullet.owner !== 'boss' && bullet.owner !== 'saucer')).toBe(true);
+  });
 });
 
 describe('chase boss personalities', () => {
@@ -220,6 +356,48 @@ describe('chase boss personalities', () => {
     const phase3Bullets = fireSentinelVolley(20);
 
     expect(phase1Bullets).toBe(1);
+    expect(phase3Bullets).toBeGreaterThan(phase1Bullets);
+  });
+
+  it('telegraphs Crusher shockwave before firing while preserving direct chase', () => {
+    const state = centerState();
+    const boss = createCrusher();
+    state.asteroids = [boss];
+
+    updateBosses(state, 0.016);
+
+    expect(boss.bossPhase).toBe(1);
+    expect(boss.bossTelegraphKind).toBe('crusherShockwave');
+    expect(boss.bossTelegraphFor ?? 0).toBeGreaterThan(0);
+    expect(state.bullets).toHaveLength(0);
+    expect(boss.velocity.x).toBeLessThan(0);
+    expect(Math.abs(boss.velocity.y)).toBeLessThan(1);
+
+    updateBosses(state, 1);
+
+    expect(boss.bossTelegraphFor).toBe(0);
+    expect(boss.bossFireCooldown ?? 0).toBeGreaterThan(0);
+    expect(state.bullets).toHaveLength(8);
+  });
+
+  it('fires denser Crusher shockwaves in phase 3', () => {
+    const fireCrusherShockwave = (hp: number): number => {
+      const state = centerState();
+      const boss = createCrusher({
+        hp,
+        maxHp: 140,
+        bossTelegraphKind: 'crusherShockwave',
+        bossTelegraphFor: 0.01
+      });
+      state.asteroids = [boss];
+      updateBosses(state, 1);
+      return state.bullets.length;
+    };
+
+    const phase1Bullets = fireCrusherShockwave(140);
+    const phase3Bullets = fireCrusherShockwave(20);
+
+    expect(phase1Bullets).toBe(8);
     expect(phase3Bullets).toBeGreaterThan(phase1Bullets);
   });
 });

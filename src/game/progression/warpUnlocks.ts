@@ -17,6 +17,8 @@ export type WarpUnlockNodeState = 'owned' | 'available' | 'locked' | 'unaffordab
 
 export const WARP_UNLOCK_GRID_COLUMNS = 3;
 export const WARP_UNLOCK_GRID_ROWS = 6;
+export const bossSuppressionAsteroidTargetMultiplier = 0.55;
+export const bossSuppressionMinimumAsteroidTarget = 4;
 
 export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
   {
@@ -42,6 +44,18 @@ export const WARP_UNLOCK_DEFINITIONS: WarpUnlockDefinition[] = [
     cost: 2,
     route: { col: 1, row: 2 },
     requires: ['droneSystems']
+  },
+  {
+    id: 'bossSuppression',
+    title: 'Boss Suppression',
+    summary: 'Diverts asteroid traffic while a gate boss is active.',
+    effectSummary: 'Reduces asteroid density during active boss fights.',
+    impactTarget: 'boss',
+    impactDetail: 'Boss encounters: fewer asteroids remain in the arena while a boss is active.',
+    iconId: 'warp-boss',
+    cost: 3,
+    route: { col: 3, row: 2 },
+    requires: ['bossBeacon']
   },
   {
     id: 'deflectorFrame',

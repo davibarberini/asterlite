@@ -273,7 +273,7 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
       syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
       state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
       state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
-      state.bossMinions = nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id) && state.phase !== 'respawning');
+      state.bossMinions = getNextBossMinions(state, nextAsteroids, nextBossMinions, destroyedAsteroidIds, destroyedBossMinionIds);
       state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
       return;
     }
@@ -312,14 +312,30 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
 
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
-  state.bossMinions = nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id) && state.phase !== 'respawning');
+  state.bossMinions = getNextBossMinions(state, nextAsteroids, nextBossMinions, destroyedAsteroidIds, destroyedBossMinionIds);
   applyShipAuraDamage(state, dt, destroyedAsteroidIds, destroyedHazardIds, nextAsteroids, nextHazards);
   updateLevelShockwaves(state, dt, destroyedAsteroidIds, nextAsteroids);
   state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
-  state.bossMinions = nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id) && state.phase !== 'respawning');
+  state.bossMinions = getNextBossMinions(state, nextAsteroids, nextBossMinions, destroyedAsteroidIds, destroyedBossMinionIds);
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
   syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
+};
+
+const getNextBossMinions = (
+  state: GameState,
+  nextAsteroids: GameState['asteroids'],
+  nextBossMinions: GameState['bossMinions'],
+  destroyedAsteroidIds: Set<number>,
+  destroyedBossMinionIds: Set<number>
+): GameState['bossMinions'] => {
+  const mothershipDestroyed = nextAsteroids.some((asteroid) =>
+    asteroid.bossType === 'mothership' && destroyedAsteroidIds.has(asteroid.id)
+  );
+  if (mothershipDestroyed || state.phase === 'respawning') {
+    return [];
+  }
+  return nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id));
 };
 
 const syncCollisionShipUnlocks = (state: GameState, asteroidDestroyCountBefore: number): void => {

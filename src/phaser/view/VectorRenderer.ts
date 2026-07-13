@@ -644,14 +644,14 @@ export class VectorRenderer {
         ]
       : boss.bossType === 'mothership'
       ? [
-          { x: 30, y: 0 },
-          { x: 20, y: -30 },
-          { x: -14, y: -46 },
-          { x: -44, y: -26 },
-          { x: -52, y: 0 },
-          { x: -44, y: 26 },
-          { x: -14, y: 46 },
-          { x: 20, y: 30 }
+          { x: 44, y: 0 },
+          { x: 22, y: -19 },
+          { x: -34, y: -24 },
+          { x: -70, y: -12 },
+          { x: -86, y: 0 },
+          { x: -70, y: 12 },
+          { x: -34, y: 24 },
+          { x: 22, y: 19 }
         ]
       : boss.bossType === 'prism'
         ? [
@@ -692,6 +692,9 @@ export class VectorRenderer {
     const rightWing = this.rotatePoint(-20 * scale, 20 * scale, boss.rotation, x, y);
     this.graphics.lineStyle(2, primary, 0.56);
     this.graphics.lineBetween(leftWing.x, leftWing.y, rightWing.x, rightWing.y);
+    if (boss.bossType === 'mothership') {
+      this.drawMothershipClaws(state, boss, x, y, scale, viewScale, primary, secondary);
+    }
 
     if (boss.hp < boss.maxHp) {
       const alpha = 0.26 + (1 - boss.hp / boss.maxHp) * 0.34;
@@ -700,13 +703,30 @@ export class VectorRenderer {
     }
 
     if (boss.bossType === 'mothership' && (boss.bossTelegraphFor ?? 0) > 0) {
-      this.drawMothershipTelegraph(boss, x, y, viewScale);
+      this.drawMothershipTelegraph(state, boss, x, y, viewScale);
     }
     if (boss.bossType === 'sentinel' && boss.bossTelegraphKind === 'sentinelVolley' && (boss.bossTelegraphFor ?? 0) > 0) {
       this.drawSentinelTelegraph(boss, x, y, viewScale);
     }
+    if (boss.bossType === 'crusher' && boss.bossTelegraphKind === 'crusherShockwave' && (boss.bossTelegraphFor ?? 0) > 0) {
+      this.drawCrusherTelegraph(boss, x, y, viewScale);
+    }
     if (boss.bossType === 'mothership' && (boss.bossBeamFor ?? 0) > 0) {
       this.drawMothershipBeam(state, boss, x, y, viewScale);
+    }
+  }
+
+  private drawCrusherTelegraph(boss: AsteroidState, x: number, y: number, viewScale: number): void {
+    const warn = 0.36 + 0.36 * Math.abs(Math.sin((boss.bossTelegraphFor ?? 0) * 13));
+    const phase = boss.bossPhase ?? 1;
+    const radius = boss.radius * (1.02 + phase * 0.16) * viewScale;
+    this.graphics.lineStyle(4, 0xff8b6b, warn);
+    this.graphics.strokeCircle(x, y, radius);
+    this.graphics.lineStyle(2, 0xfff1a8, warn * 0.52);
+    this.graphics.strokeCircle(x, y, radius * 0.72);
+    if (phase >= 3) {
+      this.graphics.lineStyle(1, 0xff8b6b, warn * 0.34);
+      this.graphics.strokeCircle(x, y, radius * 1.24);
     }
   }
 
@@ -726,22 +746,141 @@ export class VectorRenderer {
     this.graphics.lineBetween(x, y, x + Math.cos(aim + spread / 2) * length, y + Math.sin(aim + spread / 2) * length);
   }
 
-  private drawMothershipTelegraph(boss: AsteroidState, x: number, y: number, viewScale: number): void {
+  private drawMothershipTelegraph(state: GameState, boss: AsteroidState, x: number, y: number, viewScale: number): void {
     const warn = 0.32 + 0.42 * Math.abs(Math.sin((boss.bossTelegraphFor ?? 0) * 12));
     const warnColor = 0xff5cc8;
+    const muzzle = this.getMothershipMuzzleScreenPosition(state, boss, viewScale);
 
-    if (boss.bossTelegraphKind === 'aimedFan' || boss.bossTelegraphKind === 'beam') {
+    if (boss.bossTelegraphKind === 'beam') {
       const aim = boss.bossAimAngle ?? 0;
-      const length = boss.bossTelegraphKind === 'beam'
-        ? Math.max(window.innerWidth, window.innerHeight) * 0.8
-        : boss.radius * 2.8 * viewScale;
-      this.graphics.lineStyle(boss.bossTelegraphKind === 'beam' ? 7 : 3, warnColor, warn);
+      const length = Math.max(window.innerWidth, window.innerHeight) * 0.8;
+      this.graphics.lineStyle(7, warnColor, warn);
       this.graphics.lineBetween(x, y, x + Math.cos(aim) * length, y + Math.sin(aim) * length);
       return;
     }
 
+    if (boss.bossTelegraphKind === 'aimedFan') {
+      const aim = boss.bossAimAngle ?? 0;
+      const length = boss.radius * 1.35 * viewScale;
+      const spread = balance.bosses.mothership.fanSpreadRadians;
+      this.graphics.lineStyle(2, warnColor, warn * 0.66);
+      this.graphics.lineBetween(muzzle.x, muzzle.y, muzzle.x + Math.cos(aim) * length, muzzle.y + Math.sin(aim) * length);
+      this.graphics.lineStyle(1, 0xffd0f0, warn * 0.42);
+      this.graphics.lineBetween(muzzle.x, muzzle.y, muzzle.x + Math.cos(aim - spread / 2) * length, muzzle.y + Math.sin(aim - spread / 2) * length);
+      this.graphics.lineBetween(muzzle.x, muzzle.y, muzzle.x + Math.cos(aim + spread / 2) * length, muzzle.y + Math.sin(aim + spread / 2) * length);
+      return;
+    }
+
+    if (boss.bossTelegraphKind === 'summon') {
+      const phase = boss.bossPhase ?? 1;
+      const count = phase >= 3 ? 4 : 2;
+      const forward = {
+        x: Math.cos(boss.rotation),
+        y: Math.sin(boss.rotation)
+      };
+      const side = {
+        x: -forward.y,
+        y: forward.x
+      };
+      const spacing = 34 * viewScale;
+      const portalRadius = 12 * viewScale;
+      this.graphics.lineStyle(2, 0xfff1a8, warn * 0.46);
+      for (let index = 0; index < count; index += 1) {
+        const lane = index - (count - 1) / 2;
+        const portal = {
+          x: muzzle.x + side.x * lane * spacing - forward.x * 18 * viewScale,
+          y: muzzle.y + side.y * lane * spacing - forward.y * 18 * viewScale
+        };
+        this.graphics.lineStyle(2, 0xfff1a8, warn * 0.46);
+        this.graphics.lineBetween(portal.x, portal.y, muzzle.x, muzzle.y);
+        this.graphics.lineStyle(3, warnColor, warn * 0.82);
+        this.graphics.strokePoints([
+          { x: portal.x + forward.x * portalRadius, y: portal.y + forward.y * portalRadius },
+          { x: portal.x + side.x * portalRadius * 0.8, y: portal.y + side.y * portalRadius * 0.8 },
+          { x: portal.x - forward.x * portalRadius, y: portal.y - forward.y * portalRadius },
+          { x: portal.x - side.x * portalRadius * 0.8, y: portal.y - side.y * portalRadius * 0.8 }
+        ], true, true);
+        this.graphics.fillStyle(0xff5cc8, warn * 0.16);
+        this.graphics.fillCircle(portal.x, portal.y, portalRadius * 0.48);
+      }
+      this.graphics.lineStyle(2, 0xffd0f0, warn * 0.54);
+      this.graphics.strokeCircle(muzzle.x, muzzle.y, 18 * viewScale);
+      return;
+    }
+
     this.graphics.lineStyle(3, warnColor, warn);
-    this.graphics.strokeCircle(x, y, boss.radius * 1.18 * viewScale);
+    this.graphics.strokeCircle(muzzle.x, muzzle.y, Math.min(boss.radius * 0.62 * viewScale, Math.max(window.innerWidth, window.innerHeight) * 0.32));
+  }
+
+  private drawMothershipClaws(
+    state: GameState,
+    boss: AsteroidState,
+    x: number,
+    y: number,
+    scale: number,
+    viewScale: number,
+    primary: number,
+    secondary: number
+  ): void {
+    const point = (px: number, py: number): Vec2 => this.rotatePoint(px * scale, py * scale, boss.rotation, x, y);
+    const drawClawPlate = (coords: Vec2[], fillAlpha: number): void => {
+      this.graphics.fillStyle(primary, fillAlpha);
+      this.graphics.lineStyle(2, secondary, 0.78);
+      this.graphics.beginPath();
+      this.graphics.moveTo(coords[0].x, coords[0].y);
+      coords.slice(1).forEach((coord) => this.graphics.lineTo(coord.x, coord.y));
+      this.graphics.closePath();
+      this.graphics.fillPath();
+      this.graphics.strokePath();
+    };
+
+    const topArmStart = point(6, -14);
+    const topArmJoint = point(36, -36);
+    const topClawInner = point(64, -20);
+    const bottomArmStart = point(6, 14);
+    const bottomArmJoint = point(36, 36);
+    const bottomClawInner = point(64, 20);
+    const muzzle = this.getMothershipMuzzleScreenPosition(state, boss, viewScale);
+
+    this.graphics.lineStyle(3, secondary, 0.62);
+    this.graphics.lineBetween(topArmStart.x, topArmStart.y, topArmJoint.x, topArmJoint.y);
+    this.graphics.lineBetween(topArmJoint.x, topArmJoint.y, topClawInner.x, topClawInner.y);
+    this.graphics.lineBetween(bottomArmStart.x, bottomArmStart.y, bottomArmJoint.x, bottomArmJoint.y);
+    this.graphics.lineBetween(bottomArmJoint.x, bottomArmJoint.y, bottomClawInner.x, bottomClawInner.y);
+
+    drawClawPlate([point(35, -42), point(86, -45), point(66, -25), point(42, -22)], 0.13);
+    drawClawPlate([point(50, -17), point(92, -6), point(58, -2), point(40, -13)], 0.1);
+    drawClawPlate([point(35, 42), point(86, 45), point(66, 25), point(42, 22)], 0.13);
+    drawClawPlate([point(50, 17), point(92, 6), point(58, 2), point(40, 13)], 0.1);
+
+    this.graphics.lineStyle(1, primary, 0.36);
+    this.graphics.lineBetween(topClawInner.x, topClawInner.y, muzzle.x, muzzle.y);
+    this.graphics.lineBetween(bottomClawInner.x, bottomClawInner.y, muzzle.x, muzzle.y);
+    this.graphics.fillStyle(primary, 0.28);
+    this.graphics.fillCircle(muzzle.x, muzzle.y, 13 * viewScale);
+    this.graphics.lineStyle(2, 0xfff1a8, 0.5);
+    this.graphics.strokeCircle(muzzle.x, muzzle.y, 21 * viewScale);
+  }
+
+  private getMothershipMuzzleScreenPosition(state: GameState, boss: AsteroidState, viewScale: number): Vec2 {
+    const toShip = {
+      x: state.ship.position.x - boss.position.x,
+      y: state.ship.position.y - boss.position.y
+    };
+    const length = Math.max(1, Math.hypot(toShip.x, toShip.y));
+    const raw = {
+      x: boss.position.x + (toShip.x / length) * boss.radius * 0.72,
+      y: boss.position.y + (toShip.y / length) * boss.radius * 0.72
+    };
+    const margin = balance.weapons.bulletCullMargin + balance.weapons.spawnOffset + 8;
+    const world = {
+      x: Math.max(state.camera.x - state.width / 2 + margin, Math.min(state.camera.x + state.width / 2 - margin, raw.x)),
+      y: Math.max(state.camera.y - state.height / 2 + margin, Math.min(state.camera.y + state.height / 2 - margin, raw.y))
+    };
+    return {
+      x: this.toScreenX(state, world.x),
+      y: this.toScreenY(state, world.y)
+    };
   }
 
   private drawMothershipBeam(state: GameState, boss: AsteroidState, x: number, y: number, viewScale: number): void {

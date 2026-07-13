@@ -20,7 +20,7 @@ import {
 } from '../progression/shipUnlocks';
 import { WARP_UNLOCK_BY_ID, WARP_UNLOCK_DEFINITIONS, getWarpUnlockNodeState, hasWarpUnlock, meetsWarpUnlockRequirements, purchaseWarpUnlock } from '../progression/warpUnlocks';
 import { createGameState } from '../simulation/state';
-import { createAsteroid, createZoneBossFromPending, getAsteroidReward } from '../simulation/systems/asteroids';
+import { createAsteroid, createPendingBoss, createZoneBossFromPending, getAsteroidReward, getAsteroidTargetCount } from '../simulation/systems/asteroids';
 import { applyBossRewardChoice } from '../progression/bossRewards';
 import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
 import {
@@ -271,7 +271,7 @@ describe('save loading', () => {
     const progression = createProgression();
     const savedProgression = {
       ...progression,
-      ownedWarpUnlockIds: ['droneSystems', '', 'droneSystems', 'spreadBattery', 'futureUnknownUnlock', 42]
+      ownedWarpUnlockIds: ['droneSystems', '', 'droneSystems', 'bossSuppression', 'spreadBattery', 'futureUnknownUnlock', 42]
     };
 
     window.localStorage.setItem(
@@ -293,7 +293,7 @@ describe('save loading', () => {
 
     const state = loadGameState(800, 600);
 
-    expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems']);
+    expect(state.progression.ownedWarpUnlockIds).toEqual(['droneSystems', 'bossSuppression']);
   });
 
   it('normalizes away legacy weapon-mode save fields without changing standard firing', () => {
@@ -506,6 +506,7 @@ describe('warp unlock definitions', () => {
     expect(WARP_UNLOCK_DEFINITIONS.map((unlock) => unlock.id)).toEqual([
       'droneSystems',
       'bossBeacon',
+      'bossSuppression',
       'deflectorFrame',
       'shieldBubble',
       'rangerHangar',
@@ -541,6 +542,12 @@ describe('warp unlock definitions', () => {
     expect(getWarpUnlockNodeState(progression, 0, 'droneSystems')).toBe('owned');
     expect(meetsWarpUnlockRequirements(progression, 'bossBeacon')).toBe(true);
     expect(getWarpUnlockNodeState(progression, 2, 'bossBeacon')).toBe('available');
+    expect(getWarpUnlockNodeState(progression, 10, 'bossSuppression')).toBe('locked');
+
+    progression.ownedWarpUnlockIds = ['droneSystems', 'bossBeacon'];
+
+    expect(meetsWarpUnlockRequirements(progression, 'bossSuppression')).toBe(true);
+    expect(getWarpUnlockNodeState(progression, 3, 'bossSuppression')).toBe('available');
   });
 
   it('paces technology costs around gameplay unlocks', () => {
@@ -549,11 +556,12 @@ describe('warp unlock definitions', () => {
 
     expect(cost('droneSystems')).toBe(1);
     expect(cost('bossBeacon')).toBe(2);
+    expect(cost('bossSuppression')).toBe(3);
     expect(cost('deflectorFrame')).toBeGreaterThan(cost('bossBeacon'));
     expect(cost('shieldBubble')).toBeGreaterThan(cost('deflectorFrame'));
     expect(cost('missileFoundry')).toBeGreaterThanOrEqual(8);
     expect(totalCost).toBeGreaterThanOrEqual(25);
-    expect(totalCost).toBeLessThanOrEqual(30);
+    expect(totalCost).toBeLessThanOrEqual(33);
   });
 
   it('paces crystal reset rewards around the first core and later technology stretch', () => {
@@ -615,6 +623,25 @@ describe('warp unlock definitions', () => {
     expect(progression.deflectorLevel).toBe(1);
     expect(progression.ownedWarpUnlockIds).toContain('bossBeacon');
     expect(progression.ownedWarpUnlockIds).toContain('droneSystems');
+  });
+
+  it('reduces and trims asteroid pressure while a boss is active with suppression technology', () => {
+    const state = createGameState(800, 600);
+    const baseTarget = getAsteroidTargetCount(state);
+    state.progression.ownedWarpUnlockIds = ['droneSystems', 'bossBeacon', 'bossSuppression'];
+    state.asteroids = [
+      makeBossAsteroid(1),
+      ...Array.from({ length: baseTarget + 6 }, (_, index) =>
+        createAsteroid(state, 'large', { x: 100 + index * 10, y: 100 }, { x: 0, y: 0 }, 'common')
+      )
+    ];
+
+    const suppressedTarget = getAsteroidTargetCount(state);
+    updateGame(state, neutralInput(), 0);
+
+    expect(suppressedTarget).toBeLessThan(baseTarget);
+    expect(state.asteroids.some((asteroid) => asteroid.bossType)).toBe(true);
+    expect(state.asteroids.length).toBe(suppressedTarget);
   });
 });
 
@@ -1176,10 +1203,13 @@ describe('boss gates and global progression', () => {
     expect(sentinelState.bullets).toHaveLength(0);
     expect(sentinelState.asteroids[0].bossTelegraphKind).toBe('sentinelVolley');
     updateBosses(sentinelState, 1);
+    updateBosses(crusherState, 0.1);
+    expect(crusherState.bullets).toHaveLength(0);
+    expect(crusherState.asteroids[0].bossTelegraphKind).toBe('crusherShockwave');
     updateBosses(crusherState, 1);
 
     expect(sentinelState.bullets).toHaveLength(1);
-    expect(crusherState.bullets).toHaveLength(4);
+    expect(crusherState.bullets).toHaveLength(8);
     expect(crusherState.bullets[0].damage).toBeGreaterThan(sentinelState.bullets[0].damage);
   });
 
@@ -1442,6 +1472,15 @@ describe('boss gates and global progression', () => {
     expect(state.pendingBoss?.bossType).toBe(zones[2].bossType);
     expect(state.progression.bossDiscovery.rareBossProgress).toBe(0);
     expect(state.progression.bossDiscovery.rareBossesFound).toBe(1);
+  });
+
+  it('creates a direct pending mothership signal for playtesting', () => {
+    const state = createGameState(800, 600);
+    const pendingBoss = createPendingBoss(state, 'mothership', zones[4].index);
+
+    expect(pendingBoss?.bossType).toBe('mothership');
+    expect(pendingBoss?.bossZoneIndex).toBe(zones[4].index);
+    expect(pendingBoss?.spawnIn).toBe(balance.bosses.pendingSpawnIn);
   });
 
   it('waits to discover rare bosses until the player reaches the current frontier zone', () => {

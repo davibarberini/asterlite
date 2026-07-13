@@ -59,6 +59,12 @@ const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect:
     effect: 'Libera o botão de invocar boss em Technologies.',
     impact: 'Painel Technologies: adiciona invocação manual de boss.'
   },
+  bossSuppression: {
+    title: 'Supressão de Boss',
+    summary: 'Desvia parte do tráfego de asteroides enquanto um boss está ativo.',
+    effect: 'Reduz a densidade de asteroides durante lutas contra boss.',
+    impact: 'Encontros de boss: menos asteroides permanecem na arena.'
+  },
   rangerHangar: {
     title: 'Hangar Ranger',
     summary: 'Amplia a baía para drones shotgun.',
@@ -311,7 +317,7 @@ export class WarpCoreTreeController {
       return svg;
     }
 
-    if (id === 'bossBeacon') {
+    if (id === 'bossBeacon' || id === 'bossSuppression') {
       svg.append(
         make('circle', { cx: '24', cy: '24', r: '8', class: 'technology-icon__core' }),
         make('path', { d: 'M24 6 V12 M24 36 V42 M6 24 H12 M36 24 H42 M12 12 L16 16 M36 12 L32 16 M12 36 L16 32 M36 36 L32 32', class: 'technology-icon__line' }),

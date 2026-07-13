@@ -5,6 +5,7 @@ import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
 import { getAchievementMultiplier } from '../../progression/achievements';
 import { getBossRewardMoneyMultiplier } from '../../progression/bossRewards';
 import { getCombatBountyMultiplier, getCrystalDropMultiplier } from '../../progression/talentTree';
+import { bossSuppressionAsteroidTargetMultiplier, bossSuppressionMinimumAsteroidTarget, hasWarpUnlock } from '../../progression/warpUnlocks';
 import { balance } from '../../balance';
 import { getSurvivalAsteroidDensityBonus, getSurvivalAsteroidSpeedMultiplier } from './survival';
 
@@ -102,13 +103,11 @@ export const createAsteroid = (
 export const hasActiveZoneBoss = (state: GameState): boolean =>
   state.pendingBoss !== null || state.asteroids.some((asteroid) => asteroid.bossType !== undefined);
 
-export const createPendingZoneBoss = (state: GameState): PendingBossState | null => {
-  const nextZone = getNextZone(state);
-  if (!nextZone || hasActiveZoneBoss(state)) {
+export const createPendingBoss = (state: GameState, bossType: BossType, bossZoneIndex: number): PendingBossState | null => {
+  if (hasActiveZoneBoss(state)) {
     return null;
   }
 
-  const bossType = nextZone.bossType;
   const angle = randomRange(0, Math.PI * 2);
   const distance = Math.max(state.width, state.height) * balance.bosses.spawnDistanceScreenMultiplier;
   const position = {
@@ -117,11 +116,11 @@ export const createPendingZoneBoss = (state: GameState): PendingBossState | null
   };
   const movementAngle = angle + Math.PI + randomRange(-balance.bosses.movementAngleJitter, balance.bosses.movementAngleJitter);
   const bossStats = balance.bosses.stats[bossType];
-  const speed = bossStats.spawnSpeedBase + nextZone.index * bossStats.spawnSpeedPerZone;
+  const speed = bossStats.spawnSpeedBase + bossZoneIndex * bossStats.spawnSpeedPerZone;
 
   return {
     bossType,
-    bossZoneIndex: nextZone.index,
+    bossZoneIndex,
     spawnIn: balance.bosses.pendingSpawnIn,
     position,
     velocity: {
@@ -129,6 +128,14 @@ export const createPendingZoneBoss = (state: GameState): PendingBossState | null
       y: Math.sin(movementAngle) * speed
     }
   };
+};
+
+export const createPendingZoneBoss = (state: GameState): PendingBossState | null => {
+  const nextZone = getNextZone(state);
+  if (!nextZone) {
+    return null;
+  }
+  return createPendingBoss(state, nextZone.bossType, nextZone.index);
 };
 
 export const createZoneBossFromPending = (state: GameState, pendingBoss: PendingBossState): AsteroidState => {
@@ -155,8 +162,11 @@ export const createZoneBossFromPending = (state: GameState, pendingBoss: Pending
   };
 };
 
-export const getAsteroidTargetCount = (state: GameState): number =>
-  Math.max(
+export const isBossAsteroidSuppressionActive = (state: GameState): boolean =>
+  hasWarpUnlock(state.progression, 'bossSuppression') && hasActiveZoneBoss(state);
+
+export const getAsteroidTargetCount = (state: GameState): number => {
+  const baseTarget = Math.max(
     balance.asteroids.targetCount.min,
     Math.min(
       balance.asteroids.targetCount.max,
@@ -165,6 +175,11 @@ export const getAsteroidTargetCount = (state: GameState): number =>
         getSurvivalAsteroidDensityBonus(state)
     )
   );
+  if (!isBossAsteroidSuppressionActive(state)) {
+    return baseTarget;
+  }
+  return Math.max(bossSuppressionMinimumAsteroidTarget, Math.floor(baseTarget * bossSuppressionAsteroidTargetMultiplier));
+};
 
 export const getAsteroidSpawnPosition = (state: GameState, margin = balance.asteroids.spawnMargin): Vec2 => {
   const edge = Math.floor(randomRange(0, 4));

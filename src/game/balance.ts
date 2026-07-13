@@ -307,11 +307,14 @@ export const balance = {
     ricochetBounces: 3,
     reward: { baseMoney: 260, moneyPerZone: 180, baseCrystals: 3, crystalsPerZone: 1 },
     mothership: {
-      anchorGlideSpeed: 2.6,
+      anchorGlideSpeed: 1.35,
       anchorScreenOffsetY: -0.3,
       anchorHorizontalTrack: 0.32,
+      edgeVisibleRadiusMultiplier: 0.66,
+      edgeRetreatSeconds: 0.7,
+      edgeReentryAngleStep: 2.35,
       telegraphSeconds: 0.85,
-      recoverSecondsByPhase: [1.35, 1.05, 0.78],
+      recoverSecondsByPhase: [4.05, 3.15, 2.34],
       ringBulletsByPhase: [18, 24, 30],
       ringGapSlots: 3,
       ringBulletSpeed: 170,
@@ -321,7 +324,7 @@ export const balance = {
       fanBulletSpeed: 250,
       bulletDamageByPhase: [16, 18, 22],
       summonCountByPhase: [0, 2, 4],
-      summonCooldownSeconds: 0.7,
+      summonCooldownSeconds: 2.1,
       summonMinionRadius: 14,
       summonMinionHp: 10,
       summonMinionSpeed: 165,
@@ -380,7 +383,12 @@ export const balance = {
         fireCooldownPerZone: 0.11,
         bulletSpeed: 250,
         bulletDamage: 24,
-        bulletAngleOffsets: [-0.52, -0.22, 0.22, 0.52]
+        bulletAngleOffsets: [-0.52, -0.22, 0.22, 0.52],
+        signatureTelegraphSeconds: 0.72,
+        signatureBulletCountByPhase: [8, 12, 16],
+        signatureBulletSpeedByPhase: [132, 154, 176],
+        signatureCooldownMultiplierByPhase: [1, 0.9, 0.78],
+        signatureDamageMultiplier: 1.18
       },
       prism: {
         spawnSpeedBase: 92,
@@ -407,7 +415,7 @@ export const balance = {
         chaseSpeedPerZone: 0,
         hpBase: 90,
         hpPerZone: 30,
-        radius: 128,
+        radius: 256,
         rotationSpeed: 0.18,
         shapePoints: 20,
         initialFireCooldown: 1.6,
@@ -440,6 +448,7 @@ export const balance = {
       signatureSpreadByPhase?: number[];
       signatureCooldownMultiplierByPhase?: number[];
       signatureBulletSpeedMultiplier?: number;
+      signatureBulletSpeedByPhase?: number[];
       signatureDamageMultiplier?: number;
     }>
   },

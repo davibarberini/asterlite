@@ -305,12 +305,16 @@ export class TutorialGuideController {
   }
 
   private cancelActiveFlow(): void {
+    const flowId = this.activeFlow?.id ?? null;
     this.activeFlow = null;
     this.target = null;
     this.missingTargetSince = null;
     this.targetSelector = null;
     this.root.classList.add('is-hidden');
     this.root.setAttribute('aria-hidden', 'true');
+    if (flowId) {
+      this.saveCompletedFlow(flowId);
+    }
   }
 
   private clickTargetAfterOverlayUpdate(target: HTMLElement, targetSelector: string | null): void {
