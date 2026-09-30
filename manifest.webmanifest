@@ -1,16 +1,16 @@
 {
-  "name": "Asteridle",
-  "short_name": "Asteridle",
+  "name": "Asterlite",
+  "short_name": "Asterlite",
   "description": "A compact idle space shooter about mining asteroids, upgrading drones, and opening constellation gates.",
-  "start_url": "/asteridle/",
-  "scope": "/asteridle/",
+  "start_url": "/asterlite/",
+  "scope": "/asterlite/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "/asteridle/pwa-icon.svg",
+      "src": "/asterlite/pwa-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
