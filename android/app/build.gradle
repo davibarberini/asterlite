@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.davibarberini.asteridle"
+    namespace = "com.davibarberini.asterlite"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.davibarberini.asteridle"
+        applicationId "com.davibarberini.asterlite"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

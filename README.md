@@ -1,4 +1,4 @@
-# Asteridle
+# Asterlite
 
 Asteroids-style arcade idle game with mobile slingshot controls, zone gates, drones, talents, achievements, and installable PWA support.
 
@@ -70,7 +70,7 @@ nvm use
 Build targets:
 
 ```sh
-pnpm run build:web      # GitHub Pages / PWA, Vite base /asteridle/
+pnpm run build:web      # GitHub Pages / PWA, Vite base /asterlite/
 pnpm run build:native   # Capacitor bundle, Vite base ./
 pnpm run cap:sync       # build native web assets and sync android/ios
 ```

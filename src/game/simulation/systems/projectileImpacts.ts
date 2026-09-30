@@ -1,7 +1,3 @@
-import {
-  getMissileSplashDamage,
-  getMissileSplashRadius
-} from '../../progression/talentTree';
 import { balance } from '../../balance';
 import { emitAudio } from '../events';
 import type { GameState, Vec2 } from '../types';
@@ -77,8 +73,8 @@ export const explodeMissile = (
   destroyedAsteroidIds: Set<number>,
   directHitId: number
 ): void => {
-  const splashRadius = getMissileSplashRadius(state.progression);
-  const splashDamage = getMissileSplashDamage(state.progression, directDamage);
+  const splashRadius = 72;
+  const splashDamage = Math.max(1, Math.round(directDamage * 0.55));
   burstParticles(state, position, 16, splashRadius * 2);
 
   for (const asteroid of [...nextAsteroids]) {

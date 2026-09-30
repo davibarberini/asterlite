@@ -1,11 +1,12 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
-import { getBossRewardPlayerDamageMultiplier, getBossRewardPlayerFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getPlayerFireInterval } from '../../progression/idleBonuses';
 import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
-import { getMissileTurnRateMultiplier, getShipSkillFireIntervalMultiplier } from '../../progression/talentTree';
+import { getRunCardAreaMultiplier, getRunCardDamageMultiplier, getRunCardFireRateMultiplier, getRunCardPierce, getRunCardProjectileCount } from '../../progression/runCards';
+import { getRunCardCriticalChance, getRunCardHomingTurnRate, getRunCardStacks } from '../../progression/runCards';
 import { balance } from '../../balance';
 import { emitAudio } from '../events';
 import type { BulletKind, GameState, Vec2 } from '../types';
+import { createEmberFlameWave, getEmberFlameWaveBaseDamage } from './shipAura';
 
 export const fireBullet = (
   state: GameState,
@@ -18,9 +19,12 @@ export const fireBullet = (
   pierceLeft = 0,
   kind: BulletKind = 'standard',
   homingTargetId: number | null = null,
-  ricochetLeft = 0
+  ricochetLeft = 0,
+  audioMode: 'default' | 'silent' = 'default'
 ): void => {
-  if (owner === 'player') {
+  if (audioMode === 'silent') {
+    // Multi-projectile boss skills emit one bespoke sound per cast.
+  } else if (owner === 'player') {
     emitAudio(state, { type: 'playerShoot' });
   } else if (owner === 'drone') {
     emitAudio(state, { type: 'droneShoot' });
@@ -30,6 +34,8 @@ export const fireBullet = (
     emitAudio(state, { type: 'bossShoot' });
   }
 
+  const criticalChance = owner === 'player' ? getRunCardCriticalChance(state) : 0;
+  const critical = criticalChance > 0 && Math.random() < criticalChance;
   state.bullets.push({
     id: state.nextId++,
     owner,
@@ -42,23 +48,14 @@ export const fireBullet = (
       y: Math.sin(rotation) * speed + inheritedVelocity.y
     },
     age: 0,
-    radius:
-      owner === 'boss'
-        ? kind === 'ricochet'
-          ? balance.weapons.radius.ricochet
-          : balance.weapons.radius.boss
-        : owner === 'saucer'
-          ? balance.weapons.radius.saucer
-          : kind === 'missile'
-            ? balance.weapons.radius.missile
-            : kind === 'playerRicochet'
-              ? balance.weapons.radius.playerRicochet
-              : owner === 'drone'
-                ? balance.weapons.radius.drone
-                : balance.weapons.radius.player,
-    damage,
+    radius: getBulletRadius(state, owner, kind),
+    damage: damage * (critical ? 2 : 1),
+    critical,
+    burnDamagePerSecond: owner === 'player' ? damage * (critical ? 2 : 1) * 0.25 * getRunCardStacks(state, 'incendiaryCharge') : 0,
+    fragmentCount: owner === 'player' ? 2 * getRunCardStacks(state, 'fragmentationChamber') : 0,
+    homingTurnRate: owner === 'player' ? getRunCardHomingTurnRate(state) : 0,
     pierceLeft,
-    ricochetLeft,
+    ricochetLeft: ricochetLeft + (owner === 'player' && kind !== 'playerRicochet' ? getRunCardStacks(state, 'unstableRicochet') : 0),
     kind,
     homingTargetId
   });
@@ -70,14 +67,14 @@ export const firePlayerWeapon = (state: GameState): void => {
   const damageMultiplier = getAchievementMultiplier(state.progression, 'damage');
   const baseDamage = Math.max(
     0.05,
-    state.progression.shipDamageLevel *
-      balance.weapons.playerDamageMultiplier *
+    balance.weapons.playerDamageMultiplier *
       damageMultiplier *
       getShipFrameBonusMultiplier(state.progression, 'damageMultiplier') *
-      getBossRewardPlayerDamageMultiplier(state)
+      getRunCardDamageMultiplier(state)
   );
 
   if (shipWeaponIdentity === 'aura') {
+    createEmberFlameWave(state, getEmberFlameWaveBaseDamage(state));
     ship.fireCooldown = getShipFireInterval(state);
     return;
   }
@@ -161,28 +158,55 @@ export const firePlayerWeapon = (state: GameState): void => {
       balance.weapons.bulletSpeed * balance.weapons.piercingSpeedMultiplier,
       baseDamage,
       ship.velocity,
-      balance.weapons.piercingCount
+      balance.weapons.piercingCount + getRunCardPierce(state)
     );
     ship.fireCooldown = getShipFireInterval(state, balance.weapons.playerFireInterval * balance.weapons.piercingCooldownMultiplier);
     return;
   }
 
-  fireBullet(
-    state,
-    'player',
-    ship.position,
-    ship.rotation,
-    balance.weapons.bulletSpeed,
-    baseDamage,
-    ship.velocity
-  );
+  const projectileCount = getRunCardProjectileCount(state);
+  for (let index = 0; index < projectileCount; index += 1) {
+    const offset = (index - (projectileCount - 1) / 2) * 0.11;
+    fireBullet(
+      state,
+      'player',
+      ship.position,
+      ship.rotation + offset,
+      balance.weapons.bulletSpeed,
+      baseDamage,
+      ship.velocity,
+      getRunCardPierce(state)
+    );
+  }
   ship.fireCooldown = getShipFireInterval(state);
 };
 
+const getBulletRadius = (
+  state: GameState,
+  owner: 'player' | 'drone' | 'saucer' | 'boss',
+  kind: BulletKind
+): number => {
+  const baseRadius =
+    owner === 'boss'
+      ? kind === 'ricochet'
+        ? balance.weapons.radius.ricochet
+        : balance.weapons.radius.boss
+      : owner === 'saucer'
+        ? balance.weapons.radius.saucer
+        : kind === 'missile'
+          ? balance.weapons.radius.missile
+          : kind === 'playerRicochet'
+            ? balance.weapons.radius.playerRicochet
+            : owner === 'drone'
+              ? balance.weapons.radius.drone
+              : balance.weapons.radius.player;
+
+  return owner === 'player' ? baseRadius * getRunCardAreaMultiplier(state) : baseRadius;
+};
+
 const getShipFireInterval = (state: GameState, baseInterval?: number): number =>
-  getPlayerFireInterval(state.progression, baseInterval) *
-  getShipSkillFireIntervalMultiplier(state.progression) *
-  getBossRewardPlayerFireIntervalMultiplier(state);
+  getPlayerFireInterval(state.progression, baseInterval) /
+  getRunCardFireRateMultiplier(state);
 
 const getShipVelocityRatio = (state: GameState): number =>
   Math.max(0, Math.min(1, Math.hypot(state.ship.velocity.x, state.ship.velocity.y) / Math.max(1, balance.ship.maxSpeed)));
@@ -190,9 +214,14 @@ const getShipVelocityRatio = (state: GameState): number =>
 export const updateBullets = (state: GameState, dt: number): void => {
   state.bullets = state.bullets
     .map((bullet) => {
+      const radarTarget = bullet.owner === 'player' && (bullet.homingTurnRate ?? 0) > 0
+        ? findRadarTarget(state, bullet.position)
+        : null;
       const velocity =
-        bullet.kind === 'missile' && bullet.homingTargetId !== null
-          ? steerHomingBullet(bullet, state.asteroids.find((asteroid) => asteroid.id === bullet.homingTargetId) ?? null, dt, state)
+        radarTarget
+          ? steerHomingBullet(bullet, radarTarget, dt, bullet.homingTurnRate!)
+          : bullet.kind === 'missile' && bullet.homingTargetId !== null
+          ? steerHomingBullet(bullet, state.asteroids.find((asteroid) => asteroid.id === bullet.homingTargetId) ?? null, dt, balance.weapons.missileTurnRate)
           : bullet.velocity;
 
       return {
@@ -210,9 +239,9 @@ export const updateBullets = (state: GameState, dt: number): void => {
 
 const steerHomingBullet = (
   bullet: GameState['bullets'][number],
-  target: GameState['asteroids'][number] | null,
+  target: { position: Vec2 } | null,
   dt: number,
-  state: GameState
+  turnRate: number
 ): Vec2 => {
   if (!target) {
     return bullet.velocity;
@@ -230,7 +259,6 @@ const steerHomingBullet = (
     delta += Math.PI * 2;
   }
 
-  const turnRate = balance.weapons.missileTurnRate * getMissileTurnRateMultiplier(state.progression);
   const turn = Math.sign(delta) * Math.min(Math.abs(delta), turnRate * dt);
   const speed = Math.hypot(bullet.velocity.x, bullet.velocity.y);
   const nextAngle = currentAngle + turn;
@@ -238,6 +266,23 @@ const steerHomingBullet = (
     x: Math.cos(nextAngle) * speed,
     y: Math.sin(nextAngle) * speed
   };
+};
+
+const findRadarTarget = (state: GameState, position: Vec2): { position: Vec2 } | null => {
+  let nearest: { position: Vec2 } | null = null;
+  let nearestDistanceSq = 420 ** 2;
+  const consider = (target: { position: Vec2 }): void => {
+    const distanceSq = (target.position.x - position.x) ** 2 + (target.position.y - position.y) ** 2;
+    if (distanceSq < nearestDistanceSq) {
+      nearest = target;
+      nearestDistanceSq = distanceSq;
+    }
+  };
+  state.asteroids.forEach((target) => { if (target.hp > 0) consider(target); });
+  state.hazards.forEach((target) => { if (target.hp > 0) consider(target); });
+  state.bossMinions.forEach((target) => { if (target.alive && target.hp > 0) consider(target); });
+  if (state.saucer?.alive) consider(state.saucer);
+  return nearest;
 };
 
 const isOnScreen = (state: GameState, position: Vec2, margin = 0): boolean =>

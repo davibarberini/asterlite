@@ -5,10 +5,6 @@ import {
   recordMeteorImpactUnlockProgress,
   syncShipUnlocks
 } from '../../progression/shipUnlocks';
-import {
-  getShotgunPelletDamage,
-  hasMissileExplosion
-} from '../../progression/talentTree';
 import type { GameState } from '../types';
 import { distance } from '../vector';
 import { burstParticles } from './particles';
@@ -18,7 +14,8 @@ import { isSurvivalTimedEventActive } from './survivalEvents';
 import { damageShip } from './playerDamage';
 import { destroyAsteroid } from './asteroidDestruction';
 import { updateLevelShockwaves } from './levelShockwaves';
-import { applyShipAuraDamage } from './shipAura';
+import { applyProjectileBurn, spawnKillFragments, updateProjectileBurns } from './projectileCardEffects';
+import { updateEmberFlameWaves } from './shipAura';
 import { getHazardExplosionSpread, getHazardParticleSpread } from './hazardEffects';
 import {
   absorbShieldBubbleHit,
@@ -44,26 +41,30 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
   const destroyedBulletIds = new Set<number>();
   const deflectedAsteroidIds = new Set<number>();
 
-  for (const bullet of state.bullets) {
+  // New fragments begin colliding on the next simulation step.
+  for (const bullet of [...state.bullets]) {
     if (bullet.owner === 'player' || bullet.owner === 'drone') {
       for (const asteroid of nextAsteroids) {
         const hitRadius = bullet.radius + asteroid.radius * balance.asteroids.bulletHitRadiusMultiplier;
-        if (!destroyedAsteroidIds.has(asteroid.id) && distance(bullet.position, asteroid.position) < hitRadius) {
+        if (!destroyedAsteroidIds.has(asteroid.id) && !bullet.hitTargetIds?.includes(asteroid.id) && distance(bullet.position, asteroid.position) < hitRadius) {
+          (bullet.hitTargetIds ??= []).push(asteroid.id);
+          applyProjectileBurn(bullet, asteroid);
           if (bullet.kind === 'playerRicochet') {
             const asteroidHpBefore = Math.max(0, asteroid.hp);
             const hitDamage = bullet.damage;
             const remainingDamage = hitDamage - Math.min(hitDamage, asteroidHpBefore);
             asteroid.hp -= hitDamage;
-            bullet.damage = remainingDamage;
 
             if (asteroid.hp <= 0) {
               destroyedAsteroidIds.add(asteroid.id);
+              spawnKillFragments(state, bullet, asteroid);
               destroyAsteroid(state, asteroid, nextAsteroids);
             } else {
               emitAudio(state, { type: 'asteroidHit' });
               burstParticles(state, asteroid.position, 5, asteroid.radius * 1.6);
             }
 
+            bullet.damage = remainingDamage;
             if (remainingDamage <= balance.weapons.hisokaRicochetMinimumDamage) {
               destroyedBulletIds.add(bullet.id);
               burstParticles(state, bullet.position, 7, asteroid.radius * 0.8);
@@ -76,10 +77,10 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
           }
 
           let hitDamage = bullet.damage;
-          if (bullet.kind === 'pellet' && asteroid.variant === 'dense') {
-            hitDamage = getShotgunPelletDamage(state.progression, 'dense');
-          }
-          if (bullet.pierceLeft > 0) {
+          if (bullet.owner === 'player' && bullet.ricochetLeft > 0) {
+            bounceBulletOffAsteroid(bullet, asteroid, hitRadius);
+            bullet.ricochetLeft -= 1;
+          } else if (bullet.pierceLeft > 0) {
             bullet.pierceLeft -= 1;
           } else {
             destroyedBulletIds.add(bullet.id);
@@ -87,6 +88,7 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
           asteroid.hp -= hitDamage;
           if (asteroid.hp <= 0) {
             destroyedAsteroidIds.add(asteroid.id);
+            spawnKillFragments(state, bullet, asteroid);
             destroyAsteroid(state, asteroid, nextAsteroids);
           } else {
             emitAudio(state, { type: 'asteroidHit' });
@@ -95,7 +97,7 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
           if (bullet.kind === 'flak') {
             explodeFlak(state, bullet.position, asteroid, nextAsteroids, destroyedAsteroidIds);
           }
-          if (bullet.kind === 'missile' && hasMissileExplosion(state.progression)) {
+          if (bullet.kind === 'missile') {
             explodeMissile(state, bullet.position, hitDamage, nextAsteroids, destroyedAsteroidIds, asteroid.id);
           }
           break;
@@ -156,7 +158,7 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
         continue;
       }
 
-      if (state.saucer && distance(bullet.position, state.saucer.position) < bullet.radius + state.saucer.radius) {
+      if (state.saucer?.alive && distance(bullet.position, state.saucer.position) < bullet.radius + state.saucer.radius) {
         destroyedBulletIds.add(bullet.id);
         state.saucer.alive = false;
         const saucerReward = Math.round(
@@ -186,6 +188,8 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
       damageShip(state, bullet.damage);
     }
   }
+
+  updateProjectileBurns(state, dt, nextAsteroids, destroyedAsteroidIds);
 
   if (state.ship.alive) {
     const asteroidsAtCollisionStart = [...nextAsteroids];
@@ -271,7 +275,7 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
 
     if (!state.ship.alive) {
       syncCollisionShipUnlocks(state, asteroidDestroyCountBefore);
-      state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
+      state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'ended' || !asteroid.bossType));
       state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
       state.bossMinions = getNextBossMinions(state, nextAsteroids, nextBossMinions, destroyedAsteroidIds, destroyedBossMinionIds);
       state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
@@ -290,7 +294,7 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
       }
     }
 
-    if (state.saucer && distance(state.ship.position, state.saucer.position) < state.ship.radius + state.saucer.radius) {
+    if (state.saucer?.alive && distance(state.ship.position, state.saucer.position) < state.ship.radius + state.saucer.radius) {
       repelShipFromContact(state, state.saucer.position, state.ship.radius + state.saucer.radius, balance.collisions.enemyContactKnockback);
       state.saucer.alive = false;
       damageShip(state, balance.saucer.collisionDamage);
@@ -310,12 +314,14 @@ export const resolveCollisions = (state: GameState, dt = 0): void => {
     }
   }
 
-  state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
+  state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'ended' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
   state.bossMinions = getNextBossMinions(state, nextAsteroids, nextBossMinions, destroyedAsteroidIds, destroyedBossMinionIds);
-  applyShipAuraDamage(state, dt, destroyedAsteroidIds, destroyedHazardIds, nextAsteroids, nextHazards);
-  updateLevelShockwaves(state, dt, destroyedAsteroidIds, nextAsteroids);
-  state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'respawning' || !asteroid.bossType));
+  if (state.ship.alive) {
+    updateEmberFlameWaves(state, dt, destroyedAsteroidIds, destroyedHazardIds, destroyedBossMinionIds, nextAsteroids, nextHazards, nextBossMinions);
+    updateLevelShockwaves(state, dt, destroyedAsteroidIds, nextAsteroids);
+  }
+  state.asteroids = nextAsteroids.filter((asteroid) => !destroyedAsteroidIds.has(asteroid.id) && (state.phase !== 'ended' || !asteroid.bossType));
   state.hazards = nextHazards.filter((hazard) => !destroyedHazardIds.has(hazard.id));
   state.bossMinions = getNextBossMinions(state, nextAsteroids, nextBossMinions, destroyedAsteroidIds, destroyedBossMinionIds);
   state.bullets = state.bullets.filter((bullet) => !destroyedBulletIds.has(bullet.id));
@@ -332,7 +338,7 @@ const getNextBossMinions = (
   const mothershipDestroyed = nextAsteroids.some((asteroid) =>
     asteroid.bossType === 'mothership' && destroyedAsteroidIds.has(asteroid.id)
   );
-  if (mothershipDestroyed || state.phase === 'respawning') {
+  if (mothershipDestroyed || state.phase === 'ended') {
     return [];
   }
   return nextBossMinions.filter((minion) => !destroyedBossMinionIds.has(minion.id));

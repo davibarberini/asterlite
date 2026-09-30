@@ -1,15 +1,9 @@
 export type TutorialTargetId =
   | 'submenu-toggle'
-  | 'nav-upgrades'
-  | 'upgrade-affordable'
   | 'nav-map'
-  | 'zone-node-unlocked'
-  | 'nav-skills'
-  | 'skill-tree-open'
-  | 'skill-node-available'
-  | 'skill-buy';
+  | 'zone-node-unlocked';
 
-export type TutorialFlowId = 'first-upgrade' | 'zone-travel' | 'first-skill-point';
+export type TutorialFlowId = 'zone-travel';
 
 export type TutorialStep = {
   id: string;
@@ -23,7 +17,7 @@ export type TutorialFlow = {
   steps: TutorialStep[];
 };
 
-const storageKey = 'asteridle.tutorial.completedFlows';
+const storageKey = 'asterlite.tutorial.completedFlows';
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
 export class TutorialGuideController {
@@ -287,7 +281,7 @@ export class TutorialGuideController {
         return [];
       }
       return parsed.filter(
-        (id): id is TutorialFlowId => id === 'first-upgrade' || id === 'zone-travel' || id === 'first-skill-point'
+        (id): id is TutorialFlowId => id === 'zone-travel'
       );
     } catch {
       return [];

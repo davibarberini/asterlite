@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => ({
-  base: mode === 'native' ? './' : '/asteridle/',
+  base: mode === 'native' ? './' : '/asterlite/',
   define: {
-    __ASTERIDLE_BUILD_ID__: JSON.stringify(new Date().toISOString())
+    __ASTERLITE_BUILD_ID__: JSON.stringify(new Date().toISOString())
   },
   server: {
     port: 5173

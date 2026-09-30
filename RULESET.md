@@ -1,13 +1,14 @@
-# Asteridle Ruleset
+# Asterlite Ruleset
 
 Use this file as the shared implementation contract for agents working in this repository. Prefer these rules over inventing new local patterns.
 
 ## Product Direction
 
-- Asteridle is a mobile-first Phaser/Vite 2D browser game with DOM HUD, shop, modal, hangar, and skill-tree UI.
-- The game should feel immediately playable, readable, and fast. Prefer small playable systems over broad rewrites.
+- Asterlite is a mobile-first Asteroids roguelite: drag to aim/release, destroy asteroids and enemies, level up, build through temporary cards, beat zone bosses, reach Nova Crown survival, die, unlock permanent options, and start another run.
+- Guiding sentence: Asterlite is a mobile Asteroids roguelite where each level up offers temporary build cards, while ships and technologies form permanent progression.
+- The game should feel immediately playable, readable, fast, and run-focused. Prefer polishing the core loop over adding more competing systems.
 - Preserve borderless movement and the camera-followed playfield.
-- Death is a repair-cost setback with automatic respawn, not a hard game over.
+- Death ends the run and opens its summary. A new run starts at level 1 in Zone 1; ships, technologies, achievements, cores, and Nova Crown records persist globally.
 - Nova Crown is the long-run survival/replayability zone. Changes there should support escalating threat, build experimentation, and clear readable danger.
 
 ## Workflows
@@ -49,8 +50,13 @@ Use this file as the shared implementation contract for agents working in this r
 ## Gameplay And Balance
 
 - Ship-specific identity should come from ship frames, unique weapons, and unique traits.
-- Global technology/core progression should apply across ships unless the backlog item says otherwise.
-- Skill/talent changes should encourage builds and tradeoffs instead of allowing every node to be trivially filled.
+- During-run progression should come primarily from temporary level-up cards, not basic menu upgrades.
+- Basic run upgrades such as damage, attack speed, max HP, and passive income should be removed from the run shop and reintroduced only as card effects when they create real build decisions.
+- Cards should be offered quickly on level up as a 1-of-3 choice by default, then immediately return the player to action.
+- Ships may blacklist cards that do not affect them, and ship-specific cards are allowed when needed to support unusual weapons or traits.
+- Global technology/core progression should apply across ships unless the backlog item says otherwise, and should unlock new possibilities instead of mostly adding small numeric bonuses.
+- Drone technologies unlock temporary drone cards; never restore purchased drone inventories or credit-based drone shops. Active drones derive from run-card stacks.
+- Good technology effects include unlocking drones, cards, rerolls, extra card choices, starting card picks, new ships, new weapon/card families, or zone events.
 - Nova Crown difficulty should scale through threat/difficulty systems rather than one-off hardcoded spikes.
 - Damage zones, mines, meteor lanes, hunters, and survival hazards must be visually readable before they punish the player.
 - Mobile input should remain simple and dynamic; avoid adding virtual joystick/buttons unless deliberately chosen.
@@ -62,6 +68,8 @@ Use this file as the shared implementation contract for agents working in this r
 - Keep effects performant: prefer bounded particle counts, reusable graphics patterns, and simple geometry unless a feature requires more.
 
 ## Testing And Validation
+
+- UI changes require a separate UX/QA review plus browser checks for mobile readability, touch targets, keyboard focus, and overflow. Report remaining unverified device/accessibility cases honestly.
 
 - `pnpm run build` is the minimum verification before finishing a feature/improvement pass.
 - Use `pnpm test` for changes to simulation, progression, save loading, unlocks, rewards, damage, weapons, or core formulas.

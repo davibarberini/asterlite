@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Asteridle</string>
-    <string name="title_activity_main">Asteridle</string>
-    <string name="package_name">com.davibarberini.asteridle</string>
-    <string name="custom_url_scheme">com.davibarberini.asteridle</string>
+    <string name="app_name">Asterlite</string>
+    <string name="title_activity_main">Asterlite</string>
+    <string name="package_name">com.davibarberini.asterlite</string>
+    <string name="custom_url_scheme">com.davibarberini.asterlite</string>
 </resources>

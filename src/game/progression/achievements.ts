@@ -4,8 +4,6 @@ export type AchievementBonusCategory =
   | 'money'
   | 'damage'
   | 'speed'
-  | 'maxHp'
-  | 'passive'
   | 'crystals'
   | 'armor'
   | 'droneDamage';
@@ -26,8 +24,6 @@ export const ACHIEVEMENT_BONUS_LABELS: Record<AchievementBonusCategory, string> 
   money: 'credits',
   damage: 'dano',
   speed: 'velocidade',
-  maxHp: 'HP máximo',
-  passive: 'offline',
   crystals: 'cristais',
   armor: 'armadura',
   droneDamage: 'dano de drones'
@@ -161,69 +157,6 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     getProgress: (_p, stats) => ({ current: stats.crystalsCollected, target: 500 })
   },
   {
-    id: 'refineryBoot',
-    name: 'Relé Online',
-    description: 'Compre o nível 1 de ganho offline.',
-    icon: 'R',
-    bonusCategory: 'passive',
-    bonusPercent: 0.5,
-    getProgress: (p) => ({ current: p.passiveIncomeLevel, target: 1 })
-  },
-  {
-    id: 'oreFlow',
-    name: 'Fluxo Offline',
-    description: 'Alcance nível 5 de ganho offline.',
-    icon: 'R',
-    bonusCategory: 'passive',
-    bonusPercent: 0.5,
-    getProgress: (p) => ({ current: p.passiveIncomeLevel, target: 5 })
-  },
-  {
-    id: 'megaFoundry',
-    name: 'Banco Orbital',
-    description: 'Alcance nível 15 de ganho offline.',
-    icon: 'R',
-    bonusCategory: 'passive',
-    bonusPercent: 1,
-    getProgress: (p) => ({ current: p.passiveIncomeLevel, target: 15 })
-  },
-  {
-    id: 'titanSmelter',
-    name: 'Rede Autônoma',
-    description: 'Alcance nível 30 de ganho offline.',
-    icon: 'R',
-    bonusCategory: 'passive',
-    bonusPercent: 1.5,
-    getProgress: (p) => ({ current: p.passiveIncomeLevel, target: 30 })
-  },
-  {
-    id: 'hullPatch',
-    name: 'Remendo de Casco',
-    description: 'Alcance 150 HP máximo.',
-    icon: 'H',
-    bonusCategory: 'maxHp',
-    bonusPercent: 0.5,
-    getProgress: (p) => ({ current: p.maxHp, target: 150 })
-  },
-  {
-    id: 'reinforcedFrame',
-    name: 'Estrutura Reforçada',
-    description: 'Alcance 250 HP máximo.',
-    icon: 'H',
-    bonusCategory: 'maxHp',
-    bonusPercent: 0.5,
-    getProgress: (p) => ({ current: p.maxHp, target: 250 })
-  },
-  {
-    id: 'dreadnought',
-    name: 'Casco Dreadnought',
-    description: 'Alcance 400 HP máximo.',
-    icon: 'H',
-    bonusCategory: 'maxHp',
-    bonusPercent: 1,
-    getProgress: (p) => ({ current: p.maxHp, target: 400 })
-  },
-  {
     id: 'lightPlating',
     name: 'Blindagem Leve',
     description: 'Alcance 5 de armadura.',
@@ -262,29 +195,29 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'wingLead',
     name: 'Líder de Esquadrão',
-    description: 'Compre seu primeiro drone.',
+    description: 'Recrute seu primeiro drone por card.',
     icon: 'D',
     bonusCategory: 'droneDamage',
     bonusPercent: 0.5,
-    getProgress: (p) => ({ current: p.dronesPurchased, target: 1 })
+    getProgress: (p) => ({ current: p.achievementStats.dronesRecruited, target: 1 })
   },
   {
     id: 'swarmOps',
     name: 'Operações Enxame',
-    description: 'Comande 9 drones.',
+    description: 'Recrute 9 drones por cards ao longo das runs.',
     icon: 'D',
     bonusCategory: 'droneDamage',
     bonusPercent: 1,
-    getProgress: (p) => ({ current: p.dronesPurchased, target: 9 })
+    getProgress: (p) => ({ current: p.achievementStats.dronesRecruited, target: 9 })
   },
   {
     id: 'droneArmada',
     name: 'Armada de Drones',
-    description: 'Comande 24 drones.',
+    description: 'Recrute 24 drones por cards ao longo das runs.',
     icon: 'D',
     bonusCategory: 'droneDamage',
     bonusPercent: 1.5,
-    getProgress: (p) => ({ current: p.dronesPurchased, target: 24 })
+    getProgress: (p) => ({ current: p.achievementStats.dronesRecruited, target: 24 })
   },
   {
     id: 'deepScan',
@@ -307,6 +240,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
 ];
 
 export const createAchievementStats = (): AchievementStats => ({
+  dronesRecruited: 0,
   asteroidsDestroyed: 0,
   moneyEarned: 0,
   crystalsCollected: 0,
@@ -348,8 +282,7 @@ export const getAchievementBonusPercent = (progression: ProgressionState, catego
 export const getAchievementMultiplier = (progression: ProgressionState, category: AchievementBonusCategory): number =>
   1 + getAchievementBonusPercent(progression, category) / 100;
 
-export const getEffectiveMaxHp = (progression: ProgressionState): number =>
-  Math.round(progression.maxHp * getAchievementMultiplier(progression, 'maxHp'));
+export const getEffectiveMaxHp = (_progression: ProgressionState): number => 100;
 
 export const recordMoneyEarned = (progression: ProgressionState, amount: number): void => {
   if (amount > 0) {

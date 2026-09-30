@@ -1,12 +1,12 @@
 import { getAchievementMultiplier, recordCrystalsCollected, recordMoneyEarned } from '../../progression/achievements';
-import { grantNovaCrownBossCoreReward } from '../../progression/novaCrownRewards';
+import { queueRunCardChoices } from '../../progression/runCards';
 import { getAsteroidShipXpReward, grantShipXp } from '../../progression/shipLevel';
 import { formatMoney } from '../../numberFormat';
 import { recordPrismBossDefeatUnlockProgress } from '../../progression/shipUnlocks';
 import { balance } from '../../balance';
-import { emitAudio, emitReward } from '../events';
+import { emitAsteroidDestruction, emitAudio, emitReward } from '../events';
 import type { GameState } from '../types';
-import { getZoneByIndex, maxTravelLevel } from '../zones';
+import { getZoneByIndex } from '../zones';
 import { getAsteroidReward, splitAsteroid } from './asteroids';
 import { burstParticles } from './particles';
 
@@ -23,6 +23,7 @@ export const destroyAsteroid = (
   nextAsteroids: GameState['asteroids'],
   options: DestroyAsteroidOptions = {}
 ): void => {
+  emitAsteroidDestruction(state, asteroid);
   const split = options.split ?? true;
   const emitPayoutEvent = options.emitPayout ?? true;
   const emitDestroyAudio = options.emitDestroyAudio ?? true;
@@ -33,6 +34,7 @@ export const destroyAsteroid = (
   recordMoneyEarned(state.progression, reward.money);
   recordCrystalsCollected(state.progression, reward.crystals);
   state.progression.achievementStats.asteroidsDestroyed += 1;
+  state.run.asteroidsDestroyed += 1;
   grantShipXp(state, getAsteroidShipXpReward(asteroid));
   if (!asteroid.bossType && state.progression.unlockedZoneIndex === 0) {
     state.progression.firstGateAsteroidsDestroyed += 1;
@@ -46,13 +48,11 @@ export const destroyAsteroid = (
     state.progression.travelLevel = state.progression.unlockedZoneIndex;
     state.progression.mapUnlocked = true;
     state.progression.bossDefeats += 1;
+    queueRunCardChoices(state, 1);
     if (asteroid.bossType === 'prism') {
       recordPrismBossDefeatUnlockProgress(state);
     }
     state.progression.bossDiscovery.rareBossProgress = 0;
-    if (state.progression.currentZoneIndex >= maxTravelLevel) {
-      grantNovaCrownBossCoreReward(state);
-    }
     emitAudio(state, { type: 'bossDefeated' });
     emitAudio(state, { type: 'zoneUnlocked' });
     emitReward(state, `${unlockedZone.name} unlocked on map`, 'unlock');

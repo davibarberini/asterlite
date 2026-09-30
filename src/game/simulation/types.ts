@@ -22,35 +22,9 @@ export type ShipFrameId =
   | 'aurora'
   | 'nivitron'
   | 'hisoka';
-export type TalentId =
-  | 'refineryYield'
-  | 'combatBounty'
-  | 'crystalSeam'
-  | 'propulsionTuning'
-  | 'vectorNozzles'
-  | 'bulwarkProtocol'
-  | 'afterburnerDoctrine'
-  | 'salvageLoop'
-  | 'semiAutoOptics'
-  | 'semiAutoRange'
-  | 'semiAutoPierce'
-  | 'semiAutoCadence'
-  | 'semiAutoOverdrive'
-  | 'shotgunLoad'
-  | 'shotgunChoke'
-  | 'shotgunSpread'
-  | 'shotgunBarrage'
-  | 'shotgunSlag'
-  | 'missileGuidance'
-  | 'missileYield'
-  | 'missileReload'
-  | 'missileWarhead'
-  | 'missileShrapnel'
-  | 'missileChain'
-  | 'droneCommandLink'
-  | 'carrierDoctrine';
-export type TalentRanks = Record<TalentId, number>;
 export type WarpUnlockId =
+  | 'launchLoadout'
+  | 'expandedDraft'
   | 'droneSystems'
   | 'deflectorFrame'
   | 'shieldBubble'
@@ -59,6 +33,34 @@ export type WarpUnlockId =
   | 'rangerHangar'
   | 'missileFoundry';
 export type BulletKind = 'standard' | 'rail' | 'flak' | 'missile' | 'pellet' | 'ricochet' | 'playerRicochet';
+export type RunCardId =
+  | 'kineticAmplifier'
+  | 'rapidCycler'
+  | 'reinforcedHull'
+  | 'splitChamber'
+  | 'piercingCore'
+  | 'expandedCaliber'
+  | 'thorns'
+  | 'impulseVector'
+  | 'inertialArmor'
+  | 'emergencyBarrier'
+  | 'criticalReactor'
+  | 'unstableRicochet'
+  | 'incendiaryCharge'
+  | 'fragmentationChamber'
+  | 'huntingRadar'
+  | 'sentryWing'
+  | 'rangerWing'
+  | 'breakerWing';
+export type RunCardRarity = 'common' | 'rare' | 'epic' | 'legendary';
+export type RunCardTag = 'offense' | 'defense' | 'mobility' | 'drone';
+
+export type RunCardState = {
+  selectedStacks: Record<RunCardId, number>;
+  shieldCharges: number;
+  pendingChoiceIds: RunCardId[];
+  queuedChoiceCount: number;
+};
 
 export type ShipState = {
   position: Vec2;
@@ -70,7 +72,6 @@ export type ShipState = {
   armor: number;
   alive: boolean;
   invulnerableFor: number;
-  respawnFor: number;
   fireCooldown: number;
   turretAngle: number;
   phaseShieldCooldown: number;
@@ -94,6 +95,7 @@ export type DroneState = {
 };
 
 export type AsteroidState = {
+  burn?: { seconds: number; damagePerSecond: number };
   id: number;
   position: Vec2;
   velocity: Vec2;
@@ -132,6 +134,9 @@ export type PendingBossState = {
 };
 
 export type BulletState = {
+  burnDamagePerSecond?: number;
+  fragmentCount?: number;
+  hitTargetIds?: number[];
   id: number;
   owner: 'player' | 'drone' | 'saucer' | 'boss';
   position: Vec2;
@@ -143,16 +148,21 @@ export type BulletState = {
   ricochetLeft: number;
   kind: BulletKind;
   homingTargetId: number | null;
+  homingTurnRate?: number;
+  critical?: boolean;
 };
 
 export type SaucerState = {
   id: number;
-  kind: 'normal' | 'elite';
+  kind: 'normal' | 'elite' | 'skirmisher' | 'sniper';
   position: Vec2;
   velocity: Vec2;
   radius: number;
   fireCooldown: number;
   alive: boolean;
+  telegraphFor?: number;
+  aimAngle?: number;
+  shotFlashFor?: number;
 };
 
 export type BossMinionState = {
@@ -184,6 +194,20 @@ export type LevelShockwaveState = {
   speed: number;
   age: number;
   ttl: number;
+};
+
+export type FlameWaveState = {
+  id: number;
+  center: Vec2;
+  radius: number;
+  maxRadius: number;
+  speed: number;
+  age: number;
+  ttl: number;
+  damage: number;
+  hitAsteroidIds: number[];
+  hitHazardIds: number[];
+  hitBossMinionIds: number[];
 };
 
 export type SurvivalHazardKind = 'proximityMine' | 'survivalHunter';
@@ -253,20 +277,38 @@ export type SurvivalDamageFieldEventState = SurvivalTimedEventBaseState & {
 export type SurvivalTimedEventState = SurvivalMeteorLaneEventState | SurvivalGravityPulseEventState | SurvivalDamageFieldEventState;
 
 
-export type GamePhase = 'playing' | 'respawning';
+export type GamePhase = 'playing' | 'ended';
+
+export type RunSession = {
+  elapsedSeconds: number;
+  asteroidsDestroyed: number;
+  coresEarned: number;
+  survivalMilestones: number;
+};
 
 export type GameAudioEvent =
   | { type: 'playerShoot' }
   | { type: 'droneShoot' }
   | { type: 'saucerShoot' }
   | { type: 'bossShoot' }
+  | { type: 'bossSentinelVolley' }
+  | { type: 'bossCrusherShockwave' }
+  | { type: 'bossPrismRicochet' }
+  | { type: 'bossMothershipRing' }
+  | { type: 'bossMothershipFan' }
+  | { type: 'bossMothershipBeam' }
+  | { type: 'bossMothershipSummon' }
+  | { type: 'bossMothershipPhaseShift' }
+  | { type: 'bossSeekerShoot' }
+  | { type: 'bossSeekerHum' }
   | { type: 'asteroidHit' }
   | { type: 'asteroidDestroyed'; size: AsteroidSize }
   | { type: 'saucerDestroyed' }
   | { type: 'shipHit' }
   | { type: 'shipDestroyed' }
-  | { type: 'shipRespawned' }
   | { type: 'shipLevelUp' }
+  | { type: 'vectorTapBoost' }
+  | { type: 'emberFlameWave' }
   | { type: 'spaceTravel' }
   | { type: 'bossSummoned' }
   | { type: 'bossDefeated' }
@@ -281,20 +323,6 @@ export type GameRewardEvent = {
   kind?: GameRewardKind;
 };
 
-export type BossRewardId =
-  | 'rapidFire'
-  | 'droneOverdrive'
-  | 'salvageSurge'
-  | 'glassReactor'
-  | 'overchargedCannons'
-  | 'droneCommand'
-  | 'ablativePlating';
-
-export type BossRewardState = {
-  pendingChoiceIds: BossRewardId[];
-  activeIds: BossRewardId[];
-};
-
 export type RareSpawnKind = 'proximityMine';
 
 export type RareSpawnState = {
@@ -307,7 +335,6 @@ export type SurvivalState = {
   currentSeconds: number;
   threatLevel: number;
   lastAnnouncedThreatLevel: number;
-  nextRewardThreatLevel: number;
   hazardSpawnCooldown: number;
   hunterSpawnCooldown: number;
   timedEventCooldown: number;
@@ -316,6 +343,7 @@ export type SurvivalState = {
 };
 
 export type AchievementStats = {
+  dronesRecruited: number;
   asteroidsDestroyed: number;
   moneyEarned: number;
   crystalsCollected: number;
@@ -339,13 +367,6 @@ export type AchievementId =
   | 'seamProspector'
   | 'crystalRunner'
   | 'shardMagnate'
-  | 'refineryBoot'
-  | 'oreFlow'
-  | 'megaFoundry'
-  | 'titanSmelter'
-  | 'hullPatch'
-  | 'reinforcedFrame'
-  | 'dreadnought'
   | 'lightPlating'
   | 'ablativeShell'
   | 'hotRod'
@@ -398,35 +419,6 @@ export type GuidedMissionState = {
   startedAt: GuidedMissionSnapshot;
 };
 
-export type ShipRunState = {
-  money: number;
-  crystals: number;
-  passiveIncomeLevel: number;
-  shipDamageLevel: number;
-  shipFireRateLevel: number;
-  shipSpeedLevel: number;
-  deflectorLevel: number;
-  droneDamageLevel: number;
-  droneFireRateLevel: number;
-  droneCounts: Record<DroneType, number>;
-  activeDroneCounts: Record<DroneType, number>;
-  talentRanks: TalentRanks;
-  shipXp: number;
-  shipLevel: number;
-  shipSkillPoints: number;
-  spentShipSkillPoints: number;
-  mapUnlocked: boolean;
-  travelLevel: number;
-  currentZoneIndex: number;
-  unlockedZoneIndex: number;
-  firstGateAsteroidsDestroyed: number;
-  bossDefeats: number;
-  bossDiscovery: BossDiscoveryState;
-  maxHp: number;
-  armor: number;
-  dronesPurchased: number;
-};
-
 export type ShipUnlockProgress = {
   asteroidCollisions: number;
   asteroidBurstBest: number;
@@ -437,20 +429,10 @@ export type ShipUnlockProgress = {
 };
 
 export type ProgressionState = {
-  passiveIncomeLevel: number;
-  shipDamageLevel: number;
-  shipFireRateLevel: number;
   shipSpeedLevel: number;
   deflectorLevel: number;
-  droneDamageLevel: number;
-  droneFireRateLevel: number;
-  droneCounts: Record<DroneType, number>;
-  activeDroneCounts: Record<DroneType, number>;
-  talentRanks: TalentRanks;
   shipXp: number;
   shipLevel: number;
-  shipSkillPoints: number;
-  spentShipSkillPoints: number;
   mapUnlocked: boolean;
   travelLevel: number;
   currentZoneIndex: number;
@@ -468,28 +450,23 @@ export type ProgressionState = {
   activeShipFrameId: ShipFrameId;
   unlockedShipFrameIds: ShipFrameId[];
   shipUnlockProgress: ShipUnlockProgress;
-  shipRuns: Partial<Record<ShipFrameId, ShipRunState>>;
   prestigeCores: number;
   ownedWarpUnlockIds: WarpUnlockId[];
   announcedAffordableWarpUnlockIds: WarpUnlockId[];
-  maxHp: number;
   armor: number;
-  dronesPurchased: number;
   achievementStats: AchievementStats;
   unlockedAchievements: Record<AchievementId, boolean>;
 };
 
 export type GameState = {
+  run: RunSession;
   width: number;
   height: number;
   camera: Vec2;
   money: number;
   crystals: number;
-  lastRepairCost: number;
-  lastOfflineEarnings: number;
-  deathPenaltyFor: number;
   droneRebootFor: number;
-  bossRewards: BossRewardState;
+  runCards: RunCardState;
   rareSpawns: RareSpawnState;
   phase: GamePhase;
   ship: ShipState;
@@ -498,11 +475,13 @@ export type GameState = {
   drones: DroneState[];
   progression: ProgressionState;
   asteroids: AsteroidState[];
+  asteroidDestructionEvents: Pick<AsteroidState, 'id' | 'position' | 'radius' | 'variant' | 'bossType' | 'hp' | 'maxHp'>[];
   hazards: SurvivalHazardState[];
   survivalEvents: SurvivalTimedEventState[];
   bullets: BulletState[];
   particles: ParticleState[];
   levelShockwaves: LevelShockwaveState[];
+  flameWaves: FlameWaveState[];
   audioEvents: GameAudioEvent[];
   rewardEvents: GameRewardEvent[];
   pendingBoss: PendingBossState | null;

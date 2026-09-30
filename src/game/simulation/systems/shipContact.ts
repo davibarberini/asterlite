@@ -1,6 +1,7 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
 import { recordAsteroidCollisionUnlockProgress } from '../../progression/shipUnlocks';
 import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
+import { getRunCardImpactDamage, getRunCardKnockbackMultiplier } from '../../progression/runCards';
 import { balance } from '../../balance';
 import { emitAudio } from '../events';
 import type { GameState, SurvivalMeteorLaneEventState, Vec2 } from '../types';
@@ -99,8 +100,9 @@ export const repelShipFromContact = (state: GameState, contactPosition: Vec2, mi
   const safeDistance = minimumDistance + balance.collisions.shipContactSeparationPadding;
   state.ship.position.x = contactPosition.x + away.x * safeDistance;
   state.ship.position.y = contactPosition.y + away.y * safeDistance;
-  state.ship.velocity.x += away.x * knockback;
-  state.ship.velocity.y += away.y * knockback;
+  const reducedKnockback = knockback * getRunCardKnockbackMultiplier(state);
+  state.ship.velocity.x += away.x * reducedKnockback;
+  state.ship.velocity.y += away.y * reducedKnockback;
 };
 
 export const asteroidHitsDeflector = (state: GameState, asteroid: GameState['asteroids'][number]): boolean => {
@@ -146,7 +148,9 @@ const applyRamCollisionDamage = (
   destroyedAsteroidIds: Set<number>,
   nextAsteroids: GameState['asteroids']
 ): boolean => {
-  if (getShipFrameWeaponIdentity(state.progression) !== 'ram') {
+  const dashImpactDamage = getRunCardImpactDamage(state);
+  const isMovingFast = Math.hypot(state.ship.velocity.x, state.ship.velocity.y) >= balance.ship.swipeImpulseMinSpeed * 0.55;
+  if (getShipFrameWeaponIdentity(state.progression) !== 'ram' && (!isMovingFast || dashImpactDamage <= 0)) {
     return false;
   }
 
@@ -165,16 +169,17 @@ const applyRamCollisionDamage = (
 const getRamCollisionDamage = (state: GameState): number =>
   Math.max(
     1,
-    state.progression.shipDamageLevel *
-      balance.weapons.playerDamageMultiplier *
+    balance.weapons.playerDamageMultiplier *
       getAchievementMultiplier(state.progression, 'damage') *
       getShipFrameBonusMultiplier(state.progression, 'damageMultiplier') *
-      balance.weapons.ramDamageMultiplier
+      (getShipFrameWeaponIdentity(state.progression) === 'ram' ? balance.weapons.ramDamageMultiplier : 1) +
+      getRunCardImpactDamage(state)
   );
 
 const getAsteroidContactDamage = (state: GameState, asteroid: GameState['asteroids'][number]): number =>
   Math.round(
     balance.collisions.asteroidDamage[asteroid.size] *
+      (state.progression.currentZoneIndex === 0 && !asteroid.bossType ? balance.opening.lyraContactDamageMultiplier : 1) *
       getZoneAsteroidDamageMultiplier(state) *
       (getShipFrameWeaponIdentity(state.progression) === 'ram' ? balance.weapons.ramContactDamageMultiplier : 1)
   );

@@ -1,19 +1,5 @@
 import { getAchievementMultiplier } from '../../progression/achievements';
-import { getBossRewardDroneDamageMultiplier, getBossRewardDroneFireIntervalMultiplier } from '../../progression/bossRewards';
 import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
-import {
-  getDroneSkillDamageMultiplier,
-  getDroneSkillFireIntervalMultiplier,
-  getMissileDamage,
-  getMissileFireIntervalMultiplier,
-  getSemiAutoDamage,
-  getSemiAutoFireIntervalMultiplier,
-  getSemiAutoPierceLeft,
-  getSemiAutoRangeBonus,
-  getShotgunFireIntervalMultiplier,
-  getShotgunPelletDamage,
-  getShotgunSpreadAngles
-} from '../../progression/talentTree';
 import { balance } from '../../balance';
 import { getDroneOrbitRadius } from '../state';
 import type { GameState, Vec2 } from '../types';
@@ -62,7 +48,7 @@ export const updateDrones = (state: GameState, dt: number): void => {
       y: target.position.y - drone.position.y
     });
     const bulletsFired = fireDroneWeapon(state, drone, Math.atan2(direction.y, direction.x), target);
-    drone.fireCooldown = getDroneFireInterval(state, drone) * getBossRewardDroneFireIntervalMultiplier(state) +
+    drone.fireCooldown = getDroneFireInterval(state, drone) +
       (drone.id % balance.drones.fireCooldownJitter.cycle) * balance.drones.fireCooldownJitter.step;
     droneShotsThisFrame += 1;
     activeDroneBullets += bulletsFired;
@@ -70,15 +56,12 @@ export const updateDrones = (state: GameState, dt: number): void => {
 };
 
 const getDroneDamageMultiplier = (state: GameState): number =>
-  getAchievementMultiplier(state.progression, 'droneDamage') *
-  getBossRewardDroneDamageMultiplier(state) *
-  getDroneSkillDamageMultiplier(state.progression);
+  getAchievementMultiplier(state.progression, 'droneDamage');
 
 const getShipDamage = (state: GameState): number =>
   Math.max(
     0.05,
-    state.progression.shipDamageLevel *
-      balance.weapons.playerDamageMultiplier *
+    balance.weapons.playerDamageMultiplier *
       getAchievementMultiplier(state.progression, 'damage') *
       getShipFrameBonusMultiplier(state.progression, 'damageMultiplier')
   );
@@ -100,28 +83,28 @@ const fireDroneWeapon = (
       drone.position,
       rotation,
       balance.weapons.droneBulletSpeed * balance.weapons.droneSpeedMultiplier.sentry,
-      Math.max(0.05, shipDamage * getSemiAutoDamage(state.progression) * droneDamageMultiplier),
+      Math.max(0.05, shipDamage * droneDamageMultiplier),
       inheritedVelocity,
-      getSemiAutoPierceLeft(state.progression)
+      0
     );
     return 1;
   }
 
   if (drone.type === 'ranger') {
-    getShotgunSpreadAngles(state.progression).forEach((offset) => {
+    getShotgunSpreadAngles().forEach((offset) => {
       fireBullet(
         state,
         'drone',
         drone.position,
         rotation + offset,
         balance.weapons.droneBulletSpeed * balance.weapons.droneSpeedMultiplier.ranger,
-        Math.max(0.05, shipDamage * 0.35 * getShotgunPelletDamage(state.progression, target.variant) * droneDamageMultiplier),
+        Math.max(0.05, shipDamage * 0.35 * droneDamageMultiplier),
         inheritedVelocity,
         0,
         'pellet'
       );
     });
-    return getShotgunSpreadAngles(state.progression).length;
+    return getShotgunSpreadAngles().length;
   }
 
   fireBullet(
@@ -130,7 +113,7 @@ const fireDroneWeapon = (
     drone.position,
     rotation,
     balance.weapons.droneBulletSpeed * balance.weapons.droneSpeedMultiplier.breaker,
-    Math.max(0.05, shipDamage * getMissileDamage(state.progression) * droneDamageMultiplier),
+    Math.max(0.05, shipDamage * 3 * droneDamageMultiplier),
     inheritedVelocity,
     0,
     'missile',
@@ -141,18 +124,12 @@ const fireDroneWeapon = (
 
 const getDroneFireInterval = (state: GameState, drone: GameState['drones'][number]): number => {
   if (drone.type === 'ranger') {
-    return balance.drones.fireInterval.ranger *
-      getShotgunFireIntervalMultiplier(state.progression) *
-      getDroneSkillFireIntervalMultiplier(state.progression);
+    return balance.drones.fireInterval.ranger;
   }
   if (drone.type === 'breaker') {
-    return balance.drones.fireInterval.breaker *
-      getMissileFireIntervalMultiplier(state.progression) *
-      getDroneSkillFireIntervalMultiplier(state.progression);
+    return balance.drones.fireInterval.breaker;
   }
-  return balance.drones.fireInterval.sentry *
-    getSemiAutoFireIntervalMultiplier(state.progression) *
-    getDroneSkillFireIntervalMultiplier(state.progression);
+  return balance.drones.fireInterval.sentry;
 };
 
 const getDroneTargetRange = (state: GameState, drone: GameState['drones'][number]): number => {
@@ -162,8 +139,10 @@ const getDroneTargetRange = (state: GameState, drone: GameState['drones'][number
   if (drone.type === 'breaker') {
     return balance.drones.baseTargetRange + balance.drones.targetRangeOffset.breaker;
   }
-  return balance.drones.baseTargetRange + balance.drones.targetRangeOffset.sentry + getSemiAutoRangeBonus(state.progression);
+  return balance.drones.baseTargetRange + balance.drones.targetRangeOffset.sentry;
 };
+
+const getShotgunSpreadAngles = (): number[] => [-0.17, -0.085, 0, 0.085, 0.17];
 
 const getDroneBulletCount = (state: GameState): number => {
   let count = 0;

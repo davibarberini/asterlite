@@ -1,4 +1,4 @@
-# Asteridle Agent Instructions
+# Asterlite Agent Instructions
 
 ## Project Commands
 
@@ -38,6 +38,6 @@ If the selected technical debt item is too broad for one pass, split it into sma
 ## Game Direction
 
 - This is a Phaser/Vite 2D browser game with DOM HUD and shop UI.
-- Prefer small, playable idle systems over large rewrites.
+- Prefer small, playable roguelite systems over large rewrites.
 - Preserve the borderless movement and camera-followed playfield.
-- Death should remain a repair-cost setback with automatic respawn, not a hard game over.
+- Death ends the current run. Starting another run resets the temporary build and routes while retaining permanent unlocks and cores.

@@ -1,6 +1,6 @@
 export type LanguageCode = 'en-US' | 'pt-BR';
 
-export const languageStorageKey = 'asteridle.language';
+export const languageStorageKey = 'asterlite.language';
 
 type TranslationKey =
   | 'menu.subtitle'
@@ -19,19 +19,16 @@ type TranslationKey =
   | 'hud.openSettings'
   | 'hud.idleSystems'
   | 'hud.closeShop'
-  | 'hud.openUpgrades'
+  | 'hud.openMenu'
   | 'hud.shopTabs'
   | 'hud.map'
-  | 'nav.upgrades'
   | 'nav.technologies'
   | 'nav.hangar'
   | 'nav.drones'
-  | 'nav.skills'
   | 'nav.achievements'
   | 'unit.crystals'
   | 'unit.ranks'
   | 'unit.semiPierce'
-  | 'status.offline'
   | 'status.destroyed'
   | 'status.droneReboot'
   | 'status.shieldActive'
@@ -51,28 +48,12 @@ type TranslationKey =
   | 'goal.bossActive'
   | 'goal.asteroids'
   | 'goal.crystals'
-  | 'shop.upgradesKicker'
-  | 'shop.shipCore'
-  | 'shop.shotDamage'
-  | 'shop.fireRate'
-  | 'shop.hull'
-  | 'shop.income'
-  | 'shop.skillsTitle'
-  | 'shop.skillsCopy'
-  | 'shop.skillsStatCrystals'
-  | 'shop.skillsStatTalents'
-  | 'shop.skillsStatSemiPierce'
-  | 'shop.skillsStatRefinery'
-  | 'shop.skillsActionTitle'
-  | 'shop.skillsActionMeta'
-  | 'shop.skillsActionLabel'
-  | 'shop.skillsRespecTitle'
-  | 'shop.skillsRespecMeta'
-  | 'shop.skillsRespecLabel'
+  | 'boss.sentinel'
+  | 'boss.crusher'
+  | 'boss.prism'
+  | 'boss.mothership'
   | 'shop.level'
   | 'shop.max'
-  | 'shop.damage'
-  | 'shop.perHour'
   | 'shop.gainCores'
   | 'shop.notReady'
   | 'shop.crystals'
@@ -110,19 +91,16 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'hud.openSettings': 'Open settings',
     'hud.idleSystems': 'Idle systems',
     'hud.closeShop': 'Close shop',
-    'hud.openUpgrades': 'Open upgrades menu',
+    'hud.openMenu': 'Open menu',
     'hud.shopTabs': 'Shop tabs',
     'hud.map': 'Map',
-    'nav.upgrades': 'Upgrades',
     'nav.technologies': 'Technologies',
     'nav.hangar': 'Hangar',
     'nav.drones': 'Drones',
-    'nav.skills': 'Skills',
     'nav.achievements': 'Achievements',
     'unit.crystals': 'crystals',
     'unit.ranks': 'ranks',
     'unit.semiPierce': 'semi pierce',
-    'status.offline': 'Offline payout: {amount}.',
     'status.destroyed': 'Ship destroyed. Repair {amount}. Respawning in {seconds}.',
     'status.droneReboot': 'Drone wing rebooting: {seconds} sec.',
     'status.shieldActive': 'Temporary shield active.',
@@ -142,28 +120,12 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'goal.bossActive': 'Boss active',
     'goal.asteroids': '{current}/{target} asteroids',
     'goal.crystals': '{current}/{target} crystals',
-    'shop.upgradesKicker': 'Upgrades',
-    'shop.shipCore': 'Ship Core',
-    'shop.shotDamage': 'Shot Damage',
-    'shop.fireRate': 'Fire Rate',
-    'shop.hull': 'Hull',
-    'shop.income': 'Offline',
-    'shop.skillsTitle': 'Talent Tree',
-    'shop.skillsCopy': 'Level this ship to earn skill points, then spend them on connected nodes.',
-    'shop.skillsStatCrystals': 'Crystals',
-    'shop.skillsStatTalents': 'Talents',
-    'shop.skillsStatSemiPierce': 'Semi pierce',
-    'shop.skillsStatRefinery': 'Offline',
-    'shop.skillsActionTitle': 'Talent Constellation',
-    'shop.skillsActionMeta': '{count} ranks unlocked',
-    'shop.skillsActionLabel': 'Open Talent Tree',
-    'shop.skillsRespecTitle': 'Reset Build',
-    'shop.skillsRespecMeta': 'Refund spent skill points without losing ship level or XP.',
-    'shop.skillsRespecLabel': '{cost} crystals',
+    'boss.sentinel': 'Star Sentinel',
+    'boss.crusher': 'Gravity Crusher',
+    'boss.prism': 'Prism Warden',
+    'boss.mothership': 'Nova Matriarch',
     'shop.level': 'Lv {level}/{cap}',
     'shop.max': 'MAX',
-    'shop.damage': '{value} dmg',
-    'shop.perHour': '{value} / h',
     'shop.gainCores': 'Gain {count} {unit}',
     'shop.notReady': 'Not Ready',
     'shop.crystals': 'Crystals',
@@ -178,9 +140,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'settings.sound': 'Sound Settings',
     'settings.saveData': 'Save Data',
     'settings.reset': 'Reset',
-    'settings.resetCopy': 'Clears all Asteridle save, progression, technologies, achievements, and local settings on this device.',
+    'settings.resetCopy': 'Clears all Asterlite save, progression, technologies, achievements, and local settings on this device.',
     'settings.resetAll': 'Reset All Data',
-    'settings.confirmReset': 'Reset all Asteridle data on this device? This cannot be undone.',
+    'settings.confirmReset': 'Reset all Asterlite data on this device? This cannot be undone.',
     'settings.resetDone': 'All local data reset'
   },
   'pt-BR': {
@@ -200,19 +162,16 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'hud.openSettings': 'Abrir configurações',
     'hud.idleSystems': 'Sistemas idle',
     'hud.closeShop': 'Fechar loja',
-    'hud.openUpgrades': 'Abrir melhorias',
+    'hud.openMenu': 'Abrir menu',
     'hud.shopTabs': 'Abas da loja',
     'hud.map': 'Mapa',
-    'nav.upgrades': 'Melhorias',
     'nav.technologies': 'Tecnologias',
     'nav.hangar': 'Hangar',
     'nav.drones': 'Drones',
-    'nav.skills': 'Habilidades',
     'nav.achievements': 'Conquistas',
     'unit.crystals': 'cristais',
     'unit.ranks': 'níveis',
     'unit.semiPierce': 'perfuração semi-auto',
-    'status.offline': 'Ganhos offline: {amount}.',
     'status.destroyed': 'Nave destruída. Reparo {amount}. Reaparece em {seconds}.',
     'status.droneReboot': 'Drones reiniciando: {seconds} s.',
     'status.shieldActive': 'Escudo temporário ativo.',
@@ -232,28 +191,12 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'goal.bossActive': 'Boss ativo',
     'goal.asteroids': '{current}/{target} asteroides',
     'goal.crystals': '{current}/{target} cristais',
-    'shop.upgradesKicker': 'Melhorias',
-    'shop.shipCore': 'Núcleo da Nave',
-    'shop.shotDamage': 'Dano do Tiro',
-    'shop.fireRate': 'Velocidade de Ataque',
-    'shop.hull': 'Vida',
-    'shop.income': 'Offline',
-    'shop.skillsTitle': 'Árvore de Habilidades',
-    'shop.skillsCopy': 'Suba o nível desta nave para ganhar pontos e gastar em nós conectados.',
-    'shop.skillsStatCrystals': 'Cristais',
-    'shop.skillsStatTalents': 'Habilidades',
-    'shop.skillsStatSemiPierce': 'Perfuração',
-    'shop.skillsStatRefinery': 'Offline',
-    'shop.skillsActionTitle': 'Constelação de Habilidades',
-    'shop.skillsActionMeta': '{count} níveis desbloqueados',
-    'shop.skillsActionLabel': 'Abrir árvore',
-    'shop.skillsRespecTitle': 'Resetar build',
-    'shop.skillsRespecMeta': 'Devolve pontos gastos sem perder nível ou XP da nave.',
-    'shop.skillsRespecLabel': '{cost} cristais',
+    'boss.sentinel': 'Sentinela Estelar',
+    'boss.crusher': 'Esmagador Gravitacional',
+    'boss.prism': 'Guardião Prisma',
+    'boss.mothership': 'Matriarca Nova',
     'shop.level': 'Nv {level}/{cap}',
     'shop.max': 'MAX',
-    'shop.damage': '{value} dano',
-    'shop.perHour': '{value} / h',
     'shop.gainCores': 'Ganhar {count} {unit}',
     'shop.notReady': 'Bloqueado',
     'shop.crystals': 'Cristais',
@@ -268,9 +211,9 @@ const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
     'settings.sound': 'Configurações de Som',
     'settings.saveData': 'Dados salvos',
     'settings.reset': 'Reset',
-    'settings.resetCopy': 'Apaga todo o save, progresso, tecnologias, conquistas e configurações locais deste aparelho.',
+    'settings.resetCopy': 'Apaga todo o save, progresso, tecnologias, conquistas e configurações locais do Asterlite neste aparelho.',
     'settings.resetAll': 'Resetar tudo',
-    'settings.confirmReset': 'Resetar todos os dados do Asteridle neste aparelho? Isso não pode ser desfeito.',
+    'settings.confirmReset': 'Resetar todos os dados do Asterlite neste aparelho? Isso não pode ser desfeito.',
     'settings.resetDone': 'Dados locais resetados'
   }
 };

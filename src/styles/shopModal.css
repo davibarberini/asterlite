@@ -175,10 +175,6 @@
   grid-template-columns: minmax(0, 1fr) 32px;
 }
 
-.shop-action-row--with-info.shop-action-row--with-control .drone-deploy-control {
-  grid-column: 1;
-}
-
 .shop-action-row--with-info.shop-action-row--with-control .shop-info-button {
   grid-column: 2;
   grid-row: 1 / span 2;
@@ -214,127 +210,6 @@
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   font-weight: 800;
-}
-
-.shop-buy--drone {
-  min-height: 76px;
-  border-color: rgba(131, 255, 220, 0.24);
-  background:
-    linear-gradient(135deg, rgba(131, 255, 220, 0.12), rgba(111, 168, 255, 0.07)),
-    rgba(5, 14, 20, 0.58);
-}
-
-.shop-buy--drone-ready {
-  border-color: rgba(131, 255, 220, 0.4);
-}
-
-.shop-buy--drone-owned {
-  border-color: rgba(164, 214, 255, 0.34);
-  background:
-    linear-gradient(135deg, rgba(164, 214, 255, 0.13), rgba(131, 255, 220, 0.08)),
-    rgba(5, 14, 20, 0.62);
-}
-
-.shop-buy--drone-locked {
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.shop-buy--drone .shop-action-icon {
-  width: 42px;
-  height: 42px;
-  overflow: hidden;
-}
-
-.drone-deploy-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 5px 7px;
-  border: 1px solid rgba(164, 214, 255, 0.18);
-  border-radius: 6px;
-  background: rgba(5, 14, 20, 0.42);
-}
-
-.drone-deploy-control__label {
-  min-width: 0;
-  color: rgba(198, 222, 238, 0.76);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.drone-deploy-control__stepper {
-  display: grid;
-  grid-template-columns: 28px minmax(46px, auto) 28px;
-  align-items: center;
-  gap: 5px;
-}
-
-.drone-deploy-control__button {
-  width: 28px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid rgba(131, 255, 220, 0.28);
-  border-radius: 6px;
-  background: rgba(131, 255, 220, 0.1);
-  color: rgba(245, 253, 255, 0.94);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.drone-deploy-control__button:disabled {
-  opacity: 0.32;
-}
-
-.drone-deploy-control__value {
-  color: rgba(245, 253, 255, 0.94);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-  text-align: center;
-}
-
-.drone-type-icon {
-  width: 34px;
-  height: 34px;
-}
-
-.drone-type-icon__hull,
-.drone-type-icon__core {
-  fill: rgba(131, 255, 220, 0.14);
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linejoin: round;
-}
-
-.drone-type-icon__core {
-  fill: rgba(245, 253, 255, 0.18);
-  stroke-width: 1.8;
-}
-
-.drone-type-icon__line,
-.drone-type-icon__fan {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.3;
-}
-
-.drone-type-icon__fan {
-  opacity: 0.78;
-}
-
-.drone-type-icon--ranger {
-  color: rgba(255, 220, 138, 0.98);
-}
-
-.drone-type-icon--breaker {
-  color: rgba(255, 142, 142, 0.98);
 }
 
 .shop-action-body {
@@ -761,13 +636,72 @@
   line-height: 1.35;
 }
 
-.boss-reward-actions {
+.run-card-actions {
   display: grid;
   gap: 8px;
 }
 
-.boss-reward-choice {
-  min-height: 74px;
+.run-menu { display: grid; gap: 16px; }
+.run-menu__facts { display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; margin: 0; }
+.run-menu__facts dd { margin: 0; color: #83ffdc; text-align: right; }
+.run-menu__select { display: block; width: 100%; margin-top: 8px; padding: 12px; color: #f2fbff; background: #182323; border: 1px solid #597a72; border-radius: 6px; }
+
+.run-card-choice {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  min-height: 112px;
+  padding: 14px;
+  border: 1px solid rgba(131, 255, 220, 0.26);
+  border-radius: 8px;
+  background: rgba(8, 22, 29, 0.94);
+  color: rgba(245, 253, 255, 0.96);
+  text-align: left;
+  font: inherit;
+}
+
+.run-card-choice--rare {
+  border-color: rgba(249, 121, 255, 0.56);
+  background: rgba(35, 12, 43, 0.94);
+}
+
+.run-card-choice:active {
+  transform: scale(0.985);
+}
+
+.run-card-choice__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.run-card-choice__header strong {
+  font-size: 16px;
+}
+
+.run-card-choice__header small {
+  color: var(--accent-strong);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.run-card-choice--rare .run-card-choice__header small {
+  color: rgba(249, 156, 255, 0.96);
+}
+
+.run-card-choice__summary {
+  color: rgba(210, 231, 242, 0.84);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.run-card-choice__stacks {
+  justify-self: end;
+  color: rgba(210, 231, 242, 0.56);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
 }
 
 .shop-panel--achievements .shop-actions {
@@ -929,4 +863,8 @@
   .ui-modal__panel--skills {
     width: 100vw;
   }
+}
+.ui-modal__panel:has(.run-menu) > .ui-modal__handle,
+.ui-modal__panel:has(.run-menu) #ui-modal-close {
+  display: none;
 }

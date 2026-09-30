@@ -1,23 +1,17 @@
 import type { GameState, ProgressionState } from '../simulation/types';
 import { emitAudio, emitReward } from '../simulation/events';
-import { getLevelShockwaveSkillMultiplier } from './talentEffects';
+import { queueLevelUpCardChoices } from './runCards';
 
 export const baseMaxShipLevel = 20;
 
 /**
- * XP required to go from level 1 to level 2.
- *
- * Kept high on purpose: a single asteroid/boss (or a level-up shockwave clearing
- * several rocks) should never grant a whole level, so leveling never chains into
- * multiple level-ups at once.
+ * Asteroid destroys needed for each early level. XP is intentionally one point
+ * per asteroid so the player can read this as a direct progression cadence.
  */
-const shipXpBaseRequirement = 2400;
+const shipXpRequirements = [2, 5, 10, 20, 30, 50, 100, 200, 300, 500, 1000, 1200];
 
-/**
- * Per-level XP growth. Each level costs ~1.32x the previous one, so early levels
- * stay reachable while late levels (toward the level-20 cap) take a long grind.
- */
-const shipXpGrowthPerLevel = 1.32;
+const shipXpRequirementAfterDefinedLevels = (level: number): number =>
+  shipXpRequirements[shipXpRequirements.length - 1] + (level - shipXpRequirements.length) * 200;
 
 /**
  * Extra ship levels granted by future global technologies.
@@ -33,26 +27,7 @@ export const getMaxShipLevel = (progression: ProgressionState): number =>
 
 export const getShipXpForNextLevel = (level: number): number => {
   const safeLevel = Math.max(1, Math.floor(level));
-  return Math.round(shipXpBaseRequirement * shipXpGrowthPerLevel ** (safeLevel - 1));
-};
-
-export const getAvailableShipSkillPoints = (progression: ProgressionState): number =>
-  Math.max(0, Math.floor(progression.shipSkillPoints) - Math.floor(progression.spentShipSkillPoints));
-
-export const getTotalShipSkillPointCap = (progression: ProgressionState): number => getMaxShipLevel(progression) - 1;
-
-const createLevelShockwave = (state: GameState, levelsGained: number): void => {
-  const maxRadius = (540 + Math.min(3, Math.max(0, levelsGained - 1)) * 90) *
-    getLevelShockwaveSkillMultiplier(state.progression);
-  state.levelShockwaves.push({
-    id: state.nextId++,
-    center: { ...state.ship.position },
-    radius: 34,
-    maxRadius,
-    speed: 1080,
-    age: 0,
-    ttl: maxRadius / 1080 + 0.18
-  });
+  return shipXpRequirements[safeLevel - 1] ?? shipXpRequirementAfterDefinedLevels(safeLevel);
 };
 
 export const grantShipXp = (state: GameState, amount: number): void => {
@@ -72,7 +47,6 @@ export const grantShipXp = (state: GameState, amount: number): void => {
     }
     state.progression.shipXp -= needed;
     state.progression.shipLevel += 1;
-    state.progression.shipSkillPoints += 1;
     levelsGained += 1;
   }
 
@@ -82,21 +56,15 @@ export const grantShipXp = (state: GameState, amount: number): void => {
   }
 
   if (levelsGained > 0) {
-    createLevelShockwave(state, levelsGained);
+    queueLevelUpCardChoices(state, levelsGained);
     emitAudio(state, { type: 'shipLevelUp' });
-    emitReward(state, `Ship level ${state.progression.shipLevel}: +${levelsGained} skill point${levelsGained === 1 ? '' : 's'}`, 'system');
+    emitReward(state, `Ship level ${state.progression.shipLevel}`, 'system');
   }
 };
 
 export const getAsteroidShipXpReward = (asteroid: { bossType?: unknown; size: 'large' | 'medium' | 'small' }): number => {
   if (asteroid.bossType) {
-    return 120;
+    return 0;
   }
-  if (asteroid.size === 'large') {
-    return 18;
-  }
-  if (asteroid.size === 'medium') {
-    return 12;
-  }
-  return 8;
+  return 1;
 };

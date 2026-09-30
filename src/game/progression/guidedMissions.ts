@@ -1,7 +1,6 @@
 import { balance } from '../balance';
 import { emitReward } from '../simulation/events';
 import type { GameState, GuidedMissionId, GuidedMissionSnapshot, GuidedMissionState, ProgressionState } from '../simulation/types';
-import { getEffectiveMaxHp } from './achievements';
 import { crystalsPerPrestigeCore } from './prestige';
 import { WARP_UNLOCK_BY_ID, getAvailableWarpCores, hasWarpUnlock } from './warpUnlocks';
 
@@ -11,7 +10,7 @@ export type GuidedMissionProgress = {
   current: number;
   target: number;
   ready: boolean;
-  rewardKind: 'damage' | 'hull' | 'income' | 'fireRate' | 'drone' | 'credits' | 'speed' | 'crystals';
+  rewardKind: 'drone' | 'credits' | 'speed' | 'crystals';
 };
 
 type GuidedMissionDefinition = {
@@ -55,14 +54,6 @@ export const createGuidedMissionState = (): GuidedMissionState => ({
 
 const completeRewardText = (rewardKind: GuidedMissionProgress['rewardKind']): string => {
   switch (rewardKind) {
-    case 'damage':
-      return '+1 Shot damage level';
-    case 'hull':
-      return '+10 Hull';
-    case 'income':
-      return '+1 Offline income level';
-    case 'fireRate':
-      return '+1 Attack speed level';
     case 'drone':
       return '+1 Drone damage level';
     case 'credits':
@@ -87,24 +78,18 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'drawGateBoss',
     target: balance.bosses.firstGateAsteroids,
-    rewardKind: 'damage',
+    rewardKind: 'credits',
     getCurrent: (state) => state.progression.firstGateAsteroidsDestroyed,
     applyReward: (state) => {
-      state.progression.shipDamageLevel += 1;
       state.money += 75;
     }
   },
   {
     id: 'defeatGateBoss',
     target: 1,
-    rewardKind: 'hull',
+    rewardKind: 'credits',
     getCurrent: (state) => state.progression.bossDefeats,
     applyReward: (state) => {
-      state.progression.maxHp += 10;
-      const nextMaxHp = getEffectiveMaxHp(state.progression);
-      const hpGain = nextMaxHp - state.ship.maxHp;
-      state.ship.maxHp = nextMaxHp;
-      state.ship.hp += Math.max(0, hpGain);
       state.money += 150;
     }
   },
@@ -122,26 +107,20 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'collectWarpCrystals',
     target: crystalsPerPrestigeCore,
-    rewardKind: 'income',
+    rewardKind: 'credits',
     isAvailable: (state) => hasReachedZone(state, 1),
     getCurrent: (state) => state.crystals,
     applyReward: (state) => {
-      state.progression.passiveIncomeLevel += 1;
       state.money += 200;
     }
   },
   {
     id: 'openVegaRoute',
     target: 2,
-    rewardKind: 'hull',
+    rewardKind: 'credits',
     isAvailable: (state) => hasReachedZone(state, 1),
     getCurrent: (state) => state.progression.bossDefeats,
     applyReward: (state) => {
-      state.progression.maxHp += 10;
-      const nextMaxHp = getEffectiveMaxHp(state.progression);
-      const hpGain = nextMaxHp - state.ship.maxHp;
-      state.ship.maxHp = nextMaxHp;
-      state.ship.hp += Math.max(0, hpGain);
       state.money += 350;
     }
   },
@@ -159,11 +138,10 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'openCygnusRoute',
     target: 3,
-    rewardKind: 'fireRate',
+    rewardKind: 'credits',
     isAvailable: (state) => hasReachedZone(state, 2),
     getCurrent: (state) => state.progression.bossDefeats,
     applyReward: (state) => {
-      state.progression.shipFireRateLevel += 1;
       state.money += 650;
     }
   },
@@ -181,11 +159,10 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'openNovaRoute',
     target: 4,
-    rewardKind: 'damage',
+    rewardKind: 'credits',
     isAvailable: (state) => hasReachedZone(state, 3),
     getCurrent: (state) => state.progression.bossDefeats,
     applyReward: (state) => {
-      state.progression.shipDamageLevel += 1;
       state.money += 1000;
     }
   },
@@ -203,20 +180,20 @@ export const GUIDED_MISSION_DEFINITIONS: GuidedMissionDefinition[] = [
   {
     id: 'earnFirstCore',
     target: 1,
-    rewardKind: 'fireRate',
+    rewardKind: 'crystals',
     getCurrent: (state) => state.progression.prestigeCores,
     isAvailable: (state) => getAvailableWarpCores(state.progression) < WARP_UNLOCK_BY_ID.droneSystems.cost,
     applyReward: (state) => {
-      state.progression.shipFireRateLevel += 1;
+      state.crystals += 1;
     }
   },
   {
     id: 'installDroneSystems',
     target: 1,
-    rewardKind: 'drone',
+    rewardKind: 'crystals',
     getCurrent: (state) => (hasWarpUnlock(state.progression, 'droneSystems') ? 1 : 0),
     applyReward: (state) => {
-      state.progression.droneDamageLevel += 1;
+      state.crystals += 2;
     }
   },
   {

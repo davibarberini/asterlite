@@ -1,17 +1,11 @@
 import { balance } from '../../balance';
-import { createBossRewardState } from '../../progression/bossRewards';
-import {
-  queueThreatMilestoneRewardChoice,
-  getNextThreatRewardMilestone,
-  getThreatRewardInterval
-} from '../../progression/bossRewards';
 import {
   getNovaCrownDifficultyConfig,
   novaCrownClearThreatLevel,
   normalizeNovaCrownDifficulty,
   setNovaCrownBestSeconds
 } from '../../progression/novaCrownDifficulty';
-import { grantNovaCrownFirstClearCoreReward } from '../../progression/novaCrownRewards';
+import { grantNovaCrownMilestoneRewards } from '../../progression/novaCrownRewards';
 import { emitReward } from '../events';
 import type { GameState, SurvivalState } from '../types';
 import { maxTravelLevel } from '../zones';
@@ -22,7 +16,6 @@ export const createSurvivalState = (): SurvivalState => ({
   currentSeconds: 0,
   threatLevel: 0,
   lastAnnouncedThreatLevel: 0,
-  nextRewardThreatLevel: getThreatRewardInterval(),
   hazardSpawnCooldown: 0,
   hunterSpawnCooldown: 0,
   timedEventCooldown: 0,
@@ -69,23 +62,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     return;
   }
 
-  if (!state.ship.alive) {
-    if (state.survival.active || state.survival.currentSeconds > 0) {
-      emitReward(state, `Survival ended: ${formatSurvivalSeconds(state.survival.currentSeconds)}`, 'system');
-    }
-    state.progression.currentZoneIndex = Math.max(0, maxTravelLevel - 1);
-    state.progression.travelLevel = state.progression.unlockedZoneIndex;
-    state.pendingBoss = null;
-    state.saucer = null;
-    state.asteroids = [];
-    state.hazards = [];
-    state.survivalEvents = [];
-    state.bullets = [];
-    state.particles = [];
-    state.levelShockwaves = [];
-    resetCurrentSurvivalRun(state);
-    return;
-  }
+  if (!state.ship.alive) return;
 
   if (!state.survival.active) {
     state.survival.active = true;
@@ -93,7 +70,6 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     state.survival.difficulty = normalizeNovaCrownDifficulty(state.progression.novaCrownSelectedDifficulty);
     state.survival.threatLevel = getSurvivalThreatLevel(0, state.survival.difficulty);
     state.survival.lastAnnouncedThreatLevel = state.survival.threatLevel;
-    state.survival.nextRewardThreatLevel = getNextThreatRewardMilestone(state.survival.threatLevel);
     state.survival.hazardSpawnCooldown = balance.survival.mines.spawnInterval;
     state.survival.hunterSpawnCooldown = balance.survival.hunters.spawnInterval;
     state.survival.timedEventCooldown = balance.survival.timedEvents.meteorLane.spawnInterval;
@@ -123,8 +99,7 @@ export const updateSurvival = (state: GameState, dt: number): void => {
     state.progression.novaCrownHighestDifficulty = state.survival.difficulty + 1;
     emitReward(state, `Nova Crown difficulty ${state.progression.novaCrownHighestDifficulty} unlocked`, 'unlock');
   }
-  grantNovaCrownFirstClearCoreReward(state);
-  queueThreatMilestoneRewardChoice(state);
+  grantNovaCrownMilestoneRewards(state);
 
   if (state.survival.threatLevel > state.survival.lastAnnouncedThreatLevel) {
     state.survival.lastAnnouncedThreatLevel = state.survival.threatLevel;
@@ -139,14 +114,12 @@ const resetCurrentSurvivalRun = (state: GameState): void => {
   state.survival.currentSeconds = 0;
   state.survival.threatLevel = 0;
   state.survival.lastAnnouncedThreatLevel = 0;
-  state.survival.nextRewardThreatLevel = getThreatRewardInterval();
   state.survival.hazardSpawnCooldown = 0;
   state.survival.hunterSpawnCooldown = 0;
   state.survival.timedEventCooldown = 0;
   state.survival.gravityPulseCooldown = 0;
   state.survival.damageFieldCooldown = 0;
   state.survivalEvents = [];
-  state.bossRewards = createBossRewardState();
 };
 
 const formatSurvivalSeconds = (seconds: number): string => {

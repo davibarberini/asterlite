@@ -24,33 +24,28 @@ export const normalizeNovaCrownCoreRewardedDifficultyKeys = (value: unknown): st
   );
 };
 
-export const grantNovaCrownBossCoreReward = (state: GameState): number => {
-  const difficulty = normalizeNovaCrownDifficulty(state.survival.active
-    ? state.survival.difficulty
-    : state.progression.novaCrownSelectedDifficulty);
-  const coreGain = getNovaCrownCoreReward(difficulty);
-  state.progression.prestigeCores += coreGain;
-  emitReward(state, `Nova Crown boss defeated: +${coreGain} ${formatCoreUnit(coreGain)}`, 'boss');
-  return coreGain;
-};
-
-export const grantNovaCrownFirstClearCoreReward = (state: GameState): number => {
+export const grantNovaCrownMilestoneRewards = (state: GameState): number => {
   if (!state.survival.active || state.survival.threatLevel < novaCrownClearThreatLevel) {
     return 0;
   }
 
   const difficulty = normalizeNovaCrownDifficulty(state.survival.difficulty);
   const key = getNovaCrownDifficultyKey(difficulty);
+  const reachedMilestones = Math.floor((state.survival.threatLevel - 1) / 10);
+  const newMilestones = Math.max(0, reachedMilestones - state.run.survivalMilestones);
+  const coreGain = newMilestones * getNovaCrownCoreReward(difficulty);
+  state.run.survivalMilestones = Math.max(state.run.survivalMilestones, reachedMilestones);
+  state.run.coresEarned += coreGain;
+  state.progression.prestigeCores += coreGain;
+  if (coreGain > 0) emitReward(state, `Nova Crown: +${coreGain} ${formatCoreUnit(coreGain)}`, 'payout');
   if (state.progression.novaCrownCoreRewardedDifficultyKeys.includes(key)) {
-    return 0;
+    return coreGain;
   }
 
-  const coreGain = getNovaCrownCoreReward(difficulty);
   state.progression.novaCrownCoreRewardedDifficultyKeys = [
     ...state.progression.novaCrownCoreRewardedDifficultyKeys,
     key
   ];
-  state.progression.prestigeCores += coreGain;
   emitReward(state, `Nova Crown difficulty ${difficulty} cleared: +${coreGain} ${formatCoreUnit(coreGain)}`, 'unlock');
   return coreGain;
 };

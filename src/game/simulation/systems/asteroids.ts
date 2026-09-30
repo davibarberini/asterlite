@@ -3,8 +3,6 @@ import { randomRange } from '../vector';
 import { getExplorationZone, getNextZone, getZoneAsteroidHpMultiplier, getZoneRewardMultiplier } from '../zones';
 import { getPrestigeMoneyMultiplier } from '../../progression/prestige';
 import { getAchievementMultiplier } from '../../progression/achievements';
-import { getBossRewardMoneyMultiplier } from '../../progression/bossRewards';
-import { getCombatBountyMultiplier, getCrystalDropMultiplier } from '../../progression/talentTree';
 import { bossSuppressionAsteroidTargetMultiplier, bossSuppressionMinimumAsteroidTarget, hasWarpUnlock } from '../../progression/warpUnlocks';
 import { balance } from '../../balance';
 import { getSurvivalAsteroidDensityBonus, getSurvivalAsteroidSpeedMultiplier } from './survival';
@@ -48,9 +46,7 @@ export const getAsteroidReward = (state: GameState, asteroid: AsteroidState): { 
   const zoneMultiplier =
     getZoneRewardMultiplier(state) *
     getPrestigeMoneyMultiplier(state.progression) *
-    getCombatBountyMultiplier(state.progression) *
-    getAchievementMultiplier(state.progression, 'money') *
-    getBossRewardMoneyMultiplier(state);
+    getAchievementMultiplier(state.progression, 'money');
   const scaleMoney = (money: number): number => Math.max(1, Math.round(money * zoneMultiplier));
   const scaleCrystals = (crystals: number): number =>
     Math.max(0, Math.round(crystals * getAchievementMultiplier(state.progression, 'crystals')));
@@ -64,7 +60,7 @@ export const getAsteroidReward = (state: GameState, asteroid: AsteroidState): { 
     return { money: scaleMoney(baseMoney * balance.asteroids.variantRewardMultiplier.metallic), crystals: 0 };
   }
   if (asteroid.variant === 'crystal') {
-    const crystals = scaleCrystals(Math.max(0, Math.round(balance.asteroids.crystalReward[asteroid.size] * getCrystalDropMultiplier(state.progression))));
+    const crystals = scaleCrystals(Math.max(0, Math.round(balance.asteroids.crystalReward[asteroid.size])));
     return { money: scaleMoney(baseMoney * balance.asteroids.variantRewardMultiplier.crystal), crystals: zoneMultiplier >= 1 ? crystals : 0 };
   }
   if (asteroid.variant === 'dense') {
@@ -194,6 +190,27 @@ export const getAsteroidSpawnPosition = (state: GameState, margin = balance.aste
 
 export const createAsteroidField = (state: GameState, count = getAsteroidTargetCount(state)): AsteroidState[] =>
   Array.from({ length: count }, () => createAsteroid(state, 'large', getAsteroidSpawnPosition(state)));
+
+export const createStartingAsteroidField = (state: GameState): AsteroidState[] => {
+  if (state.progression.currentZoneIndex !== 0) return createAsteroidField(state);
+  const count = Math.min(balance.opening.visibleAsteroidCount, getAsteroidTargetCount(state));
+  const radius = Math.min(
+    balance.opening.asteroidOrbitRadius,
+    Math.min(state.width, state.height) / 2 - balance.opening.viewportPadding
+  );
+  // Slow tangential motion keeps the first targets visible without aiming them at the spawn.
+  const targets = Array.from({ length: count }, (_, index) => {
+    const angle = -Math.PI / 2 + index * Math.PI * 2 / count;
+    return createAsteroid(state, index < 2 ? 'small' : 'medium', {
+      x: state.ship.position.x + Math.cos(angle) * radius,
+      y: state.ship.position.y + Math.sin(angle) * radius
+    }, {
+      x: -Math.sin(angle) * balance.opening.asteroidSpeed,
+      y: Math.cos(angle) * balance.opening.asteroidSpeed
+    }, 'common');
+  });
+  return [...targets, ...createAsteroidField(state, getAsteroidTargetCount(state) - count)];
+};
 
 export const splitAsteroid = (state: GameState, asteroid: AsteroidState): AsteroidState[] => {
   if (asteroid.bossType) {

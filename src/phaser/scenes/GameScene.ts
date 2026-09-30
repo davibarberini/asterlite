@@ -1,20 +1,12 @@
 import Phaser from 'phaser';
 import { neutralInput, type InputActions } from '../../game/input/actions';
-import { getCrystalBalance as getStateCrystalBalance, getTalentRespecCost, purchaseTalentRank, respecTalentRanks } from '../../game/progression/currency';
-import { BOSS_REWARD_BY_ID, applyBossRewardChoice } from '../../game/progression/bossRewards';
-import { clearAllAsteridleData, loadGameState, saveGameState } from '../../game/progression/saveData';
+import { getCrystalBalance as getStateCrystalBalance } from '../../game/progression/currency';
+import { clearAllAsterliteData, loadGameState, saveGameState } from '../../game/progression/saveData';
 import { emitReward } from '../../game/simulation/events';
-import { createGameState, syncActiveDrones, syncShieldBubbleState } from '../../game/simulation/state';
+import { createGameState, syncShieldBubbleState } from '../../game/simulation/state';
 import { createAsteroidField, createPendingBoss, createPendingZoneBoss, hasActiveZoneBoss } from '../../game/simulation/systems/asteroids';
-import type { AsteroidState, BossType, DroneType, GameRewardEvent, GameState, ShipFrameId, TalentId, Vec2, WarpUnlockId } from '../../game/simulation/types';
-import { getCoreUpgradeCap, getFireRateMultiplier } from '../../game/progression/idleBonuses';
-import {
-  TALENT_DEFINITIONS,
-  canBuyTalentRank,
-  countUnlockedTalentRanks,
-  getTalentRank,
-} from '../../game/progression/talentTree';
-import { getAvailableShipSkillPoints, getMaxShipLevel, getShipXpForNextLevel } from '../../game/progression/shipLevel';
+import type { AsteroidState, BossType, GameRewardEvent, GameState, RunCardId, RunCardRarity, ShipFrameId, Vec2, WarpUnlockId } from '../../game/simulation/types';
+import { getMaxShipLevel, getShipXpForNextLevel, grantShipXp } from '../../game/progression/shipLevel';
 import { formatCompactNumber, formatMoney as formatCompactMoney } from '../../game/numberFormat';
 import { updateGame } from '../../game/simulation/systems/gameLoop';
 import { isSurvivalZone } from '../../game/simulation/systems/survival';
@@ -43,7 +35,6 @@ import { AudioSettingsController } from '../ui/AudioSettingsController';
 import { InfoModalController, type ModalContent } from '../ui/InfoModalController';
 import { HangarController } from '../ui/HangarController';
 import { RewardFeedController } from '../ui/RewardFeedController';
-import { SkillsModalController } from '../ui/SkillsModalController';
 import { TutorialGuideController, type TutorialFlow, type TutorialTargetId } from '../ui/TutorialGuideController';
 import { WarpCoreTreeController } from '../ui/WarpCoreTreeController';
 import { ZoneMapController } from '../ui/ZoneMapController';
@@ -51,12 +42,17 @@ import { Starfield } from '../view/Starfield';
 import { VectorRenderer } from '../view/VectorRenderer';
 import { balance } from '../../game/balance';
 import { WARP_UNLOCK_BY_ID, getAvailableWarpCores, getOwnedWarpUnlockCount, hasWarpUnlock, purchaseWarpUnlock } from '../../game/progression/warpUnlocks';
-import { getActiveShipFrame, getShipFrameBonusMultiplier } from '../../game/progression/shipFrames';
-import { createShipFrameSwitchState } from '../../game/progression/shipRuns';
-import { getOfflineIncomeRate } from '../../game/progression/offlineIncome';
+import { getActiveShipFrame, SHIP_FRAME_DEFINITIONS } from '../../game/progression/shipFrames';
+import { startNewRun } from '../../game/progression/runLifecycle';
+import { renderRunMenu } from '../ui/RunMenuController';
+import { createRunCardIcon } from '../ui/runCardIcons';
+import { createDockIcon } from '../ui/uiIcons';
+import { updateParticles } from '../../game/simulation/systems/particles';
+import { damageShip } from '../../game/simulation/systems/playerDamage';
+import { RUN_CARD_BY_ID, applyRunCardChoice } from '../../game/progression/runCards';
 import { formatCrystalUnit, getBrowserLanguage, getSavedLanguage, saveLanguage, translate, type LanguageCode } from '../../game/i18n';
 
-type ShopTab = 'upgrades' | 'warp' | 'hangar' | 'drones' | 'skills' | 'achievements';
+type ShopTab = 'warp' | 'hangar' | 'achievements';
 type DockTab = ShopTab | 'map';
 type SwipeDirectionMode = 'direct' | 'inverted';
 
@@ -94,36 +90,22 @@ type MenuBackdropAsteroid = {
   seed: number;
 };
 
-const SWIPE_DIRECTION_STORAGE_KEY = 'asteridle.settings.swipeDirection';
+const SWIPE_DIRECTION_STORAGE_KEY = 'asterlite.settings.swipeDirection';
 const DEFAULT_SWIPE_DIRECTION: SwipeDirectionMode = 'direct';
 const SWIPE_RELEASE_FIRE_SECONDS = 0.38;
 const SWIPE_THRUST_TRAIL_SECONDS = 1.35;
+const VECTOR_TAP_BOOST_WINDOW_SECONDS = 0.9;
+const VECTOR_TAP_BOOST_POWER_MULTIPLIER = 0.35;
+const VECTOR_TAP_BOOST_TRAIL_SECONDS = 0.55;
 const INTRO_WARP_DURATION = 2.05;
 const SUBMENU_TIME_SCALE = 0.28;
 const TIME_SCALE_RECOVERY_SECONDS = 1;
-const FIRST_UPGRADE_TUTORIAL: TutorialFlow = {
-  id: 'first-upgrade',
-  steps: [
-    { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
-    { id: 'open-upgrades', targetId: 'nav-upgrades', padding: 9, shape: 'rect' },
-    { id: 'buy-upgrade', targetId: 'upgrade-affordable', padding: 10, shape: 'rect' }
-  ]
-};
 const ZONE_TRAVEL_TUTORIAL: TutorialFlow = {
   id: 'zone-travel',
   steps: [
     { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
     { id: 'open-zone-map', targetId: 'nav-map', padding: 9, shape: 'rect' },
     { id: 'choose-zone', targetId: 'zone-node-unlocked', padding: 8, shape: 'rect' }
-  ]
-};
-const FIRST_SKILL_POINT_TUTORIAL: TutorialFlow = {
-  id: 'first-skill-point',
-  steps: [
-    { id: 'open-submenu', targetId: 'submenu-toggle', padding: 10, shape: 'circle' },
-    { id: 'open-skills', targetId: 'nav-skills', padding: 9, shape: 'rect' },
-    { id: 'choose-skill', targetId: 'skill-node-available', padding: 9, shape: 'rect' },
-    { id: 'buy-skill', targetId: 'skill-buy', padding: 9, shape: 'rect' }
   ]
 };
 
@@ -139,7 +121,6 @@ export class GameScene extends Phaser.Scene {
   private audioSettings!: AudioSettingsController;
   private infoModal!: InfoModalController;
   private hangar!: HangarController;
-  private skillsModal!: SkillsModalController;
   private tutorialGuide!: TutorialGuideController;
   private warpCoreTree!: WarpCoreTreeController;
   private zoneMap!: ZoneMapController;
@@ -159,14 +140,11 @@ export class GameScene extends Phaser.Scene {
   private hpEl!: HTMLElement;
   private shipXpMeterEl!: HTMLElement;
   private shipLevelEl!: HTMLElement;
-  private statusEl!: HTMLElement;
   private survivalHudEl!: HTMLElement;
   private survivalTimerEl!: HTMLElement;
   private survivalThreatEl!: HTMLElement;
   private survivalThreatFillEl!: HTMLElement;
   private survivalBestEl!: HTMLElement;
-  private runModifiersEl!: HTMLElement;
-  private runModifiersSignature = '';
   private firstWarpGoalEl!: HTMLElement;
   private firstWarpGoalTitleEl!: HTMLElement;
   private firstWarpGoalProgressEl!: HTMLElement;
@@ -204,12 +182,17 @@ export class GameScene extends Phaser.Scene {
   private menuToggleEl!: HTMLButtonElement;
   private bottomNavEl!: HTMLElement;
   private navButtons!: NodeListOf<HTMLButtonElement>;
-  private activeTab: ShopTab = 'upgrades';
+  private activeTab: ShopTab = 'hangar';
   private priorityPopupQueue: PriorityPopupContent[] = [];
   private activePriorityPopup: PriorityPopupContent | null = null;
-  private activeModal: 'info' | 'skills' | 'warpCores' | 'zones' | 'settings' | 'bossReward' | 'novaCrownDifficulty' | null = null;
+  private activeModal: 'info' | 'warpCores' | 'zones' | 'settings' | 'levelUpCards' | 'novaCrownDifficulty' | 'runMenu' | null = null;
+  private betweenRuns = false;
+  private deathFeedbackRemaining = 0;
+  private runSummaryDismissed = false;
+  private nextRunShip: ShipFrameId | null = null;
   private activeModalInfo: ModalContent | null = null;
   private novaCrownDifficultySelection = 1;
+  private settingsDevtoolsOpen = false;
   private activeWarpUnlockId: WarpUnlockId | null = null;
   private activeGameplayPointerId: number | null = null;
   private gameplayPointerStartScreen: Vec2 | null = null;
@@ -217,12 +200,11 @@ export class GameScene extends Phaser.Scene {
   private pendingSwipeImpulseVector: Vec2 | null = null;
   private swipeImpulseIndicator: { start: Vec2; current: Vec2; power: number; ttl: number } | null = null;
   private swipeThrustTrail: { direction: Vec2; ttl: number } | null = null;
+  private vectorTapBoost: { direction: Vec2; power: number; ttl: number } | null = null;
   private swipeFireFor = 0;
   private swipeDirectionMode: SwipeDirectionMode = DEFAULT_SWIPE_DIRECTION;
   private shopSignature = '';
   private saveElapsed = 0;
-  private offlineStatusFor = 0;
-  private offlinePopupQueued = false;
   private gameplayTimeScale = 1;
   private hasSavedLanguage = getSavedLanguage() !== null;
   private language: LanguageCode = getSavedLanguage() ?? getBrowserLanguage();
@@ -274,7 +256,6 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.state = loadGameState(this.scale.width, this.scale.height);
     this.swipeDirectionMode = this.loadSwipeDirectionMode();
-    this.offlineStatusFor = this.state.lastOfflineEarnings > 0 ? 8 : 0;
     this.retroSound = new RetroSound();
     this.backgroundMusic = new BackgroundMusic(`${import.meta.env.BASE_URL}audio/zone-1.mp3`);
     this.vectorRenderer = new VectorRenderer(this);
@@ -300,13 +281,11 @@ export class GameScene extends Phaser.Scene {
     this.hpEl = document.getElementById('hp')!;
     this.shipXpMeterEl = document.getElementById('ship-xp-meter')!;
     this.shipLevelEl = document.getElementById('ship-level')!;
-    this.statusEl = document.getElementById('status')!;
     this.survivalHudEl = document.getElementById('survival-hud')!;
     this.survivalTimerEl = document.getElementById('survival-timer')!;
     this.survivalThreatEl = document.getElementById('survival-threat')!;
     this.survivalThreatFillEl = document.getElementById('survival-threat-fill')!;
     this.survivalBestEl = document.getElementById('survival-best')!;
-    this.runModifiersEl = document.getElementById('run-modifiers')!;
     this.firstWarpGoalEl = document.getElementById('first-warp-goal')!;
     this.firstWarpGoalTitleEl = document.getElementById('first-warp-goal-title')!;
     this.firstWarpGoalProgressEl = document.getElementById('first-warp-goal-progress')!;
@@ -327,7 +306,6 @@ export class GameScene extends Phaser.Scene {
     });
     this.infoModal = new InfoModalController();
     this.hangar = new HangarController();
-    this.skillsModal = new SkillsModalController();
     this.tutorialGuide = new TutorialGuideController(this.appEl);
     this.warpCoreTree = new WarpCoreTreeController();
     this.zoneMap = new ZoneMapController();
@@ -352,6 +330,20 @@ export class GameScene extends Phaser.Scene {
     this.modalCopyEl = document.getElementById('ui-modal-copy')!;
     this.modalBodyEl = document.getElementById('ui-modal-body')!;
     this.modalCloseEl = document.getElementById('ui-modal-close') as HTMLButtonElement;
+    this.modalTitleEl.tabIndex = -1;
+    this.modalEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const targets = [...this.modalPanelEl.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"], select')]
+        .filter((element) => element.getClientRects().length > 0);
+      const first = targets[0];
+      const last = targets[targets.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === this.modalTitleEl)) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    });
     this.modalHandleEl = document.querySelector<HTMLButtonElement>('.ui-modal__handle')!;
     this.navButtons = document.querySelectorAll<HTMLButtonElement>('.nav-button');
     this.input.keyboard!.on('keydown', () => {
@@ -404,10 +396,34 @@ export class GameScene extends Phaser.Scene {
         this.swipeThrustTrail = null;
       }
     }
+    if (this.vectorTapBoost) {
+      this.vectorTapBoost.ttl -= rawDt;
+      if (this.vectorTapBoost.ttl <= 0 || this.state.progression.activeShipFrameId !== 'vector') {
+        this.vectorTapBoost = null;
+      }
+    }
     this.readInput();
 
     this.state.width = this.scale.width;
     this.state.height = this.scale.height;
+    if (this.activeModal || !this.gameStarted) this.input.keyboard?.disableGlobalCapture();
+    else this.input.keyboard?.enableGlobalCapture();
+    for (const id of ['hud', 'idle-dock', 'main-menu']) {
+      const element = document.getElementById(id);
+      if (element) element.inert = this.activeModal !== null || this.deathFeedbackRemaining > 0;
+    }
+    if (this.deathFeedbackRemaining > 0) {
+      this.deathFeedbackRemaining = Math.max(0, this.deathFeedbackRemaining - rawDt);
+      updateParticles(this.state, rawDt);
+      this.vectorRenderer.render(this.state, false, null);
+      this.deathFadeEl.style.opacity = String(0.48 * (1 - this.deathFeedbackRemaining / 0.9));
+      if (this.deathFeedbackRemaining === 0) {
+        this.deathFadeEl.style.opacity = '0';
+        this.openRunMenu();
+      }
+      return;
+    }
+    if (this.betweenRuns && !this.activeModal) this.openRunMenu();
     if (!this.gameStarted) {
       this.updateIntro(rawDt);
       return;
@@ -419,13 +435,29 @@ export class GameScene extends Phaser.Scene {
     }
 
     const tutorialPaused = this.tutorialGuide.isActive();
-    if (!tutorialPaused) {
+    if (!tutorialPaused && dt > 0 && !this.betweenRuns) {
       updateGame(this.state, this.inputState, dt);
       this.playAudioEvents();
+      if (this.state.phase === 'ended') {
+        this.betweenRuns = true;
+        this.runSummaryDismissed = false;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.deathFeedbackRemaining = reducedMotion ? 0.15 : 0.9;
+        if (!reducedMotion) this.cameras.main.shake(180, 0.004);
+        this.state.rewardEvents = [];
+        this.priorityPopupQueue = [];
+        this.activePriorityPopup = null;
+        this.closeShopDrawer();
+        this.activeModal = null;
+        this.closeModal();
+        this.inputState = neutralInput();
+        this.activeGameplayPointerId = null;
+        saveGameState(this.state);
+        return;
+      }
       this.queuePriorityPopups(this.state.rewardEvents);
       this.rewardFeed.showEvents(this.state.rewardEvents);
-      this.syncBossRewardChoiceModal();
-      this.offlineStatusFor = Math.max(0, this.offlineStatusFor - dt);
+      this.syncLevelUpCardChoiceModal();
       this.saveElapsed += dt;
       if (this.saveElapsed >= 1) {
         saveGameState(this.state);
@@ -458,11 +490,16 @@ export class GameScene extends Phaser.Scene {
       this.cursors.space.isDown ||
       this.keys.SPACE.isDown ||
       this.activeGameplayPointerId !== null ||
-      this.swipeFireFor > 0;
+      this.swipeFireFor > 0 ||
+      this.isKestrelDashFiring();
   }
 
   private getPointerAimDirection(): Vec2 | null {
     if (!this.gameplayPointerScreen) {
+      return null;
+    }
+
+    if (this.isPendingVectorTapBoostGesture()) {
       return null;
     }
 
@@ -489,6 +526,21 @@ export class GameScene extends Phaser.Scene {
       x: dx / distance,
       y: dy / distance
     };
+  }
+
+  private isPendingVectorTapBoostGesture(): boolean {
+    if (
+      this.state.progression.activeShipFrameId !== 'vector' ||
+      !this.vectorTapBoost ||
+      !this.gameplayPointerStartScreen ||
+      !this.gameplayPointerScreen
+    ) {
+      return false;
+    }
+
+    const dx = this.gameplayPointerScreen.x - this.gameplayPointerStartScreen.x;
+    const dy = this.gameplayPointerScreen.y - this.gameplayPointerStartScreen.y;
+    return Math.hypot(dx, dy) < balance.ship.swipeImpulseDeadzone;
   }
 
   private getSwipeImpulseIndicator(): { start: Vec2; current: Vec2; power: number; inverted: boolean } | null {
@@ -529,6 +581,7 @@ export class GameScene extends Phaser.Scene {
     const distance = Math.hypot(dx, dy);
     this.swipeFireFor = SWIPE_RELEASE_FIRE_SECONDS;
     if (distance < balance.ship.swipeImpulseDeadzone) {
+      this.tryQueueVectorTapBoost();
       return;
     }
 
@@ -542,6 +595,13 @@ export class GameScene extends Phaser.Scene {
       x: direction.x * power,
       y: direction.y * power
     };
+    this.vectorTapBoost = this.state.progression.activeShipFrameId === 'vector'
+      ? {
+          direction,
+          power,
+          ttl: VECTOR_TAP_BOOST_WINDOW_SECONDS
+        }
+      : null;
     this.swipeThrustTrail = {
       direction,
       ttl: SWIPE_THRUST_TRAIL_SECONDS
@@ -552,6 +612,35 @@ export class GameScene extends Phaser.Scene {
       power,
       ttl: 0.24
     };
+  }
+
+  private tryQueueVectorTapBoost(): boolean {
+    if (this.state.progression.activeShipFrameId !== 'vector' || !this.vectorTapBoost || this.pendingSwipeImpulseVector) {
+      return false;
+    }
+
+    const boost = this.vectorTapBoost;
+    this.vectorTapBoost = null;
+    const power = Math.max(0.08, Math.min(1, boost.power * VECTOR_TAP_BOOST_POWER_MULTIPLIER));
+    this.pendingSwipeImpulseVector = {
+      x: boost.direction.x * power,
+      y: boost.direction.y * power
+    };
+    this.swipeThrustTrail = {
+      direction: boost.direction,
+      ttl: VECTOR_TAP_BOOST_TRAIL_SECONDS
+    };
+    this.swipeImpulseIndicator = {
+      start: { ...this.gameplayPointerStartScreen! },
+      current: {
+        x: this.gameplayPointerStartScreen!.x + boost.direction.x * balance.ship.swipeImpulseDeadzone * 0.8,
+        y: this.gameplayPointerStartScreen!.y + boost.direction.y * balance.ship.swipeImpulseDeadzone * 0.8
+      },
+      power,
+      ttl: 0.18
+    };
+    this.retroSound.play({ type: 'vectorTapBoost' });
+    return true;
   }
 
   private consumeSwipeImpulseVector(): Vec2 | null {
@@ -584,6 +673,10 @@ export class GameScene extends Phaser.Scene {
     return alignment > 0.45;
   }
 
+  private isKestrelDashFiring(): boolean {
+    return this.state.progression.activeShipFrameId === 'kestrel' && this.isSwipeThrusting();
+  }
+
   private loadSwipeDirectionMode(): SwipeDirectionMode {
     try {
       const stored = window.localStorage.getItem(SWIPE_DIRECTION_STORAGE_KEY);
@@ -596,6 +689,7 @@ export class GameScene extends Phaser.Scene {
   private saveSwipeDirectionMode(mode: SwipeDirectionMode): void {
     this.swipeDirectionMode = mode;
     this.pendingSwipeImpulseVector = null;
+    this.vectorTapBoost = null;
     this.swipeImpulseIndicator = null;
     this.swipeThrustTrail = null;
     this.swipeFireFor = 0;
@@ -654,8 +748,15 @@ export class GameScene extends Phaser.Scene {
     this.mainMenuEl.classList.toggle('main-menu--language-saved', this.hasSavedLanguage);
   }
 
-  private startIntroWarp(): void {
+  private startIntroWarp(launch = false): void {
     if (this.gameStarted || this.introWarp || !this.hasSavedLanguage) {
+      return;
+    }
+    if (!launch && (this.state.phase === 'ended' || this.state.run.elapsedSeconds === 0)) {
+      this.betweenRuns = true;
+      this.mainMenuEl.classList.add('is-hidden');
+      this.appEl.classList.remove('is-menu-open');
+      this.openRunMenu();
       return;
     }
 
@@ -677,6 +778,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateIntro(dt: number): void {
+    if (this.introWarp && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.finishIntroWarp();
+      return;
+    }
     if (!this.introWarp) {
       this.starfield.update(dt, { x: 14, y: -4 });
       this.vectorRenderer.clear();
@@ -724,8 +829,8 @@ export class GameScene extends Phaser.Scene {
     this.mainMenuEl.setAttribute('aria-hidden', 'true');
     this.mainMenuStartEl.disabled = false;
     this.introGraphics.clear();
+    this.syncLevelUpCardChoiceModal();
     this.updateHud();
-    this.queueOfflineEarningsPopup();
   }
 
   private updateMenuBackdrop(dt: number): void {
@@ -913,16 +1018,13 @@ export class GameScene extends Phaser.Scene {
     this.routeToggleEl.title = this.language === 'pt-BR' ? 'Viajar para próxima zona' : 'Travel to next zone';
     this.mapToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openZoneMap'));
     this.mapToggleEl.title = translate(this.language, 'hud.openZoneMap');
-    this.menuToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openUpgrades'));
+    this.menuToggleEl.setAttribute('aria-label', translate(this.language, 'hud.openMenu'));
+    this.menuToggleEl.title = translate(this.language, 'hud.openMenu');
     this.menuToggleEl.dataset.tutorialTarget = 'submenu-toggle';
     this.bottomNavEl.setAttribute('aria-label', translate(this.language, 'hud.shopTabs'));
     this.navButtons.forEach((button) => {
-      if (button.dataset.tab === 'upgrades') {
-        button.dataset.tutorialTarget = 'nav-upgrades';
-      } else if (button.dataset.tab === 'map') {
+      if (button.dataset.tab === 'map') {
         button.dataset.tutorialTarget = 'nav-map';
-      } else if (button.dataset.tab === 'skills') {
-        button.dataset.tutorialTarget = 'nav-skills';
       }
     });
     document.getElementById('idle-dock')?.setAttribute('aria-label', translate(this.language, 'hud.idleSystems'));
@@ -930,6 +1032,7 @@ export class GameScene extends Phaser.Scene {
     this.shopDrawerHandleEl.setAttribute('aria-label', translate(this.language, 'hud.closeShop'));
     document.getElementById('shop-close')?.setAttribute('aria-label', translate(this.language, 'hud.closeShop'));
     document.getElementById('settings-toggle')?.setAttribute('aria-label', translate(this.language, 'hud.openSettings'));
+    document.getElementById('settings-toggle')?.setAttribute('title', translate(this.language, 'hud.openSettings'));
   }
 
   private closeSubmenuFromOutsidePointer(event: PointerEvent): void {
@@ -997,19 +1100,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getVisibleShopTabs(): ShopTab[] {
-    const tabs: ShopTab[] = ['upgrades'];
+    const tabs: ShopTab[] = ['hangar'];
 
     if (this.shouldShowTechnologiesTab()) {
       tabs.push('warp');
-    }
-    if (this.shouldShowHangarTab()) {
-      tabs.push('hangar');
-    }
-    if (this.shouldShowDronesTab()) {
-      tabs.push('drones');
-    }
-    if (this.shouldShowSkillsTab()) {
-      tabs.push('skills');
     }
     if (this.shouldShowAchievementsTab()) {
       tabs.push('achievements');
@@ -1019,15 +1113,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getVisibleDockTabs(): DockTab[] {
-    const tabs: DockTab[] = ['upgrades'];
+    const tabs: DockTab[] = [];
     if (this.state.progression.mapUnlocked) {
       tabs.push('map');
     }
-    this.getVisibleShopTabs().forEach((tab) => {
-      if (tab !== 'upgrades') {
-        tabs.push(tab);
-      }
-    });
+    tabs.push(...this.getVisibleShopTabs());
     return tabs;
   }
 
@@ -1044,25 +1134,11 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  private shouldShowDronesTab(): boolean {
-    return hasWarpUnlock(this.state.progression, 'droneSystems') || this.state.progression.dronesPurchased > 0;
-  }
-
   private shouldShowHangarTab(): boolean {
     return (
       this.shouldShowTechnologiesTab() ||
       this.getCrystalBalance() > 0 ||
-      this.state.progression.unlockedShipFrameIds.length > 1 ||
-      Object.keys(this.state.progression.shipRuns).length > 1
-    );
-  }
-
-  private shouldShowSkillsTab(): boolean {
-    return (
-      this.state.progression.shipSkillPoints > 0 ||
-      this.state.progression.achievementStats.crystalsCollected > 0 ||
-      this.getCrystalBalance() > 0 ||
-      countUnlockedTalentRanks(this.state.progression) > 0
+      this.state.progression.unlockedShipFrameIds.length > 1
     );
   }
 
@@ -1074,11 +1150,10 @@ export class GameScene extends Phaser.Scene {
     const visibleTabs = new Set(this.getVisibleShopTabs());
     const visibleDockTabs = new Set(this.getVisibleDockTabs());
     if (!visibleTabs.has(this.activeTab)) {
-      if (this.activeModal === 'skills' || this.activeModal === 'warpCores') {
+      if (this.activeModal === 'warpCores') {
         this.closeModal();
       }
-      this.activeTab = 'upgrades';
-      this.skillsModal.clearSelection();
+      this.activeTab = 'hangar';
       this.activeWarpUnlockId = null;
     }
 
@@ -1107,141 +1182,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createShopTabIcon(tab: DockTab): SVGSVGElement {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', `nav-button__icon nav-button__icon--${tab}`);
-    svg.setAttribute('viewBox', '0 0 32 32');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-
-    const append = (node: SVGElement): void => {
-      svg.append(node);
-    };
-    const path = (d: string): SVGPathElement => {
-      const node = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      node.setAttribute('d', d);
-      return node;
-    };
-    const line = (x1: number, y1: number, x2: number, y2: number): SVGLineElement => {
-      const node = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      node.setAttribute('x1', x1.toString());
-      node.setAttribute('y1', y1.toString());
-      node.setAttribute('x2', x2.toString());
-      node.setAttribute('y2', y2.toString());
-      return node;
-    };
-    const circle = (cx: number, cy: number, r: number): SVGCircleElement => {
-      const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      node.setAttribute('cx', cx.toString());
-      node.setAttribute('cy', cy.toString());
-      node.setAttribute('r', r.toString());
-      return node;
-    };
-    const rect = (x: number, y: number, width: number, height: number): SVGRectElement => {
-      const node = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      node.setAttribute('x', x.toString());
-      node.setAttribute('y', y.toString());
-      node.setAttribute('width', width.toString());
-      node.setAttribute('height', height.toString());
-      node.setAttribute('rx', '2');
-      return node;
-    };
-
-    if (tab === 'upgrades') {
-      append(path('M16 3 23 25 16 20 9 25 16 3Z'));
-      append(path('M12 18 7 21 9 26'));
-      append(path('M20 18 25 21 23 26'));
-      append(circle(16, 13, 2.4));
-      append(line(16, 20, 16, 28));
-      append(path('M12 27 C14 25 18 25 20 27'));
-      return svg;
-    }
-    if (tab === 'map') {
-      append(path('M6 8 13 5 20 8 26 5 V24 L20 27 13 24 6 27 V8Z'));
-      append(path('M13 5 V24'));
-      append(path('M20 8 V27'));
-      append(path('M8 12 C10 10 12 11 13 13'));
-      append(path('M15 19 C17 16 19 17 22 14'));
-      append(circle(22, 14, 1.7));
-      append(circle(9, 12, 1.2));
-      return svg;
-    }
-    if (tab === 'warp') {
-      append(path('M16 3 24 24 16 18 8 24 16 3Z'));
-      append(circle(16, 14.5, 4.2));
-      append(circle(16, 14.5, 1.2));
-      append(path('M11 24 8 29'));
-      append(path('M21 24 24 29'));
-      append(path('M12 27 C14 25 18 25 20 27'));
-      append(path('M7 9 C10 6 13 5 16 5'));
-      append(path('M25 9 C22 6 19 5 16 5'));
-      return svg;
-    }
-    if (tab === 'hangar') {
-      append(path('M16 4 25 28 16 22 7 28 16 4Z'));
-      append(path('M8 24 H4 V10 L16 5 L28 10 V24 H24'));
-      append(path('M5 29 H27'));
-      append(circle(16, 15, 3));
-      append(path('M11 24 8 29'));
-      append(path('M21 24 24 29'));
-      return svg;
-    }
-    if (tab === 'drones') {
-      append(path('M12 12 H20 V20 H12 V12Z'));
-      append(circle(16, 16, 2));
-      append(circle(7, 16, 3.2));
-      append(circle(25, 16, 3.2));
-      append(circle(16, 7, 3.2));
-      append(circle(16, 25, 3.2));
-      append(line(12, 16, 10.2, 16));
-      append(line(20, 16, 21.8, 16));
-      append(line(16, 12, 16, 10.2));
-      append(line(16, 20, 16, 21.8));
-      append(path('M5 13 3 11'));
-      append(path('M27 13 29 11'));
-      append(path('M13 5 11 3'));
-      append(path('M19 27 21 29'));
-      return svg;
-    }
-    if (tab === 'skills') {
-      append(path('M10 25 C12 20 12 13 9 6'));
-      append(path('M22 25 C20 20 20 13 23 6'));
-      append(path('M12 21 H20'));
-      append(path('M13 15 H19'));
-      append(path('M14 9 H18'));
-      append(path('M9 25 6 29'));
-      append(path('M23 25 26 29'));
-      append(path('M13 25 C14 27 18 27 19 25'));
-      append(circle(16, 15, 1.4));
-      return svg;
-    }
-    append(path('M10 6 H22 V11 C22 16.5 19 20 16 21.5 C13 20 10 16.5 10 11 V6Z'));
-    append(path('M13 10 H19'));
-    append(path('M16 8 V18'));
-    append(path('M12 22 H20'));
-    append(path('M14 26 H18'));
-    append(path('M8 9 H5 C5 14 8 16.5 10 16.5'));
-    append(path('M24 9 H27 C27 14 24 16.5 22 16.5'));
-    append(path('M11 29 H21'));
-    return svg;
+    return createDockIcon(tab);
   }
 
   private getShopTabLabel(tab: ShopTab): string {
     if (tab === 'warp') {
       return translate(this.language, 'nav.technologies');
     }
-    if (tab === 'drones') {
-      return translate(this.language, 'nav.drones');
-    }
     if (tab === 'hangar') {
       return translate(this.language, 'nav.hangar');
-    }
-    if (tab === 'skills') {
-      return translate(this.language, 'nav.skills');
     }
     if (tab === 'achievements') {
       return translate(this.language, 'nav.achievements');
     }
-    return translate(this.language, 'nav.upgrades');
+    return translate(this.language, 'nav.hangar');
   }
 
   private getDockTabLabel(tab: DockTab): string {
@@ -1266,17 +1220,19 @@ export class GameScene extends Phaser.Scene {
       );
       this.setText(this.survivalBestEl, `D${this.state.survival.difficulty} · ${this.formatDuration(difficultyBest)}`);
     }
-    this.updateRunModifiersHud(survivalHudActive);
-
     const crystals = this.getCrystalBalance();
     this.setText(this.moneyEl, this.formatMoney(this.state.money));
-    this.setText(this.crystalsEl, `${formatCompactNumber(crystals)} ${formatCrystalUnit(this.language, crystals)}`);
+    this.setText(this.crystalsEl, formatCompactNumber(crystals));
+    this.crystalsEl.setAttribute('aria-label', `${formatCompactNumber(crystals)} ${formatCrystalUnit(this.language, crystals)}`);
     this.setText(this.sectorEl, this.formatSector());
     this.updateRouteToggle();
     this.mapToggleEl.disabled = !this.state.progression.mapUnlocked;
     this.mapToggleEl.classList.toggle('is-locked', !this.state.progression.mapUnlocked);
     const hpPercent = Math.max(0, Math.min(1, this.state.ship.hp / Math.max(1, this.state.ship.maxHp)));
     this.hpMeterEl.style.setProperty('--hp-fill', `${Math.round(hpPercent * 100)}%`);
+    this.hpMeterEl.dataset.condition = hpPercent <= 0.25 ? 'critical' : hpPercent <= 0.5 ? 'damaged' : 'healthy';
+    this.hpMeterEl.setAttribute('aria-valuenow', String(Math.max(0, Math.ceil(this.state.ship.hp))));
+    this.hpMeterEl.setAttribute('aria-valuemax', String(this.state.ship.maxHp));
     this.updateLowHpVeil(hpPercent);
     this.setText(this.hpEl, `${formatCompactNumber(Math.ceil(this.state.ship.hp))} / ${formatCompactNumber(this.state.ship.maxHp)}`);
     const shipLevel = Math.max(1, Math.floor(this.state.progression.shipLevel));
@@ -1285,34 +1241,6 @@ export class GameScene extends Phaser.Scene {
       : Math.max(0, Math.min(1, this.state.progression.shipXp / Math.max(1, getShipXpForNextLevel(shipLevel))));
     this.setText(this.shipLevelEl, `${this.language === 'pt-BR' ? 'Nv' : 'Lv'} ${shipLevel}`);
     this.shipXpMeterEl.style.setProperty('--ship-xp-fill', `${Math.round(shipXpProgress * 100)}%`);
-
-    if (this.offlineStatusFor > 0) {
-      this.setText(this.statusEl, translate(this.language, 'status.offline', { amount: this.formatMoney(this.state.lastOfflineEarnings) }));
-    } else if (this.state.phase === 'respawning') {
-      this.setText(this.statusEl, translate(this.language, 'status.destroyed', { amount: this.formatMoney(this.state.lastRepairCost), seconds: Math.ceil(this.state.ship.respawnFor) }));
-    } else if (this.state.droneRebootFor > 0) {
-      this.setText(this.statusEl, translate(this.language, 'status.droneReboot', { seconds: Math.ceil(this.state.droneRebootFor) }));
-    } else if (this.state.ship.invulnerableFor > 0) {
-      this.setText(this.statusEl, translate(this.language, 'status.shieldActive'));
-    } else if (hasWarpUnlock(this.state.progression, 'shieldBubble') && this.state.shieldBubble.broken) {
-      this.setText(this.statusEl, translate(this.language, 'status.shieldRecharge', { seconds: Math.ceil(this.state.shieldBubble.rechargeFor) }));
-    } else if (hasWarpUnlock(this.state.progression, 'shieldBubble') && this.state.shieldBubble.active) {
-      this.setText(this.statusEl, translate(this.language, 'status.shieldReady'));
-    } else if (isSurvivalZone(this.state) && this.state.survival.active) {
-      this.setText(this.statusEl, translate(this.language, 'status.survival', {
-        time: this.formatDuration(this.state.survival.currentSeconds),
-        threat: this.state.survival.threatLevel,
-        best: this.formatDuration(getNovaCrownBestSeconds(
-          this.state.progression.novaCrownBestSecondsByDifficulty,
-          this.state.survival.difficulty
-        ))
-      }));
-    } else if (this.state.progression.unlockedZoneIndex === 0 && !hasActiveZoneBoss(this.state)) {
-      const remaining = Math.max(0, balance.bosses.firstGateAsteroids - this.state.progression.firstGateAsteroidsDestroyed);
-      this.setText(this.statusEl, remaining > 0 ? translate(this.language, 'status.firstBossCountdown', { remaining }) : translate(this.language, 'status.firstBossDetected'));
-    } else {
-      this.setText(this.statusEl, this.getDefaultInputStatusText());
-    }
 
     this.syncVisibleShopTabs();
     this.updateFirstWarpGoal();
@@ -1335,26 +1263,6 @@ export class GameScene extends Phaser.Scene {
     const label = this.language === 'pt-BR' ? `Viajar para ${zone.name}` : `Travel to ${zone.name}`;
     this.routeToggleEl.setAttribute('aria-label', label);
     this.routeToggleEl.title = label;
-  }
-
-  private updateRunModifiersHud(visible: boolean): void {
-    const activeIds = this.state.bossRewards.activeIds;
-    this.runModifiersEl.classList.toggle('is-hidden', !visible || activeIds.length <= 0);
-    const signature = visible ? activeIds.join(',') : '';
-    if (signature === this.runModifiersSignature) {
-      return;
-    }
-
-    this.runModifiersSignature = signature;
-    this.runModifiersEl.replaceChildren(...activeIds.map((id) => {
-      const definition = BOSS_REWARD_BY_ID[id];
-      const chip = document.createElement('span');
-      chip.className = 'run-modifier-chip';
-      chip.classList.toggle('run-modifier-chip--tradeoff', Boolean(definition.tradeoff));
-      chip.textContent = definition.icon;
-      chip.title = `${definition.title}: ${definition.effectLabel}`;
-      return chip;
-    }));
   }
 
   private getNextUnlockedTravelZoneIndex(): number | null {
@@ -1408,40 +1316,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getFirstWarpGoalProgressLabel(goal: GuidedMissionProgress): string {
-    const reward = this.getGuidedMissionRewardLabel(goal);
     if (goal.id === 'defeatGateBoss' || goal.id === 'defeatZoneBoss' || goal.id === 'openVegaRoute' || goal.id === 'openCygnusRoute' || goal.id === 'openNovaRoute') {
       const progress = goal.ready
         ? (this.language === 'pt-BR' ? 'Completa' : 'Complete')
         : (this.language === 'pt-BR' ? 'Derrote boss de rota' : 'Defeat route boss');
-      return `${progress} · ${reward}`;
+      return progress;
     }
     if (goal.id === 'travelToOrion' || goal.id === 'travelToVega' || goal.id === 'travelToCygnus' || goal.id === 'travelToNovaCrown') {
       const progress = goal.ready
         ? (this.language === 'pt-BR' ? 'Destino alcançado' : 'Arrived')
         : (this.language === 'pt-BR' ? 'Rota aberta' : 'Route open');
-      return `${progress} · ${reward}`;
+      return progress;
     }
     if (goal.id === 'earnFirstCore') {
       const progress = goal.ready
         ? (this.language === 'pt-BR' ? 'Núcleo obtido' : 'Core earned')
         : `${goal.current}/${goal.target}`;
-      return `${progress} · ${reward}`;
+      return progress;
     }
-    return `${goal.current}/${goal.target} · ${reward}`;
-  }
-
-  private getGuidedMissionRewardLabel(goal: GuidedMissionProgress): string {
-    const labels: Record<GuidedMissionProgress['rewardKind'], string> = {
-      damage: this.language === 'pt-BR' ? '+Dano' : '+Damage',
-      hull: this.language === 'pt-BR' ? '+Vida' : '+Hull',
-      income: this.language === 'pt-BR' ? '+Renda' : '+Income',
-      fireRate: this.language === 'pt-BR' ? '+Ataque' : '+Attack',
-      drone: this.language === 'pt-BR' ? '+Drone' : '+Drone',
-      credits: this.language === 'pt-BR' ? '+Créditos' : '+Credits',
-      speed: this.language === 'pt-BR' ? '+Velocidade' : '+Speed',
-      crystals: this.language === 'pt-BR' ? '+Cristais' : '+Crystals'
-    };
-    return labels[goal.rewardKind];
+    return `${formatCompactNumber(goal.current)}/${formatCompactNumber(goal.target)}`;
   }
 
   private updateBossHealth(): void {
@@ -1455,7 +1348,7 @@ export class GameScene extends Phaser.Scene {
     const hp = Math.max(0, Math.ceil(boss.hp));
     const maxHp = Math.max(1, Math.ceil(boss.maxHp));
     this.setText(this.bossHealthNameEl, this.formatBossName(boss.bossType));
-    this.setText(this.bossHealthValueEl, `${hp} / ${maxHp}`);
+    this.setText(this.bossHealthValueEl, `${formatCompactNumber(hp)} / ${formatCompactNumber(maxHp)}`);
     this.bossHealthEl.setAttribute('aria-label', this.language === 'pt-BR' ? `Vida do boss ${nextZone.name}` : `${nextZone.name} boss health`);
     this.bossHealthProgressEl.style.setProperty('--boss-health-progress', `${Math.round(Math.max(0, Math.min(1, boss.hp / Math.max(1, boss.maxHp))) * 100)}%`);
   }
@@ -1465,19 +1358,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateDeathFade(): void {
-    if (this.state.phase !== 'respawning') {
-      this.deathFadeEl.style.opacity = '0';
-      return;
-    }
-
-    const respawnFor = Math.max(0, this.state.ship.respawnFor);
-    const fadeIn = Math.min(1, (2.2 - respawnFor) / 0.7);
-    const fadeOut = Math.min(1, respawnFor / 0.6);
-    this.deathFadeEl.style.opacity = Math.max(0, Math.min(1, fadeIn, fadeOut)).toFixed(2);
+    this.deathFadeEl.style.opacity = '0';
   }
 
   private updateLowHpVeil(hpPercent: number): void {
-    if (this.state.phase === 'respawning') {
+    if (this.state.phase === 'ended') {
       this.lowHpVeilEl.style.opacity = '0';
       return;
     }
@@ -1554,13 +1439,8 @@ export class GameScene extends Phaser.Scene {
         this.activeTab = nextTab;
         this.navButtons.forEach((navButton) => navButton.classList.toggle('is-active', navButton === button));
         this.collapseQuickMenu();
-        if (this.activeTab === 'skills') {
-          this.closeShopDrawer({ closeModal: false, clearActiveTabs: false });
-          this.openSkillTreeModal();
-        } else {
-          this.openShopDrawer();
-          this.closeModal();
-        }
+        this.openShopDrawer();
+        this.closeModal();
         this.updateShop();
       });
     });
@@ -1613,24 +1493,6 @@ export class GameScene extends Phaser.Scene {
       this.priorityPopupQueue.push(popup);
     });
 
-    this.showNextPriorityPopup();
-  }
-
-  private queueOfflineEarningsPopup(): void {
-    if (this.offlinePopupQueued || this.state.lastOfflineEarnings <= 0) {
-      return;
-    }
-
-    this.offlinePopupQueued = true;
-    this.priorityPopupQueue.push({
-      key: `offline-${Math.floor(this.state.lastOfflineEarnings)}`,
-      kicker: this.language === 'pt-BR' ? 'Ganhos offline' : 'Offline gains',
-      title: this.formatMoney(this.state.lastOfflineEarnings),
-      copy: this.language === 'pt-BR'
-        ? 'Sua nave gerou créditos enquanto você estava fora.'
-        : 'Your ship generated credits while you were away.',
-      okLabel: 'OK'
-    });
     this.showNextPriorityPopup();
   }
 
@@ -1769,6 +1631,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const onStart = (event: PointerEvent): void => {
+      if (panel === this.modalPanelEl && (this.activeModal === 'runMenu' || this.activeModal === 'levelUpCards')) return;
       if (event.pointerType === 'mouse' && event.button !== 0) {
         return;
       }
@@ -1778,6 +1641,8 @@ export class GameScene extends Phaser.Scene {
       }
 
       const target = event.target;
+      const interactive = target.closest('button, input, select, textarea, a');
+      if (interactive && !handles.includes(interactive as HTMLElement)) return;
       startedOnGrip = handles.some((handle) => handle.contains(target));
       if (!startedOnGrip && target.closest('button, input, select, textarea, a')) {
         return;
@@ -1813,9 +1678,6 @@ export class GameScene extends Phaser.Scene {
       Math.ceil(this.state.ship.hp),
       this.state.ship.maxHp,
       this.state.ship.armor,
-      this.state.progression.passiveIncomeLevel,
-      this.state.progression.shipDamageLevel,
-      this.state.progression.shipFireRateLevel,
       this.state.progression.shipSpeedLevel,
       this.state.progression.deflectorLevel,
       this.state.progression.activeShipFrameId,
@@ -1831,14 +1693,6 @@ export class GameScene extends Phaser.Scene {
       this.state.progression.prestigeCores,
       this.state.survival.active ? this.state.survival.threatLevel : 0,
       this.getCrystalBalance(),
-      this.state.progression.dronesPurchased,
-      this.state.progression.droneCounts.sentry,
-      this.state.progression.droneCounts.ranger,
-      this.state.progression.droneCounts.breaker,
-      this.state.progression.activeDroneCounts.sentry,
-      this.state.progression.activeDroneCounts.ranger,
-      this.state.progression.activeDroneCounts.breaker,
-      ...TALENT_DEFINITIONS.map((talent) => getTalentRank(this.state.progression, talent.id)),
       this.getAffordabilitySignature(),
       countUnlockedAchievements(this.state.progression),
       this.getVisibleShopTabs().join(','),
@@ -1852,11 +1706,8 @@ export class GameScene extends Phaser.Scene {
     this.shopSignature = nextSignature;
 
     const renderers: Record<ShopTab, () => void> = {
-      upgrades: () => this.renderUpgradesTab(),
       warp: () => this.renderWarpTab(),
       hangar: () => this.renderHangarTab(),
-      drones: () => this.renderDronesTab(),
-      skills: () => this.renderSkillsTab(),
       achievements: () => this.renderAchievementsTab()
     };
 
@@ -1864,34 +1715,20 @@ export class GameScene extends Phaser.Scene {
 
     if (this.activeModal === 'info' && this.activeModalInfo) {
       this.renderInfoModal();
-    } else if (this.activeModal === 'skills') {
-      this.renderSkillTreeModal();
     } else if (this.activeModal === 'warpCores') {
       this.renderWarpCoreTreeModal();
     } else if (this.activeModal === 'zones') {
       this.renderZoneMapModal();
     } else if (this.activeModal === 'settings') {
       this.renderSettingsModal();
-    } else if (this.activeModal === 'bossReward') {
-      this.renderBossRewardChoiceModal();
+    } else if (this.activeModal === 'levelUpCards') {
+      this.renderLevelUpCardChoiceModal();
     } else if (this.activeModal === 'novaCrownDifficulty') {
       this.renderNovaCrownDifficultyModal();
     }
   }
 
   private getAffordabilitySignature(): string {
-    if (this.activeTab === 'upgrades') {
-      const cap = this.getCoreUpgradeCap();
-      const hpLevel = this.getHpUpgradeLevel();
-      const damageLevel = this.getDamageUpgradeLevel();
-      return [
-        `offline:${this.state.progression.passiveIncomeLevel < cap}:${this.state.money >= this.getOfflineIncomeCost()}`,
-        `damage:${damageLevel < cap}:${this.state.money >= this.getDamageCost()}`,
-        `fire:${this.state.progression.shipFireRateLevel < cap}:${this.state.money >= this.getFireRateCost()}`,
-        `hp:${hpLevel < cap}:${this.state.money >= this.getHpCost()}`
-      ].join(',');
-    }
-
     if (this.activeTab === 'warp') {
       return `cores:${getAvailableWarpCores(this.state.progression)}:${this.state.progression.prestigeCores}`;
     }
@@ -1900,26 +1737,11 @@ export class GameScene extends Phaser.Scene {
       return [
         `active:${this.state.progression.activeShipFrameId}`,
         `ships:${this.state.progression.unlockedShipFrameIds.join(',')}`,
-        `runs:${Object.keys(this.state.progression.shipRuns).join(',')}`,
         `money:${Math.floor(this.state.money)}`,
-        `crystals:${this.state.crystals}`,
-        `damage:${this.state.progression.shipDamageLevel}`,
-        `fire:${this.state.progression.shipFireRateLevel}`
+        `crystals:${this.state.crystals}`
       ].join(',');
     }
 
-    if (this.activeTab === 'drones') {
-      return this.getDroneTypes()
-        .map((type) => `${type}:${this.canBuyDroneType(type)}:${this.state.money >= this.getDroneTypeCost(type)}:${this.state.progression.activeDroneCounts[type]}`)
-        .join(',');
-    }
-
-    if (this.activeTab === 'skills') {
-      return TALENT_DEFINITIONS.map((talent) => {
-        const rank = getTalentRank(this.state.progression, talent.id);
-        return `${talent.id}:${rank}:${canBuyTalentRank(this.state.progression, talent.id)}`;
-      }).join(',') + `:points:${getAvailableShipSkillPoints(this.state.progression)}:level:${this.state.progression.shipLevel}:xp:${Math.floor(this.state.progression.shipXp)}:crystals:${this.getCrystalBalance()}:respec:${getTalentRespecCost(this.state)}`;
-    }
 
     return '';
   }
@@ -1929,23 +1751,9 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (!this.tutorialGuide.hasCompleted('first-skill-point') && this.hasUnspentSkillPointToGuide()) {
-      this.startTutorialGuide(FIRST_SKILL_POINT_TUTORIAL);
-      return;
-    }
-
-    if (!this.tutorialGuide.hasCompleted('first-upgrade') && this.hasAffordableCoreUpgrade()) {
-      this.startTutorialGuide(FIRST_UPGRADE_TUTORIAL);
-      return;
-    }
-
     if (!this.tutorialGuide.hasCompleted('zone-travel') && this.hasUnlockedZoneToTravel()) {
       this.startTutorialGuide(ZONE_TRAVEL_TUTORIAL);
     }
-  }
-
-  private hasUnspentSkillPointToGuide(): boolean {
-    return this.isShopTabVisible('skills') && getAvailableShipSkillPoints(this.state.progression) > 0;
   }
 
   private shouldDeferTutorialGuide(): boolean {
@@ -1967,74 +1775,6 @@ export class GameScene extends Phaser.Scene {
   private hasUnlockedZoneToTravel(): boolean {
     return this.state.progression.mapUnlocked &&
       this.state.progression.unlockedZoneIndex > this.state.progression.currentZoneIndex;
-  }
-
-  private hasAffordableCoreUpgrade(): boolean {
-    const cap = this.getCoreUpgradeCap();
-    return (
-      (this.getDamageUpgradeLevel() < cap && this.state.money >= this.getDamageCost()) ||
-      (this.state.progression.shipFireRateLevel < cap && this.state.money >= this.getFireRateCost()) ||
-      (this.getHpUpgradeLevel() < cap && this.state.money >= this.getHpCost()) ||
-      (this.state.progression.passiveIncomeLevel < cap && this.state.money >= this.getOfflineIncomeCost())
-    );
-  }
-
-  private renderUpgradesTab(): void {
-    const cap = this.getCoreUpgradeCap();
-    const damageLevel = this.getDamageUpgradeLevel();
-    const hpLevel = this.getHpUpgradeLevel();
-    const offlineIncomeLevel = this.state.progression.passiveIncomeLevel;
-    const fireRateLevel = this.state.progression.shipFireRateLevel;
-    const actions: ShopAction[] = [
-      {
-        icon: 'DMG',
-        title: translate(this.language, 'shop.shotDamage'),
-        meta: `${translate(this.language, 'shop.level', { level: damageLevel, cap })} · ${translate(this.language, 'shop.damage', { value: this.formatStatNumber(this.getPlayerShotDamage()) })}`,
-        label: damageLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getDamageCost()),
-        disabled: damageLevel >= cap || this.state.money < this.getDamageCost(),
-        onClick: () => this.buyDamage(this.getDamageCost()),
-        repeatable: true
-      },
-      {
-        icon: 'FR',
-        title: translate(this.language, 'shop.fireRate'),
-        meta: `${translate(this.language, 'shop.level', { level: fireRateLevel, cap })} · x${getFireRateMultiplier(this.state.progression).toFixed(2)}`,
-        label: fireRateLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getFireRateCost()),
-        disabled: fireRateLevel >= cap || this.state.money < this.getFireRateCost(),
-        onClick: () => this.buyFireRate(this.getFireRateCost()),
-        repeatable: true
-      },
-      {
-        icon: 'HP',
-        title: translate(this.language, 'shop.hull'),
-        meta: `${translate(this.language, 'shop.level', { level: hpLevel, cap })} · ${this.state.ship.maxHp} HP`,
-        label: hpLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getHpCost()),
-        disabled: hpLevel >= cap || this.state.money < this.getHpCost(),
-        onClick: () => this.buyHp(this.getHpCost()),
-        repeatable: true
-      },
-      {
-        icon: 'OFF',
-        title: translate(this.language, 'shop.income'),
-        meta: `${translate(this.language, 'shop.level', { level: offlineIncomeLevel, cap })} · ${translate(this.language, 'shop.perHour', { value: this.formatMoney(this.getOfflineIncomePerHour()) })}`,
-        label: offlineIncomeLevel >= cap ? translate(this.language, 'shop.max') : this.formatMoney(this.getOfflineIncomeCost()),
-        disabled: offlineIncomeLevel >= cap || this.state.money < this.getOfflineIncomeCost(),
-        onClick: () => this.buyOfflineIncome(this.getOfflineIncomeCost()),
-        repeatable: true
-      }
-    ];
-    const firstAffordableAction = actions.find((action) => !action.disabled);
-    if (firstAffordableAction) {
-      firstAffordableAction.tutorialTarget = 'upgrade-affordable';
-    }
-
-    this.setShopContent(
-      translate(this.language, 'shop.upgradesKicker'),
-      translate(this.language, 'shop.shipCore'),
-      '',
-      [],
-      actions
-    );
   }
 
   private renderWarpTab(): void {
@@ -2140,128 +1880,6 @@ export class GameScene extends Phaser.Scene {
     }
     panel.append(preview);
     return panel;
-  }
-
-  private renderSkillsTab(): void {
-    const content = this.skillsModal.createShopContent({
-      state: this.state,
-      language: this.language,
-      onOpenTree: () => this.openSkillTreeModal(),
-      onRespec: () => this.respecSkills()
-    });
-
-    this.setShopContent(
-      content.kicker,
-      content.title,
-      content.copy,
-      content.stats,
-      content.actions
-    );
-
-    if (this.activeModal === 'skills') {
-      this.renderSkillTreeModal();
-    }
-  }
-
-  private renderDronesTab(): void {
-    const droneSystemsOnline = hasWarpUnlock(this.state.progression, 'droneSystems');
-    const activeTotal = this.getDroneTypes().reduce((total, type) => total + this.state.progression.activeDroneCounts[type], 0);
-    this.setShopContent(
-      translate(this.language, 'nav.drones'),
-      droneSystemsOnline ? (this.language === 'pt-BR' ? 'Baía de Drones' : 'Drone Bay') : (this.language === 'pt-BR' ? 'Baía de Drones Bloqueada' : 'Drone Bay Locked'),
-      droneSystemsOnline
-        ? (this.language === 'pt-BR' ? 'Tecnologias autorizam cada família de drones. Créditos ainda constroem os drones.' : 'Technologies authorize each drone family. Credits still build the actual drones.')
-        : (this.language === 'pt-BR' ? 'Instale Sistemas de Drones em Tecnologias antes de comprar drones.' : 'Install Drone Systems in Technologies before buying drones.'),
-      [
-        [this.language === 'pt-BR' ? 'Em campo' : 'Deployed', `${activeTotal} / ${this.state.progression.dronesPurchased}`],
-        ['Semi-Auto', `${this.state.progression.activeDroneCounts.sentry} / ${this.state.progression.droneCounts.sentry}`],
-        ['Shotgun', `${this.state.progression.activeDroneCounts.ranger} / ${this.state.progression.droneCounts.ranger}`],
-        ['Missile', `${this.state.progression.activeDroneCounts.breaker} / ${this.state.progression.droneCounts.breaker}`],
-        [this.language === 'pt-BR' ? 'Sistemas' : 'Systems', droneSystemsOnline ? 'Online' : (this.language === 'pt-BR' ? 'Bloqueado' : 'Locked')]
-      ],
-      this.getDroneTypes().map((type) => {
-        const config = balance.shop.drones[type];
-        const cost = this.getDroneTypeCost(type);
-        const unlocked = this.canBuyDroneType(type);
-        const requiredUnlock = this.getDroneTypeWarpUnlock(type);
-        const requiredTitle = this.getWarpUnlockTitle(requiredUnlock);
-        const count = this.state.progression.droneCounts[type];
-        const activeCount = this.state.progression.activeDroneCounts[type];
-        const profile = this.getDroneTypeProfile(type);
-        const status = unlocked
-          ? (this.language === 'pt-BR'
-            ? `${profile.role} · ${activeCount}/${count} em campo · ${profile.rhythm}`
-            : `${profile.role} · ${activeCount}/${count} deployed · ${profile.rhythm}`)
-          : (this.language === 'pt-BR' ? `Requer ${requiredTitle}` : `Requires ${requiredTitle}`);
-        const actionClass = unlocked
-          ? (count > 0 ? 'shop-buy--drone shop-buy--drone-owned' : 'shop-buy--drone shop-buy--drone-ready')
-          : 'shop-buy--drone shop-buy--drone-locked';
-        return {
-          iconNode: () => this.createDroneTypeIcon(type),
-          title: `${config.label} Drone`,
-          meta: status,
-          label: unlocked ? this.formatMoney(cost) : (this.language === 'pt-BR' ? 'Bloqueado' : 'Warp locked'),
-          disabled: !unlocked || this.state.money < cost,
-          onClick: () => this.buyDrone(type, cost),
-          info: () => this.getDroneTypeInfo(type),
-          className: actionClass,
-          controlNode: count > 0 ? () => this.createDroneDeploymentControl(type) : undefined
-        };
-      }),
-      true
-    );
-  }
-
-  private createDroneDeploymentControl(type: DroneType): HTMLElement {
-    const owned = this.state.progression.droneCounts[type];
-    const active = this.state.progression.activeDroneCounts[type];
-    const control = document.createElement('div');
-    control.className = 'drone-deploy-control';
-
-    const label = document.createElement('span');
-    label.className = 'drone-deploy-control__label';
-    label.textContent = this.language === 'pt-BR' ? 'Em campo' : 'Deployed';
-
-    const stepper = document.createElement('div');
-    stepper.className = 'drone-deploy-control__stepper';
-
-    const removeButton = document.createElement('button');
-    removeButton.type = 'button';
-    removeButton.className = 'drone-deploy-control__button';
-    removeButton.textContent = '-';
-    removeButton.disabled = active <= 0;
-    removeButton.setAttribute('aria-label', this.language === 'pt-BR' ? 'Remover drone do campo' : 'Remove drone from field');
-    removeButton.addEventListener('click', () => this.setActiveDroneCount(type, active - 1));
-
-    const value = document.createElement('strong');
-    value.className = 'drone-deploy-control__value';
-    value.textContent = `${active}/${owned}`;
-
-    const addButton = document.createElement('button');
-    addButton.type = 'button';
-    addButton.className = 'drone-deploy-control__button';
-    addButton.textContent = '+';
-    addButton.disabled = active >= owned;
-    addButton.setAttribute('aria-label', this.language === 'pt-BR' ? 'Adicionar drone ao campo' : 'Deploy drone to field');
-    addButton.addEventListener('click', () => this.setActiveDroneCount(type, active + 1));
-
-    stepper.append(removeButton, value, addButton);
-    control.append(label, stepper);
-    return control;
-  }
-
-  private setActiveDroneCount(type: DroneType, count: number): void {
-    const owned = this.state.progression.droneCounts[type];
-    const active = Math.max(0, Math.min(owned, Math.floor(count)));
-    if (active === this.state.progression.activeDroneCounts[type]) {
-      return;
-    }
-
-    this.state.progression.activeDroneCounts[type] = active;
-    syncActiveDrones(this.state);
-    this.shopSignature = '';
-    saveGameState(this.state);
-    this.updateHud();
   }
 
   private renderAchievementsTab(): void {
@@ -2522,24 +2140,14 @@ export class GameScene extends Phaser.Scene {
   private openInfoModal(info: ModalContent): void {
     this.activeModal = 'info';
     this.activeModalInfo = info;
-    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown', 'ui-modal__panel--cards');
     this.renderInfoModal();
-  }
-
-  private openSkillTreeModal(): void {
-    this.activeModal = 'skills';
-    this.activeModalInfo = null;
-    this.skillsModal.clearSelection();
-    this.activeWarpUnlockId = null;
-    this.renderSkillTreeModal();
   }
 
   private openWarpCoreTreeModal(): void {
     this.activeModal = 'warpCores';
     this.activeModalInfo = null;
-    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.renderWarpCoreTreeModal();
   }
@@ -2547,7 +2155,6 @@ export class GameScene extends Phaser.Scene {
   private openZoneMapModal(): void {
     this.activeModal = 'zones';
     this.activeModalInfo = null;
-    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.renderZoneMapModal();
   }
@@ -2555,7 +2162,6 @@ export class GameScene extends Phaser.Scene {
   private openNovaCrownDifficultyModal(): void {
     this.activeModal = 'novaCrownDifficulty';
     this.activeModalInfo = null;
-    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.novaCrownDifficultySelection = Math.min(
       normalizeNovaCrownDifficulty(this.state.progression.novaCrownSelectedDifficulty),
@@ -2567,15 +2173,14 @@ export class GameScene extends Phaser.Scene {
   private openSettingsModal(): void {
     this.activeModal = 'settings';
     this.activeModalInfo = null;
-    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.audioSettings.setExpanded(true);
     this.renderSettingsModal();
   }
 
-  private syncBossRewardChoiceModal(): void {
+  private syncLevelUpCardChoiceModal(): void {
     if (
-      this.state.bossRewards.pendingChoiceIds.length <= 0 ||
+      this.state.runCards.pendingChoiceIds.length <= 0 ||
       this.activeModal ||
       this.activePriorityPopup ||
       this.priorityPopupQueue.length > 0
@@ -2583,87 +2188,136 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.activeModal = 'bossReward';
+    this.activeModal = 'levelUpCards';
     this.activeModalInfo = null;
-    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
-    this.renderBossRewardChoiceModal();
+    this.renderLevelUpCardChoiceModal();
   }
 
   private closeModal(): void {
-    const wasSkillTree = this.activeModal === 'skills';
+    if (this.activeModal === 'levelUpCards' || this.activeModal === 'runMenu') {
+      return;
+    }
     this.activeModal = null;
     this.activeModalInfo = null;
-    this.skillsModal.clearSelection();
     this.activeWarpUnlockId = null;
     this.audioSettings.setExpanded(false);
     this.modalEl.classList.add('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'true');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown', 'ui-modal__panel--cards');
     this.modalBodyEl.replaceChildren();
-    if (wasSkillTree && this.activeTab === 'skills') {
-      this.navButtons.forEach((button) => button.classList.remove('is-active'));
-    }
   }
 
-  private renderBossRewardChoiceModal(): void {
-    const choices = this.state.bossRewards.pendingChoiceIds;
+  private renderLevelUpCardChoiceModal(): void {
+    const choices = this.state.runCards.pendingChoiceIds;
     if (choices.length <= 0) {
+      this.activeModal = null;
       this.closeModal();
       return;
     }
 
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
-    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
-    this.modalKickerEl.textContent = this.language === 'pt-BR' ? 'Recompensa de Threat' : 'Threat Reward';
-    this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha um bônus da run' : 'Choose a run bonus';
-    this.modalCopyEl.textContent = this.language === 'pt-BR'
-      ? 'Este bônus vem da pressão da Nova Crown e dura até esta tentativa de sobrevivência terminar.'
-      : 'This bonus comes from Nova Crown pressure and lasts until this survival attempt ends.';
+    this.modalPanelEl.classList.remove('ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown', 'ui-modal__panel--cards');
+    this.modalPanelEl.classList.add('ui-modal__panel--cards');
+    this.modalKickerEl.textContent = this.language === 'pt-BR' ? `Nível ${this.state.progression.shipLevel}` : `Level ${this.state.progression.shipLevel}`;
+    this.modalTitleEl.textContent = this.language === 'pt-BR' ? 'Escolha uma melhoria' : 'Choose an upgrade';
+    this.modalCopyEl.textContent = this.state.runCards.queuedChoiceCount > 1
+      ? (this.language === 'pt-BR' ? `${this.state.runCards.queuedChoiceCount} escolhas aguardando` : `${this.state.runCards.queuedChoiceCount} choices waiting`)
+      : (this.language === 'pt-BR' ? 'Sua build dura até o fim desta run.' : 'Your build lasts for this run.');
     this.modalCopyEl.classList.remove('is-hidden');
 
     const actions = document.createElement('div');
-    actions.className = 'boss-reward-actions';
+    actions.className = 'run-card-actions';
     choices.forEach((id) => {
-      const definition = BOSS_REWARD_BY_ID[id];
+      const definition = RUN_CARD_BY_ID[id];
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'shop-buy shop-buy--row boss-reward-choice';
+      button.className = `run-card-choice run-card-choice--${definition.rarity}`;
 
-      const icon = document.createElement('span');
-      icon.className = 'shop-action-icon';
-      icon.textContent = definition.icon;
-
-      const body = document.createElement('span');
-      body.className = 'shop-action-body';
+      const header = document.createElement('span');
+      header.className = 'run-card-choice__header';
+      const rarity = document.createElement('small');
+      rarity.textContent = this.getRunCardRarityLabel(definition.rarity);
       const title = document.createElement('strong');
-      title.textContent = definition.title;
-      const meta = document.createElement('span');
-      meta.className = 'shop-action-meta';
-      meta.textContent = definition.summary;
-      body.append(title, meta);
+      title.textContent = this.getRunCardTitle(id);
+      header.append(rarity, title);
 
-      const effect = document.createElement('span');
-      effect.className = 'shop-action-cost';
-      effect.textContent = definition.effectLabel;
-
-      button.append(icon, body, effect);
-      button.addEventListener('click', () => this.chooseBossReward(id));
+      const summary = document.createElement('span');
+      summary.className = 'run-card-choice__summary';
+      summary.textContent = this.getRunCardSummary(id);
+      const stacks = document.createElement('span');
+      stacks.className = 'run-card-choice__stacks';
+      stacks.textContent = this.language === 'pt-BR'
+        ? `${this.state.runCards.selectedStacks[id]} acúmulos`
+        : `${this.state.runCards.selectedStacks[id]} stacks`;
+      button.append(header, summary, stacks);
+      const icon = createRunCardIcon(id);
+      icon.classList.add('run-card-choice__icon');
+      button.prepend(icon);
+      button.addEventListener('click', () => this.chooseLevelUpCard(id));
       actions.append(button);
     });
-
     this.modalBodyEl.replaceChildren(actions);
+    this.modalTitleEl.focus({ preventScroll: true });
   }
 
-  private chooseBossReward(id: GameState['bossRewards']['pendingChoiceIds'][number]): void {
-    if (!applyBossRewardChoice(this.state, id)) {
+  private getRunCardRarityLabel(rarity: RunCardRarity): string {
+    if (this.language !== 'pt-BR') {
+      return { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }[rarity];
+    }
+    return { common: 'Comum', rare: 'Raro', epic: 'Épico', legendary: 'Lendário' }[rarity];
+  }
+
+  private chooseLevelUpCard(id: RunCardId): void {
+    if (!applyRunCardChoice(this.state, id)) {
       return;
     }
     this.retroSound.play({ type: 'purchase' });
     saveGameState(this.state);
-    this.closeModal();
+    this.shopSignature = '';
+    if (this.state.runCards.pendingChoiceIds.length > 0) {
+      this.renderLevelUpCardChoiceModal();
+    } else {
+      this.activeModal = null;
+      this.closeModal();
+    }
     this.updateHud();
+  }
+
+  private getRunCardTitle(id: RunCardId): string {
+    if (this.language !== 'pt-BR') {
+      return RUN_CARD_BY_ID[id].title;
+    }
+    return {
+      kineticAmplifier: 'Amplificador Cinético', rapidCycler: 'Ciclo Rápido', reinforcedHull: 'Casco Reforçado',
+      splitChamber: 'Câmara Dupla', piercingCore: 'Núcleo Perfurante', expandedCaliber: 'Calibre Expandido',
+      thorns: 'Espinhos', impulseVector: 'Vetor de Impulso', inertialArmor: 'Blindagem Inercial',
+      emergencyBarrier: 'Barreira de Emergência', criticalReactor: 'Reator Crítico',
+      huntingRadar: 'Radar de Caça', sentryWing: 'Sentry Wing', rangerWing: 'Ranger Wing', breakerWing: 'Breaker Wing',
+      unstableRicochet: 'Ricochete Instável', incendiaryCharge: 'Carga Incendiária',
+      fragmentationChamber: 'Câmara de Fragmentação'
+    }[id];
+  }
+
+  private getRunCardSummary(id: RunCardId): string {
+    if (this.language !== 'pt-BR') {
+      return RUN_CARD_BY_ID[id].summary;
+    }
+    return {
+      kineticAmplifier: '+20% de dano das armas.', rapidCycler: '+15% de velocidade de ataque.', reinforcedHull: '+20 de casco máximo.',
+      splitChamber: '+1 projétil por tiro.', piercingCore: '+1 perfuração de projéteis.', expandedCaliber: '+15% de tamanho de projéteis e ondas.',
+      thorns: '+18 de dano de impacto em dash.', impulseVector: '+15% de impulso no dash.', inertialArmor: '-15% de knockback por colisão.',
+      emergencyBarrier: 'Absorve +1 próximo impacto.',
+      criticalReactor: '15% de chance de dano dobrado nos tiros. Cada acúmulo adiciona outra chance.',
+      huntingRadar: 'Tiros seguem levemente inimigos próximos. Acúmulos melhoram as curvas.',
+      sentryWing: '+1 drone sentinela temporário.',
+      rangerWing: '+1 drone shotgun temporário.',
+      breakerWing: '+1 drone de mísseis temporário.',
+      unstableRicochet: '+1 ricochete em asteroides por projétil.',
+      incendiaryCharge: 'Queima asteroides por 3s: 25% do dano do tiro por segundo por acúmulo.',
+      fragmentationChamber: 'Destruições diretas liberam 2 fragmentos por acúmulo com 35% do dano. Fragmentos não se dividem.'
+    }[id];
   }
 
   private renderSettingsModal(): void {
@@ -2678,7 +2332,7 @@ export class GameScene extends Phaser.Scene {
     this.modalBodyEl.replaceChildren(
       ...this.audioSettings.render(),
       this.createSwipeDirectionControl(),
-      this.createSettingsTestControl(),
+      this.createDevtoolsControl(),
       this.createResetDataControl()
     );
   }
@@ -2731,46 +2385,136 @@ export class GameScene extends Phaser.Scene {
     return this.language === 'pt-BR' ? 'Invertido' : 'Inverted';
   }
 
-  private getDefaultInputStatusText(): string {
-    return this.swipeDirectionMode === 'direct'
-      ? (this.language === 'pt-BR'
-        ? 'Arraste e solte para impulsionar. Toque/segure para atirar. WASD também voa.'
-        : 'Drag and release to boost. Touch/hold to fire. WASD also flies.')
-      : (this.language === 'pt-BR'
-        ? 'Puxe e solte contra a direção do impulso. Toque/segure para atirar. WASD também voa.'
-        : 'Pull and release against the boost direction. Touch/hold to fire. WASD also flies.');
-  }
-
-  private createSettingsTestControl(): HTMLElement {
+  private createDevtoolsControl(): HTMLElement {
     const wrapper = document.createElement('div');
-    wrapper.className = 'settings-modal-control';
+    wrapper.className = 'settings-modal-control settings-devtools-control';
 
     const heading = document.createElement('div');
     heading.className = 'settings-control';
     const title = document.createElement('span');
-    title.textContent = 'Teste';
+    title.textContent = 'Devtools';
     const status = document.createElement('strong');
-    status.textContent = this.formatBossName('mothership');
+    status.textContent = this.settingsDevtoolsOpen
+      ? (this.language === 'pt-BR' ? 'Aberto' : 'Open')
+      : (this.language === 'pt-BR' ? 'Oculto' : 'Hidden');
     heading.append(title, status);
 
     const copy = document.createElement('p');
     copy.className = 'settings-danger-copy input-mode-copy';
     copy.textContent = this.language === 'pt-BR'
-      ? 'Ação temporária para playtestar encontros rapidamente.'
-      : 'Temporary action for quickly playtesting encounters.';
+      ? 'Ferramentas locais para testar encontros, economia e progressão rapidamente.'
+      : 'Local tools for quickly testing encounters, economy, and progression.';
 
     const button = document.createElement('button');
     button.className = 'input-mode-option';
     button.type = 'button';
-    button.textContent = 'Teste';
-    button.addEventListener('click', () => this.runSettingsTestAction());
+    button.textContent = this.settingsDevtoolsOpen
+      ? (this.language === 'pt-BR' ? 'Fechar devtools' : 'Close devtools')
+      : (this.language === 'pt-BR' ? 'Abrir devtools' : 'Open devtools');
+    button.addEventListener('click', () => {
+      this.settingsDevtoolsOpen = !this.settingsDevtoolsOpen;
+      this.renderSettingsModal();
+    });
 
     wrapper.append(heading, copy, button);
+    if (this.settingsDevtoolsOpen) {
+      const actions = document.createElement('div');
+      actions.className = 'input-mode-options settings-devtools-actions';
+      actions.append(
+        this.createDevtoolsActionButton(
+          this.language === 'pt-BR' ? 'Invocar Mothership' : 'Summon Mothership',
+          () => this.runSettingsTestAction()
+        ),
+        this.createDevtoolsActionButton(
+          this.language === 'pt-BR' ? 'Liberar naves' : 'Unlock ships',
+          () => this.unlockAllShipsDevtool()
+        ),
+        this.createDevtoolsActionButton(
+          this.language === 'pt-BR' ? 'Ganhar dinheiro' : 'Gain money',
+          () => this.gainMoneyDevtool()
+        ),
+        this.createDevtoolsActionButton(
+          this.language === 'pt-BR' ? 'Ganhar level' : 'Gain level',
+          () => this.gainLevelDevtool()
+        ),
+        this.createDevtoolsActionButton(
+          this.language === 'pt-BR' ? 'Testar morte' : 'Test death',
+          () => {
+            this.closeModal();
+            this.state.runCards.shieldCharges = 0;
+            this.state.ship.phaseShieldCooldown = 999;
+            damageShip(this.state, this.state.ship.maxHp + this.state.ship.armor + 10000);
+          }
+        )
+      );
+      wrapper.append(actions);
+    }
     return wrapper;
+  }
+
+  private createDevtoolsActionButton(label: string, onClick: () => void): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = 'input-mode-option';
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      onClick();
+      if (this.activeModal === 'settings') this.renderSettingsModal();
+    });
+    return button;
   }
 
   private runSettingsTestAction(): void {
     this.summonTestMothership();
+  }
+
+  private unlockAllShipsDevtool(): void {
+    const before = this.state.progression.unlockedShipFrameIds.length;
+    this.state.progression.unlockedShipFrameIds = SHIP_FRAME_DEFINITIONS.map((frame) => frame.id);
+    const unlocked = this.state.progression.unlockedShipFrameIds.length - before;
+    emitReward(
+      this.state,
+      this.language === 'pt-BR'
+        ? `Devtools: ${Math.max(0, unlocked)} naves liberadas.`
+        : `Devtools: ${Math.max(0, unlocked)} ships unlocked.`,
+      'system'
+    );
+    this.retroSound.play({ type: 'purchase' });
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
+  private gainMoneyDevtool(): void {
+    const amount = 1_000_000;
+    this.state.money += amount;
+    emitReward(
+      this.state,
+      this.language === 'pt-BR'
+        ? `Devtools: +${this.formatMoney(amount)}.`
+        : `Devtools: +${this.formatMoney(amount)}.`,
+      'payout'
+    );
+    this.retroSound.play({ type: 'purchase' });
+    saveGameState(this.state);
+    this.updateHud();
+  }
+
+  private gainLevelDevtool(): void {
+    const maxLevel = getMaxShipLevel(this.state.progression);
+    if (this.state.progression.shipLevel >= maxLevel) {
+      emitReward(
+        this.state,
+        this.language === 'pt-BR' ? 'Devtools: nível máximo atingido.' : 'Devtools: max level reached.',
+        'system'
+      );
+      saveGameState(this.state);
+      this.updateHud();
+      return;
+    }
+
+    grantShipXp(this.state, getShipXpForNextLevel(this.state.progression.shipLevel));
+    saveGameState(this.state);
+    this.updateHud();
   }
 
   private createResetDataControl(): HTMLElement {
@@ -2805,13 +2549,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    clearAllAsteridleData();
+    clearAllAsterliteData();
     this.state = createGameState(this.scale.width, this.scale.height);
-    this.offlineStatusFor = 0;
     this.saveElapsed = 0;
     this.shopSignature = '';
-    this.activeTab = 'upgrades';
-    this.skillsModal.clearSelection();
+    this.activeTab = 'hangar';
     this.activeWarpUnlockId = null;
     this.zoneTravel = null;
     this.appEl.classList.remove('is-zone-travel', 'is-impact');
@@ -2819,6 +2561,7 @@ export class GameScene extends Phaser.Scene {
     this.audioSettings.resetToDefaults();
     this.swipeDirectionMode = DEFAULT_SWIPE_DIRECTION;
     this.pendingSwipeImpulseVector = null;
+    this.vectorTapBoost = null;
     this.swipeImpulseIndicator = null;
     this.swipeThrustTrail = null;
     this.swipeFireFor = 0;
@@ -2969,22 +2712,6 @@ export class GameScene extends Phaser.Scene {
     this.modalBodyEl.replaceChildren(...this.infoModal.renderBody(info));
   }
 
-  private renderSkillTreeModal(): void {
-    this.skillsModal.renderTreeModal({
-      state: this.state,
-      language: this.language,
-      elements: {
-        modalEl: this.modalEl,
-        panelEl: this.modalPanelEl,
-        kickerEl: this.modalKickerEl,
-        titleEl: this.modalTitleEl,
-        copyEl: this.modalCopyEl,
-        bodyEl: this.modalBodyEl
-      },
-      onBuyTalent: (id) => this.buyTalent(id)
-    });
-  }
-
   private renderWarpCoreTreeModal(): void {
     this.modalEl.classList.remove('is-hidden');
     this.modalEl.setAttribute('aria-hidden', 'false');
@@ -3004,6 +2731,7 @@ export class GameScene extends Phaser.Scene {
       onSelectUnlock: (id) => this.selectWarpUnlock(id),
       onBuyUnlock: (id) => this.buyWarpUnlock(id)
     }));
+    this.modalTitleEl.focus({ preventScroll: true });
   }
 
   private selectWarpUnlock(id: WarpUnlockId | null): void {
@@ -3013,135 +2741,6 @@ export class GameScene extends Phaser.Scene {
     } else if (this.activeTab === 'warp') {
       this.renderWarpTab();
     }
-  }
-
-  private getCoreUpgradeCap(): number {
-    return getCoreUpgradeCap(this.state.progression);
-  }
-
-  private getDamageUpgradeLevel(): number {
-    return Math.max(0, this.state.progression.shipDamageLevel - 1);
-  }
-
-  private getHpUpgradeLevel(): number {
-    return Math.max(0, Math.floor((this.state.progression.maxHp - 100) / balance.shop.ship.hp.gain));
-  }
-
-  private getOfflineIncomePerHour(): number {
-    return getOfflineIncomeRate(this.state.progression) * 60 * 60;
-  }
-
-  private getPlayerShotDamage(): number {
-    return this.state.progression.shipDamageLevel *
-      balance.weapons.playerDamageMultiplier *
-      getShipFrameBonusMultiplier(this.state.progression, 'damageMultiplier');
-  }
-
-  private getOfflineIncomeCost(): number {
-    return this.scaledCost(balance.economy.offlineIncome.baseCost, this.state.progression.passiveIncomeLevel, balance.economy.offlineIncome.scale);
-  }
-
-  private getDamageCost(): number {
-    return this.scaledCost(balance.shop.ship.damage.baseCost, this.getDamageUpgradeLevel(), balance.shop.ship.damage.scale);
-  }
-
-  private getFireRateCost(): number {
-    return this.scaledCost(balance.shop.ship.fireRate.baseCost, this.state.progression.shipFireRateLevel, balance.shop.ship.fireRate.scale);
-  }
-
-  private getHpCost(): number {
-    return this.scaledCost(balance.shop.ship.hp.baseCost, this.getHpUpgradeLevel(), balance.shop.ship.hp.scale);
-  }
-
-  private getHpInfo(): ModalContent {
-    return {
-      kicker: 'Retrofit',
-      title: 'Hull HP',
-      copy: 'Adds more buffer to the ship so a bad pass through a dense pocket does not collapse the run.',
-      facts: [
-        ['Current HP', `${Math.ceil(this.state.ship.hp)} / ${this.state.ship.maxHp}`],
-        ['Next gain', `+${balance.shop.ship.hp.gain} HP`],
-        ['Next cost', this.formatMoney(this.scaledCost(balance.shop.ship.hp.baseCost, Math.max(0, (this.state.progression.maxHp - 100) / balance.shop.ship.hp.gain), balance.shop.ship.hp.scale))]
-      ]
-    };
-  }
-
-  private getArmorInfo(): ModalContent {
-    return {
-      kicker: 'Retrofit',
-      title: 'Armor Plating',
-      copy: 'Cuts direct hits down before they reach the hull and gives the repair loop more room to breathe.',
-      facts: [
-        ['Current armor', this.state.ship.armor.toString()],
-        ['Next gain', `+${balance.shop.ship.armor.gain} armor`],
-        ['Next cost', this.formatMoney(this.scaledCost(balance.shop.ship.armor.baseCost, this.state.progression.armor / balance.shop.ship.armor.gain, balance.shop.ship.armor.scale))]
-      ]
-    };
-  }
-
-  private getDamageInfo(): ModalContent {
-    return {
-      kicker: 'Retrofit',
-      title: 'Cannon Damage',
-      copy: 'Improves the main gun so the player ship keeps pace with the thicker asteroid belts.',
-      facts: [
-        ['Current level', this.state.progression.shipDamageLevel.toString()],
-        ['Shot damage', this.formatStatNumber(this.getPlayerShotDamage())],
-        ['Next cost', this.formatMoney(this.scaledCost(balance.shop.ship.damage.baseCost, this.state.progression.shipDamageLevel - 1, balance.shop.ship.damage.scale))]
-      ]
-    };
-  }
-
-  private getSpeedInfo(): ModalContent {
-    return {
-      kicker: 'Retrofit',
-      title: 'Flight Thrusters',
-      copy: 'Raises drift control and repositioning speed, which matters more once the field becomes a resource grid.',
-      facts: [
-        ['Current bonus', `+${this.state.progression.shipSpeedLevel * balance.shop.ship.speed.bonusPercentPerLevel}%`],
-        ['Next gain', `+${balance.shop.ship.speed.bonusPercentPerLevel}%`],
-        ['Next cost', this.formatMoney(this.scaledCost(balance.shop.ship.speed.baseCost, this.state.progression.shipSpeedLevel, balance.shop.ship.speed.scale))]
-      ]
-    };
-  }
-
-  private getDeflectorInfo(): ModalContent {
-    return {
-      kicker: 'Retrofit',
-      title: 'Deflector Prow',
-      copy: 'Adds a forward bumper that helps the ship survive collisions while sweeping through debris lanes.',
-      facts: [
-        ['Current level', this.state.progression.deflectorLevel.toString()],
-        ['Current armor', this.state.ship.armor.toString()],
-        ['Next cost', this.formatMoney(this.scaledCost(balance.shop.ship.deflector.baseCost, this.state.progression.deflectorLevel, balance.shop.ship.deflector.scale))]
-      ]
-    };
-  }
-
-  private getDroneTypeInfo(type: DroneType): ModalContent {
-    const config = balance.shop.drones[type];
-    const requiredUnlock = this.getDroneTypeWarpUnlock(type);
-    const requiredTitle = WARP_UNLOCK_BY_ID[requiredUnlock].title;
-    const unlocked = this.canBuyDroneType(type);
-    const profile = this.getDroneTypeProfile(type);
-    return {
-      kicker: this.language === 'pt-BR' ? 'Baía de Drones' : 'Drone Bay',
-      title: `${config.label} Drone`,
-      copy: unlocked
-        ? profile.copy
-        : (this.language === 'pt-BR'
-          ? `Instale ${this.getWarpUnlockTitle(requiredUnlock)} em Tecnologias antes de comprar esta família.`
-          : `Install ${requiredTitle} in Technologies before this drone family can be purchased.`),
-      facts: [
-        [this.language === 'pt-BR' ? 'Status' : 'Status', unlocked ? (this.language === 'pt-BR' ? 'Disponível' : 'Available') : (this.language === 'pt-BR' ? `Requer ${this.getWarpUnlockTitle(requiredUnlock)}` : `Requires ${requiredTitle}`)],
-        [this.language === 'pt-BR' ? 'Função' : 'Role', profile.role],
-        [this.language === 'pt-BR' ? 'Alcance' : 'Range', profile.range],
-        [this.language === 'pt-BR' ? 'Ritmo' : 'Rhythm', profile.rhythm],
-        [this.language === 'pt-BR' ? 'Comprados' : 'Owned', this.state.progression.droneCounts[type].toString()],
-        [this.language === 'pt-BR' ? 'Em campo' : 'Deployed', `${this.state.progression.activeDroneCounts[type]} / ${this.state.progression.droneCounts[type]}`],
-        [this.language === 'pt-BR' ? 'Próximo preço' : 'Next cost', this.formatMoney(this.getDroneTypeCost(type))]
-      ]
-    };
   }
 
   private buyWarpUnlock(id: WarpUnlockId): void {
@@ -3161,17 +2760,6 @@ export class GameScene extends Phaser.Scene {
     emitReward(this.state, 'Technology installed', 'unlock');
     saveGameState(this.state);
     this.updateHud();
-  }
-
-  private buyOfflineIncome(cost: number): boolean {
-    if (this.state.progression.passiveIncomeLevel >= this.getCoreUpgradeCap() || !this.spend(cost)) {
-      return false;
-    }
-    this.state.progression.passiveIncomeLevel += 1;
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-    return true;
   }
 
   private buyMapUnlock(): void {
@@ -3359,122 +2947,54 @@ export class GameScene extends Phaser.Scene {
   }
 
   private switchShipFrame(id: ShipFrameId): void {
+    if (!this.betweenRuns) return;
     if (id === this.state.progression.activeShipFrameId || !this.state.progression.unlockedShipFrameIds.includes(id)) {
       return;
     }
 
-    this.state = createShipFrameSwitchState(this.state, this.scale.width, this.scale.height, id);
-    this.offlineStatusFor = 0;
-    this.skillsModal.clearSelection();
-    this.activeWarpUnlockId = null;
-    this.shopSignature = '';
-    this.retroSound.play({ type: 'warpReset' });
-    saveGameState(this.state);
-    this.updateHud();
+    this.nextRunShip = id;
+    this.openRunMenu();
   }
 
-  private buyDrone(type: DroneType, cost: number): void {
-    if (!this.canBuyDroneType(type) || !this.spend(cost)) {
-      return;
-    }
-    this.state.progression.dronesPurchased += 1;
-    this.state.progression.droneCounts[type] += 1;
-    this.state.progression.activeDroneCounts[type] += 1;
-    syncActiveDrones(this.state);
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-  }
-
-  private buyTalent(id: TalentId): void {
-    if (!purchaseTalentRank(this.state, id)) {
-      return;
-    }
-
-    this.shopSignature = '';
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-  }
-
-  private respecSkills(): void {
-    if (!respecTalentRanks(this.state)) {
-      return;
-    }
-
-    this.skillsModal.clearSelection();
-    this.shopSignature = '';
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-  }
-
-  private buyHp(cost: number): boolean {
-    if (this.getHpUpgradeLevel() >= this.getCoreUpgradeCap() || !this.spend(cost)) {
-      return false;
-    }
-    this.state.progression.maxHp += balance.shop.ship.hp.gain;
-    const effectiveMaxHp = getEffectiveMaxHp(this.state.progression);
-    const hpGain = effectiveMaxHp - this.state.ship.maxHp;
-    this.state.ship.maxHp = effectiveMaxHp;
-    this.state.ship.hp += hpGain;
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-    return true;
-  }
-
-  private buyArmor(cost: number): void {
-    if (!this.spend(cost)) {
-      return;
-    }
-    this.state.progression.armor += balance.shop.ship.armor.gain;
-    this.state.ship.armor += balance.shop.ship.armor.gain;
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-  }
-
-  private buyDamage(cost: number): boolean {
-    if (this.getDamageUpgradeLevel() >= this.getCoreUpgradeCap() || !this.spend(cost)) {
-      return false;
-    }
-    this.state.progression.shipDamageLevel += 1;
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-    return true;
-  }
-
-  private buyFireRate(cost: number): boolean {
-    if (this.state.progression.shipFireRateLevel >= this.getCoreUpgradeCap() || !this.spend(cost)) {
-      return false;
-    }
-    this.state.progression.shipFireRateLevel += 1;
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-    return true;
-  }
-
-  private buySpeed(cost: number): void {
-    if (!this.spend(cost)) {
-      return;
-    }
-    this.state.progression.shipSpeedLevel += 1;
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
-  }
-
-  private buyDeflector(cost: number): void {
-    if (!this.spend(cost)) {
-      return;
-    }
-    this.state.progression.deflectorLevel += 1;
-    this.retroSound.play({ type: 'purchase' });
-    saveGameState(this.state);
-    this.updateHud();
+  private openRunMenu(): void {
+    const showSummary = this.state.phase === 'ended' && !this.runSummaryDismissed;
+    this.activeModal = 'runMenu';
+    this.modalEl.classList.remove('is-hidden');
+    this.modalEl.setAttribute('aria-hidden', 'false');
+    this.modalPanelEl.classList.remove('ui-modal__panel--cards', 'ui-modal__panel--skills', 'ui-modal__panel--warp', 'ui-modal__panel--map', 'ui-modal__panel--settings', 'ui-modal__panel--nova-crown');
+    this.modalKickerEl.textContent = 'Asterlite';
+    this.modalTitleEl.textContent = this.language === 'pt-BR'
+      ? (showSummary ? 'Fim da run' : 'Escolha sua nave')
+      : (showSummary ? 'Run complete' : 'Choose your ship');
+    this.modalCopyEl.textContent = '';
+    this.modalCopyEl.classList.add('is-hidden');
+    this.modalBodyEl.replaceChildren(renderRunMenu({
+      state: this.state, language: this.language,
+      showSummary,
+      onContinue: () => { this.runSummaryDismissed = true; this.openRunMenu(); },
+      selected: this.nextRunShip ?? this.state.progression.activeShipFrameId,
+      onSelect: (id) => { this.nextRunShip = id; },
+      onTechnologies: () => this.openWarpCoreTreeModal(),
+      onStart: () => {
+        this.state = startNewRun(this.state, this.nextRunShip ?? this.state.progression.activeShipFrameId);
+        this.betweenRuns = false;
+        this.runSummaryDismissed = false;
+        this.nextRunShip = null;
+        this.activeModal = null;
+        this.closeModal();
+        this.closeShopDrawer();
+        this.pendingSwipeImpulseVector = null;
+        this.vectorTapBoost = null;
+        this.swipeThrustTrail = null;
+        this.inputState = neutralInput();
+        this.shopSignature = '';
+        this.gameStarted = false;
+        saveGameState(this.state);
+        this.showMainMenu();
+        this.startIntroWarp(true);
+      }
+    }));
+    this.modalTitleEl.focus({ preventScroll: true });
   }
 
   private spend(cost: number): boolean {
@@ -3485,32 +3005,14 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  private scaledCost(baseCost: number, level: number, scale: number): number {
-    return Math.round(baseCost * scale ** level);
-  }
-
-  private getDroneTypes(): DroneType[] {
-    return ['sentry', 'ranger', 'breaker'];
-  }
-
-  private getDroneTypeWarpUnlock(type: DroneType): WarpUnlockId {
-    if (type === 'sentry') {
-      return 'droneSystems';
-    }
-
-    if (type === 'ranger') {
-      return 'rangerHangar';
-    }
-
-    return 'missileFoundry';
-  }
-
   private getWarpUnlockTitle(id: WarpUnlockId): string {
     if (this.language !== 'pt-BR') {
       return WARP_UNLOCK_BY_ID[id].title;
     }
 
     const titles: Record<WarpUnlockId, string> = {
+      launchLoadout: 'Preparação de Lançamento',
+      expandedDraft: 'Escolha Ampliada',
       droneSystems: 'Sistemas de Drones',
       deflectorFrame: 'Estrutura Defletora',
       shieldBubble: 'Bolha de Escudo',
@@ -3522,112 +3024,17 @@ export class GameScene extends Phaser.Scene {
     return titles[id];
   }
 
-  private getDroneTypeProfile(type: DroneType): { role: string; range: string; rhythm: string; copy: string } {
-    if (type === 'sentry') {
-      return this.language === 'pt-BR'
-        ? {
-          role: 'Precisão',
-          range: 'Médio',
-          rhythm: 'Disparo constante',
-          copy: 'Suporte preciso que mantém pressão constante em alvos próximos da rota da nave.'
-        }
-        : {
-          role: 'Precision',
-          range: 'Medium',
-          rhythm: 'Steady fire',
-          copy: 'Precise support that keeps steady pressure on targets near the ship route.'
-        };
-    }
-
-    if (type === 'ranger') {
-      return this.language === 'pt-BR'
-        ? {
-          role: 'Controle próximo',
-          range: 'Curto',
-          rhythm: 'Rajadas abertas',
-          copy: 'Drones de contenção que limpam grupos próximos com rajadas espalhadas.'
-        }
-        : {
-          role: 'Close control',
-          range: 'Short',
-          rhythm: 'Wide bursts',
-          copy: 'Containment drones that clear nearby clusters with spread bursts.'
-        };
-    }
-
-    return this.language === 'pt-BR'
-      ? {
-        role: 'Artilharia',
-        range: 'Longo',
-        rhythm: 'Mísseis lentos',
-        copy: 'Suporte pesado de longo alcance que prioriza impactos maiores em cadência menor.'
-      }
-      : {
-        role: 'Artillery',
-        range: 'Long',
-        rhythm: 'Slow missiles',
-        copy: 'Heavy long-range support that favors larger hits at a slower cadence.'
-      };
-  }
-
-  private createDroneTypeIcon(type: DroneType): Element {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 48 48');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.classList.add('drone-type-icon', `drone-type-icon--${type}`);
-
-    const make = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] => {
-      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
-      return el;
-    };
-
-    if (type === 'sentry') {
-      svg.append(
-        make('path', { d: 'M24 7 L34 24 L24 41 L14 24 Z', class: 'drone-type-icon__hull' }),
-        make('circle', { cx: '24', cy: '24', r: '6', class: 'drone-type-icon__core' }),
-        make('path', { d: 'M8 24 H16 M32 24 H40 M24 4 V12 M24 36 V44', class: 'drone-type-icon__line' })
-      );
-      return svg;
-    }
-
-    if (type === 'ranger') {
-      svg.append(
-        make('path', { d: 'M14 14 L34 14 L40 24 L34 34 L14 34 L8 24 Z', class: 'drone-type-icon__hull' }),
-        make('path', { d: 'M17 24 H31 M24 17 V31', class: 'drone-type-icon__line' }),
-        make('path', { d: 'M8 38 C15 30 33 30 40 38', class: 'drone-type-icon__fan' })
-      );
-      return svg;
-    }
-
-    svg.append(
-      make('path', { d: 'M24 6 C31 12 35 20 35 29 C35 38 29 43 24 43 C19 43 13 38 13 29 C13 20 17 12 24 6 Z', class: 'drone-type-icon__hull' }),
-      make('path', { d: 'M24 13 L29 29 H19 Z', class: 'drone-type-icon__core' }),
-      make('path', { d: 'M16 36 L11 44 M32 36 L37 44', class: 'drone-type-icon__line' })
-    );
-    return svg;
-  }
-
-  private canBuyDroneType(type: DroneType): boolean {
-    return hasWarpUnlock(this.state.progression, this.getDroneTypeWarpUnlock(type));
-  }
-
-  private getDroneTypeCost(type: DroneType): number {
-    const config = balance.shop.drones[type];
-    return this.scaledCost(config.baseCost, this.state.progression.droneCounts[type], config.scale);
-  }
-
   private formatBossName(type: BossType): string {
     if (type === 'sentinel') {
-      return 'Star Sentinel';
+      return translate(this.language, 'boss.sentinel');
     }
     if (type === 'prism') {
-      return 'Prism Warden';
+      return translate(this.language, 'boss.prism');
     }
     if (type === 'mothership') {
-      return 'Nova Matriarch';
+      return translate(this.language, 'boss.mothership');
     }
-    return 'Gravity Crusher';
+    return translate(this.language, 'boss.crusher');
   }
 
   private formatMoney(value: number): string {

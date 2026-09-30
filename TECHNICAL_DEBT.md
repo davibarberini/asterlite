@@ -1,4 +1,4 @@
-# Asteridle Technical Debt
+# Asterlite Technical Debt
 
 Use this file as the source of truth for engineering improvements. Keep items small enough that one Codex run can implement and verify them.
 
@@ -36,7 +36,7 @@ Turn the native shells into store-ready release builds.
 Acceptance:
 - Configure Android release signing or document local keystore generation.
 - Configure iOS bundle signing/team settings for device/TestFlight builds.
-- Replace default native app icons and launch/splash assets with Asteridle assets.
+- Replace default native app icons and launch/splash assets with Asterlite assets.
 - Document Play Console/TestFlight build commands and artifact locations.
 
 ## Done
@@ -78,7 +78,7 @@ Finished the current stylesheet surface split pass.
 Extracted the shop drawer and shared modal shell into their own stylesheet.
 
 - Moved shop drawer rules (`.shop-panel*`, `.shop-action-*`, `.shop-buy*`, drone deploy controls, achievements list) into `src/styles/shopModal.css`.
-- Moved shared modal rules (`.ui-modal*`, priority popup, modal facts/bullets, boss reward choices, Nova Crown difficulty modal content) into the same stylesheet.
+- Moved shared modal rules (`.ui-modal*`, priority popup, modal facts/bullets, run-card choices, Nova Crown difficulty modal content) into the same stylesheet.
 - Preserved mobile overrides for the shop drawer and modal panels inside the new stylesheet's own `@media (max-width: 720px)` block.
 - Left hangar-specific rules (`.action-panel*`, `.ship-frame-*`) and map rules in `styles.css` for later dedicated splits.
 
@@ -113,7 +113,7 @@ Extracted the tutorial overlay into its own stylesheet.
 
 Follow-up slice of the stylesheet split: extracted the in-game HUD / overlay surface.
 
-- Moved the contiguous HUD block (boss health bar, `.hud-panel*`, `.money-readout`, HP / ship-xp meters, `.map-toggle`/`.route-toggle`/`.settings-*` toggles, `.survival-*`, `.run-modifier*`, `.first-warp-goal*`, and `.reward-feed-item*` plus its keyframes) into `src/styles/hud.css` (715 lines).
+- Moved the contiguous HUD block (boss health bar, `.hud-panel*`, `.money-readout`, HP / ship-xp meters, `.map-toggle`/`.route-toggle`/`.settings-*` toggles, `.survival-*`, `.first-warp-goal*`, and `.reward-feed-item*` plus its keyframes) into `src/styles/hud.css` (715 lines).
 - Imported it in `main.ts` before `./styles/skillTree.css` and `./styles.css`, matching the original top-to-bottom order so base HUD rules keep their cascade position ahead of the shared `:focus-visible` rules, the higher-specificity `#app.is-zone-travel` state rules, and the `@media (max-width: 720px)` overrides that still live in `styles.css`.
 - Verified integrity (715 extracted + 1977 remaining + 1 collapsed blank = 2693) and that the bundled CSS keeps the same byte size (54.42 kB) with base HUD rules first and the responsive overrides last.
 - No selectors renamed and no DOM changes; `pnpm run build` and `pnpm test` (111) are green.
@@ -136,7 +136,7 @@ Started breaking the monolithic `saveData.ts` into domain-focused save readers.
 - Added `saveSerialization.ts` with the shared defensive primitives (`isRecord`, `isFiniteNumber`, `readNumber`, `readNonNegativeNumber`) so domain readers can reuse them without importing the large `saveData` module (avoids import cycles).
 - Added `survivalSave.ts` owning the Nova Crown survival domain readers (`readSurvival`, `readRareSpawns`).
 - `saveData.ts` now imports these instead of defining them inline, and dropped the now-unused `createRareSpawnState`/`getSurvivalThreatLevel` imports.
-- `loadGameState`, `saveGameState`, and `clearAllAsteridleData` behavior is unchanged; existing save/load tests still pass (`pnpm test`, 111) and `pnpm run build` is green.
+- `loadGameState`, `saveGameState`, and `clearAllAsterliteData` behavior is unchanged; existing save/load tests still pass (`pnpm test`, 111) and `pnpm run build` is green.
 - Follow-up (still worthwhile): extract the larger ship-run/unlock reader group next, which shares more helpers (`readDroneCounts`, `readTalentRanks`, `readShipLevelProgress`).
 
 ### Normalize Legacy Weapon Save State

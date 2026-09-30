@@ -1,43 +1,24 @@
 import type { AsteroidSize, AsteroidVariant, BossType, DroneType } from './simulation/types';
 
 export const balance = {
+  opening: {
+    visibleAsteroidCount: 4,
+    asteroidSpeed: 28,
+    asteroidOrbitRadius: 180,
+    viewportPadding: 48,
+    lyraContactDamageMultiplier: 0.65
+  },
   economy: {
-    offlineIncome: {
-      baseCost: 45,
-      scale: 1.035,
-      buildEfficiency: 0.001,
-      levelBonus: 0.08
-    },
     mapUnlockCost: 260,
-    maxOfflineSeconds: 8 * 60 * 60,
     prestige: {
       crystalsPerCore: 12,
       bonusPerCore: 0.08,
       minimumTravelLevel: 1
     }
   },
-  shop: {
-    upgradeBaseCap: 500,
-    drones: {
-      sentry: { label: 'Semi-Auto', baseCost: 600, scale: 2 },
-      ranger: { label: 'Shotgun', baseCost: 700, scale: 2 },
-      breaker: { label: 'Missile', baseCost: 800, scale: 2 }
-    } satisfies Record<DroneType, { label: string; baseCost: number; scale: number }>,
-    ship: {
-      hp: { baseCost: 70, scale: 1.0335, gain: 25 },
-      armor: { baseCost: 240, scale: 1.72, gain: 5 },
-      damage: { baseCost: 40, scale: 1.036 },
-      fireRate: { baseCost: 55, scale: 1.034, bonusPercentPerLevel: 7, minimumInterval: 0.02 },
-      speed: { baseCost: 160, scale: 1.68, bonusPercentPerLevel: 12 },
-      deflector: { baseCost: 320, scale: 1.78 },
-      spreadShotCost: 620,
-      piercingRoundsCost: 840
-    }
-  },
   ship: {
     radius: 14,
     startingInvulnerableFor: 2,
-    respawnDelay: 4.2,
     turnSpeed: 4.25,
     thrust: 134,
     drag: 0.993,
@@ -181,6 +162,7 @@ export const balance = {
     droneBulletSpeed: 430,
     playerDamageMultiplier: 1,
     playerFireInterval: 0.8,
+    minimumPlayerFireInterval: 0.02,
     spreadCooldownMultiplier: 1.15,
     spreadDamageMultiplier: 0.4,
     spreadAngleOffsets: [-0.18, 0, 0.18],
@@ -189,7 +171,10 @@ export const balance = {
     piercingCooldownMultiplier: 1.18,
     piercingCount: 1,
     auraRadius: 96,
-    auraDamagePerSecondMultiplier: 0.55,
+    flameWaveStartRadius: 22,
+    flameWaveSpeed: 380,
+    flameWaveDamageMultiplier: 0.72,
+    flameWaveTtlPadding: 0.12,
     velocityDamageBonusAtMaxSpeed: 0.75,
     velocityFireRateBonusAtMaxSpeed: 0.42,
     ramDamageMultiplier: 1.35,
@@ -298,7 +283,7 @@ export const balance = {
     } satisfies Record<string, { variant: AsteroidVariant; weight: number }[]>
   },
   bosses: {
-    firstGateAsteroids: 24,
+    firstGateAsteroids: 37,
     rareDiscoveryAsteroids: 54,
     pendingSpawnIn: 3,
     spawnDistanceScreenMultiplier: 0.72,
@@ -453,6 +438,23 @@ export const balance = {
     }>
   },
   saucer: {
+    telegraphSeconds: 0.65,
+    skirmisher: {
+      radius: 20,
+      telegraphSeconds: 0.75,
+      bulletSpeed: 270,
+      bulletDamage: 14,
+      fireCooldown: [1.8, 2.4],
+      bulletAngleOffsets: [-0.12, 0.12],
+      weaveSpeed: 48
+    },
+    sniper: {
+      radius: 22,
+      telegraphSeconds: 1.15,
+      bulletSpeed: 420,
+      bulletDamage: 28,
+      fireCooldown: [2.6, 3.4]
+    },
     bulletDamage: 22,
     collisionDamage: 35,
     rewardMoney: 200,
@@ -463,7 +465,6 @@ export const balance = {
     speedY: [-25, 25],
     radius: 18,
     initialFireCooldown: 1.2,
-    aimJitter: 65,
     bulletSpeed: 320,
     fireCooldown: [1.1, 1.8],
     despawnDistanceMultiplier: 0.9,
@@ -487,10 +488,6 @@ export const balance = {
       medium: 30,
       small: 18
     } satisfies Record<AsteroidSize, number>,
-    repairCostPerMaxHp: 0.4,
-    repairZoneMultiplierPerIndex: 0.45,
-    deathPenaltyBaseSeconds: 18,
-    deathPenaltySecondsPerZone: 8,
     deflectorArcDot: 0.38,
     shipContactSeparationPadding: 4,
     shipContactKnockback: 190,

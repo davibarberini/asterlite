@@ -2,8 +2,11 @@ import Phaser from 'phaser';
 import { getActiveShipFrame, getShipFrameWeaponIdentity } from '../../game/progression/shipFrames';
 import { getDroneOrbitRadius } from '../../game/simulation/state';
 import { getExplorationZone } from '../../game/simulation/zones';
-import type { AsteroidState, AsteroidVariant, BossMinionState, BossType, BulletState, DroneState, GameState, LevelShockwaveState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
+import type { AsteroidState, AsteroidVariant, BossMinionState, BossType, BulletState, DroneState, FlameWaveState, GameState, LevelShockwaveState, ParticleState, SaucerState, ShipState, Vec2 } from '../../game/simulation/types';
 import { balance } from '../../game/balance';
+import { getSaucerTelegraphSeconds } from '../../game/simulation/systems/enemies';
+import { getWorldViewScale } from '../../game/simulation/view';
+import { MAX_ASTEROID_VISUAL_EVENTS } from '../../game/simulation/events';
 import { SurvivalEventRenderer } from './SurvivalEventRenderer';
 import {
   NIVITRON_HAND_DIAMOND_RADIUS,
@@ -40,6 +43,8 @@ export class VectorRenderer {
   private readonly nivitronHandImage: Phaser.GameObjects.Image;
   private readonly asteroidSnapshots = new Map<number, AsteroidSnapshot>();
   private readonly asteroidFlashes = new Map<number, AsteroidFlash>();
+  private visualState: GameState | null = null;
+  private visualZone = -1;
   private readonly survivalEventRenderer: SurvivalEventRenderer;
 
   constructor(private readonly scene: Phaser.Scene) {
@@ -72,6 +77,8 @@ export class VectorRenderer {
 
   clear(): void {
     this.graphics.clear();
+    this.asteroidSnapshots.clear();
+    this.asteroidFlashes.clear();
   }
 
   render(state: GameState, thrusting: boolean, swipeIndicator: { start: Vec2; current: Vec2; power: number; inverted?: boolean } | null = null): void {
@@ -104,10 +111,11 @@ export class VectorRenderer {
         this.drawParticle(state, particle);
       }
     });
+    state.flameWaves.forEach((wave) => this.drawFlameWave(state, wave));
     state.levelShockwaves.forEach((shockwave) => this.drawLevelShockwave(state, shockwave));
     this.drawDrones(state);
 
-    if (state.saucer) {
+    if (state.saucer?.alive) {
       this.drawSaucer(state, state.saucer);
     }
     state.bossMinions.forEach((minion) => this.drawBossMinion(state, minion));
@@ -123,13 +131,14 @@ export class VectorRenderer {
     if (state.ship.alive) {
       this.drawShipAuraWeapon(state);
       this.drawWraithPhaseShield(state);
+      this.drawRunCardBarriers(state);
       this.drawShip(state, state.ship, thrusting);
     }
   }
 
   private drawGridGlow(state: GameState): void {
     const zone = getExplorationZone(state);
-    this.graphics.lineStyle(1, zone.identity.accentColor, 0.026 + zone.identity.fieldTintAlpha * 0.28);
+    this.graphics.lineStyle(1, zone.identity.accentColor, 0.012 + zone.identity.fieldTintAlpha * 0.12);
     const viewScale = this.getViewScale(state);
     const gap = 96 * viewScale;
     const xOffset = ((-state.camera.x * viewScale + state.width / 2) % gap + gap) % gap;
@@ -162,8 +171,11 @@ export class VectorRenderer {
     } else if (state.progression.activeShipFrameId === 'hisoka') {
       this.drawHisokaShip(state, ship, viewScale);
     } else {
-      const points = getActiveShipFrame(state.progression).shape
-        .map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, this.toScreenX(state, ship.position.x), this.toScreenY(state, ship.position.y)));
+      const frame = getActiveShipFrame(state.progression);
+      const shipX = this.toScreenX(state, ship.position.x);
+      const shipY = this.toScreenY(state, ship.position.y);
+      const points = frame.shape
+        .map((point) => this.rotatePoint(point.x * viewScale, point.y * viewScale, ship.rotation, shipX, shipY));
 
       this.graphics.lineStyle(2, 0xf2fbff, 0.96);
       this.graphics.beginPath();
@@ -171,6 +183,13 @@ export class VectorRenderer {
       points.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
       this.graphics.closePath();
       this.graphics.strokePath();
+
+      if (frame.id !== 'vector' && frame.rarity !== 'legendary') {
+        this.graphics.fillStyle(0xf5fdff, 0.28);
+        this.graphics.fillCircle(shipX, shipY, 4 * viewScale);
+        this.graphics.lineStyle(1.2, 0xf5fdff, 0.72);
+        this.graphics.strokeCircle(shipX, shipY, 4 * viewScale);
+      }
     }
 
     if (state.progression.deflectorLevel > 0) {
@@ -251,14 +270,11 @@ export class VectorRenderer {
     const viewScale = this.getViewScale(state);
     const x = this.toScreenX(state, state.ship.position.x);
     const y = this.toScreenY(state, state.ship.position.y);
-    const radius = balance.weapons.auraRadius * viewScale;
     const pulse = 0.5 + Math.sin(this.scene.time.now * 0.0048) * 0.5;
-    this.graphics.fillStyle(0xff8a4c, 0.035 + pulse * 0.025);
-    this.graphics.fillCircle(x, y, radius);
-    this.graphics.lineStyle(1, 0xffc36f, 0.28 + pulse * 0.18);
-    this.graphics.strokeCircle(x, y, radius * (0.92 + pulse * 0.06));
-    this.graphics.lineStyle(1, 0xfff1a8, 0.1 + pulse * 0.12);
-    this.graphics.strokeCircle(x, y, radius * 0.58);
+    this.graphics.fillStyle(0xff8a4c, 0.18 + pulse * 0.08);
+    this.graphics.fillCircle(x, y, 5.5 * viewScale);
+    this.graphics.lineStyle(1, 0xfff1a8, 0.34 + pulse * 0.18);
+    this.graphics.strokeCircle(x, y, 8 * viewScale);
   }
 
   private drawWraithPhaseShield(state: GameState): void {
@@ -407,6 +423,21 @@ export class VectorRenderer {
     this.drawArcSegments(shipX, shipY, radius, -Math.PI / 2, Math.PI * 2 * rechargeProgress, 10);
   }
 
+  private drawRunCardBarriers(state: GameState): void {
+    const charges = state.runCards.shieldCharges;
+    if (charges <= 0) {
+      return;
+    }
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, state.ship.position.x);
+    const y = this.toScreenY(state, state.ship.position.y);
+    const baseRadius = (state.ship.radius + 25) * viewScale;
+    for (let index = 0; index < Math.min(charges, 8); index += 1) {
+      this.graphics.lineStyle(1.5, 0x92dfff, Math.max(0.24, 0.68 - index * 0.07));
+      this.graphics.strokeCircle(x, y, baseRadius + index * 1.5);
+    }
+  }
+
   private drawArcSegments(x: number, y: number, radius: number, startAngle: number, arcLength: number, segments: number): void {
     if (arcLength <= 0) {
       return;
@@ -424,6 +455,13 @@ export class VectorRenderer {
 
   private drawAsteroid(state: GameState, asteroid: AsteroidState): void {
     const viewScale = this.getViewScale(state);
+    if (asteroid.burn && asteroid.burn.seconds > 0) {
+      const x = this.toScreenX(state, asteroid.position.x);
+      const y = this.toScreenY(state, asteroid.position.y);
+      const phase = this.scene.time.now / 170 + asteroid.id;
+      this.graphics.lineStyle(2, 0xff783f, 0.55 + Math.sin(phase) * 0.15);
+      this.drawArcSegments(x, y, (asteroid.radius + 5) * viewScale, phase * 0.2, Math.PI * 2, 7);
+    }
     if (asteroid.bossType) {
       this.drawBossShip(state, asteroid, viewScale);
       return;
@@ -442,30 +480,28 @@ export class VectorRenderer {
     const asteroidY = this.toScreenY(state, asteroid.position.y);
 
     const color = this.getAsteroidColor(asteroid);
-    const strokeColor = asteroid.bossType ? 0xfff1a8 : color;
-    this.graphics.lineStyle(asteroid.bossType ? 3 : 2, strokeColor, asteroid.bossType ? 0.96 : 0.88);
+    const strokeColor = color;
+    this.graphics.fillStyle(0x060b0e, 0.9);
+    this.graphics.fillPoints(points, true);
+    this.graphics.lineStyle(asteroid.size === 'small' ? 1.4 : 1.7, strokeColor, 0.82);
     this.graphics.beginPath();
     this.graphics.moveTo(points[0].x, points[0].y);
     points.slice(1).forEach((point) => this.graphics.lineTo(point.x, point.y));
     this.graphics.closePath();
     this.graphics.strokePath();
 
-    this.graphics.lineStyle(asteroid.bossType ? 2 : 1, strokeColor, asteroid.bossType ? 0.64 : asteroid.variant === 'common' ? 0.28 : 0.4);
-    for (let i = 0; i < count; i += 3) {
+    this.graphics.lineStyle(1, strokeColor, asteroid.variant === 'common' ? 0.16 : 0.26);
+    for (let i = 0; i < count && asteroid.size !== 'small'; i += 4) {
       const point = points[i];
-      this.graphics.lineBetween(
-        asteroidX + (point.x - asteroidX) * 0.45,
-        asteroidY + (point.y - asteroidY) * 0.45,
-        point.x,
-        point.y
-      );
+      const next = points[(i + 2) % count];
+      const innerX = asteroidX + (point.x - asteroidX) * 0.35;
+      const innerY = asteroidY + (point.y - asteroidY) * 0.35;
+      this.graphics.lineBetween(point.x, point.y, innerX, innerY);
+      this.graphics.lineBetween(innerX, innerY, next.x, next.y);
     }
 
     if (asteroid.hp < asteroid.maxHp) {
       const damageRatio = 1 - asteroid.hp / asteroid.maxHp;
-      const alpha = 0.22 + damageRatio * 0.34;
-      this.graphics.lineStyle(1, 0xfff1a8, alpha);
-      this.graphics.strokeCircle(asteroidX, asteroidY, asteroid.radius * (0.5 + damageRatio * 0.22) * viewScale);
       this.drawAsteroidCracks(asteroid, asteroidX, asteroidY, viewScale, damageRatio);
     }
 
@@ -473,8 +509,14 @@ export class VectorRenderer {
   }
 
   private updateAsteroidReadabilityState(state: GameState, now: number): void {
+    if (state !== this.visualState || state.progression.currentZoneIndex !== this.visualZone) {
+      this.asteroidSnapshots.clear();
+      this.asteroidFlashes.clear();
+      state.asteroidDestructionEvents.length = 0;
+      this.visualState = state;
+      this.visualZone = state.progression.currentZoneIndex;
+    }
     const currentIds = new Set<number>();
-    const missingSnapshots: [number, AsteroidSnapshot][] = [];
 
     state.asteroids.forEach((asteroid) => {
       currentIds.add(asteroid.id);
@@ -488,29 +530,30 @@ export class VectorRenderer {
           damageRatio: Math.max(0.12, Math.min(1, (previous.hp - asteroid.hp) / Math.max(1, previous.maxHp)))
         });
       }
-    });
-
-    this.asteroidSnapshots.forEach((snapshot, id) => {
-      if (!currentIds.has(id)) {
-        missingSnapshots.push([id, snapshot]);
+      if (previous) {
+        previous.hp = asteroid.hp;
+        previous.maxHp = asteroid.maxHp;
+        previous.position.x = asteroid.position.x;
+        previous.position.y = asteroid.position.y;
+      } else {
+        this.asteroidSnapshots.set(asteroid.id, this.createAsteroidSnapshot(asteroid));
       }
     });
 
-    if (missingSnapshots.length <= 8) {
-      missingSnapshots.forEach(([id, snapshot]) => {
-        this.asteroidFlashes.set(id, {
-          ...snapshot,
+    this.asteroidSnapshots.forEach((_snapshot, id) => {
+      if (!currentIds.has(id)) {
+        this.asteroidSnapshots.delete(id);
+      }
+    });
+
+    state.asteroidDestructionEvents.splice(0).forEach((event) => {
+        this.asteroidFlashes.set(event.id, {
+          ...event,
           startedAt: now,
           duration: ASTEROID_DESTROY_SECONDS,
           kind: 'destroyed',
           damageRatio: 1
         });
-      });
-    }
-
-    this.asteroidSnapshots.clear();
-    state.asteroids.forEach((asteroid) => {
-      this.asteroidSnapshots.set(asteroid.id, this.createAsteroidSnapshot(asteroid));
     });
 
     this.asteroidFlashes.forEach((flash, id) => {
@@ -532,6 +575,9 @@ export class VectorRenderer {
   }
 
   private drawAsteroidFlashes(state: GameState, now: number): void {
+    while (this.asteroidFlashes.size > MAX_ASTEROID_VISUAL_EVENTS) {
+      this.asteroidFlashes.delete(this.asteroidFlashes.keys().next().value!);
+    }
     this.asteroidFlashes.forEach((flash) => {
       if (!this.isCircleOnScreen(state, flash.position.x, flash.position.y, flash.radius + 38)) {
         return;
@@ -546,10 +592,8 @@ export class VectorRenderer {
       const color = flash.bossType ? this.getBossSecondaryColor(flash.bossType) : this.getAsteroidColor({ variant: flash.variant } as AsteroidState);
 
       if (flash.kind === 'destroyed') {
-        this.graphics.lineStyle(2, color, 0.6 * fade);
-        this.graphics.strokeCircle(x, y, flash.radius * (0.82 + progress * 0.64) * viewScale);
-        this.graphics.lineStyle(1, 0xfff1a8, 0.42 * fade);
-        this.graphics.strokeCircle(x, y, flash.radius * (0.42 + progress * 0.38) * viewScale);
+        this.graphics.lineStyle(1.5, color, 0.65 * fade * fade);
+        this.drawArcSegments(x, y, flash.radius * (0.82 + progress * 0.64) * viewScale, flash.startedAt, Math.PI * 2, 5);
         return;
       }
 
@@ -932,6 +976,11 @@ export class VectorRenderer {
     const y = this.toScreenY(state, bullet.position.y);
     const viewScale = this.getViewScale(state);
 
+    if (bullet.critical) {
+      this.graphics.lineStyle(1.5, 0xfff1a8, 0.85);
+      this.graphics.strokeCircle(x, y, (bullet.radius + 3) * viewScale);
+    }
+
     if (bullet.kind === 'playerRicochet') {
       const speed = Math.max(1, Math.hypot(bullet.velocity.x, bullet.velocity.y));
       const tail = {
@@ -1107,9 +1156,38 @@ export class VectorRenderer {
   }
 
   private drawParticle(state: GameState, particle: ParticleState): void {
-    const alpha = 1 - particle.age / particle.ttl;
-    this.graphics.fillStyle(0xc8f1ff, alpha * 0.8);
-    this.graphics.fillCircle(this.toScreenX(state, particle.position.x), this.toScreenY(state, particle.position.y), particle.size * this.getViewScale(state));
+    const alpha = Math.max(0, 1 - particle.age / particle.ttl);
+    const scale = this.getViewScale(state);
+    const x = this.toScreenX(state, particle.position.x);
+    const y = this.toScreenY(state, particle.position.y);
+    const speed = Math.hypot(particle.velocity.x, particle.velocity.y);
+    const length = Math.min(7, speed * 0.024) * alpha * scale;
+    this.graphics.lineStyle(Math.max(1, particle.size * scale * 0.5), particle.id % 4 === 0 ? 0xffd59a : 0xc8e2e9, alpha * alpha * 0.85);
+    this.graphics.lineBetween(x, y, x - particle.velocity.x / Math.max(1, speed) * length, y - particle.velocity.y / Math.max(1, speed) * length);
+  }
+
+  private drawFlameWave(state: GameState, wave: FlameWaveState): void {
+    if (!this.isCircleOnScreen(state, wave.center.x, wave.center.y, wave.radius + 20)) {
+      return;
+    }
+
+    const viewScale = this.getViewScale(state);
+    const x = this.toScreenX(state, wave.center.x);
+    const y = this.toScreenY(state, wave.center.y);
+    const radius = wave.radius * viewScale;
+    const progress = Math.max(0, Math.min(1, wave.radius / Math.max(1, wave.maxRadius)));
+    const lifeAlpha = Math.max(0, 1 - wave.age / Math.max(0.01, wave.ttl));
+    const alpha = Math.min(0.9, lifeAlpha * (1 - progress * 0.22));
+    const wobble = Math.sin(this.scene.time.now * 0.01 + wave.id * 0.73) * 0.08;
+
+    this.graphics.fillStyle(0xff6a2a, alpha * 0.025);
+    this.graphics.fillCircle(x, y, radius);
+    this.graphics.lineStyle(Math.max(1, 5 * viewScale), 0xff6a2a, alpha * 0.46);
+    this.drawArcSegments(x, y, radius * (0.98 + wobble), -Math.PI * 0.92 + wave.age * 2.8, Math.PI * 1.72, 9);
+    this.graphics.lineStyle(Math.max(1, 2.5 * viewScale), 0xffc36f, alpha * 0.68);
+    this.drawArcSegments(x, y, radius * 0.88, -Math.PI * 0.35 - wave.age * 2.1, Math.PI * 1.4, 8);
+    this.graphics.lineStyle(Math.max(1, 1.3 * viewScale), 0xfff1a8, alpha * 0.42);
+    this.drawArcSegments(x, y, radius * 0.72, Math.PI * 0.22 + wave.age * 1.7, Math.PI * 1.08, 6);
   }
 
   private drawLevelShockwave(state: GameState, shockwave: LevelShockwaveState): void {
@@ -1140,30 +1218,76 @@ export class VectorRenderer {
     const x = this.toScreenX(state, saucer.position.x);
     const y = this.toScreenY(state, saucer.position.y);
     const isElite = saucer.kind === 'elite';
-    const primary = isElite ? 0xff4fd8 : 0xf5fbff;
+    const primary = isElite ? 0xff4fd8 : saucer.kind === 'sniper' ? 0xffb84d : saucer.kind === 'skirmisher' ? 0xff6659 : 0x92dfff;
     const secondary = isElite ? 0xffd8f7 : 0x92dfff;
     const width = isElite ? 30 : 24;
     const cap = isElite ? 13 : 12;
-    const pulse = 0.5 + Math.sin(saucer.id * 0.19 + saucer.fireCooldown * 8) * 0.5;
+    const charge = (saucer.telegraphFor ?? 0) > 0
+      ? 1 - (saucer.telegraphFor ?? 0) / getSaucerTelegraphSeconds(saucer.kind) : 0;
+    const charging = (saucer.telegraphFor ?? 0) > 0;
+    const angle = saucer.aimAngle ?? Math.atan2(state.ship.position.y - saucer.position.y, state.ship.position.x - saucer.position.x);
+    const localPoint = (forward: number, side: number) => ({
+      x: x + (Math.cos(angle) * forward - Math.sin(angle) * side) * viewScale,
+      y: y + (Math.sin(angle) * forward + Math.cos(angle) * side) * viewScale
+    });
 
-    if (isElite) {
-      this.graphics.fillStyle(0xff4fd8, 0.08 + pulse * 0.05);
-      this.graphics.fillCircle(x, y, 30 * viewScale);
+    if (charging) {
+      const offsets = isElite ? balance.saucer.elite.bulletAngleOffsets
+        : saucer.kind === 'skirmisher' ? balance.saucer.skirmisher.bulletAngleOffsets : [0];
+      this.graphics.lineStyle(2, primary, 0.5 + charge * 0.35);
+      for (const offset of offsets) {
+        const reach = saucer.kind === 'sniper' ? Math.hypot(state.width, state.height) / viewScale : 110;
+        // Broken sight line cannot be mistaken for an active beam.
+        for (let d = saucer.radius + 8; d < reach; d += 24) {
+          this.graphics.lineBetween(x + Math.cos(angle + offset) * d * viewScale, y + Math.sin(angle + offset) * d * viewScale,
+            x + Math.cos(angle + offset) * (d + 10) * viewScale, y + Math.sin(angle + offset) * (d + 10) * viewScale);
+        }
+      }
+      this.graphics.lineStyle(2, primary, 0.9);
+      this.graphics.beginPath();
+      this.graphics.arc(x, y, (saucer.radius + 7) * viewScale, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * charge);
+      this.graphics.strokePath();
     }
-    this.graphics.lineStyle(isElite ? 3 : 2, primary, 0.9);
-    this.graphics.beginPath();
-    this.graphics.moveTo(x - width * viewScale, y);
-    this.graphics.lineTo(x - cap * viewScale, y - 9 * viewScale);
-    this.graphics.lineTo(x + cap * viewScale, y - 9 * viewScale);
-    this.graphics.lineTo(x + width * viewScale, y);
-    this.graphics.lineTo(x + 10 * viewScale, y + 8 * viewScale);
-    this.graphics.lineTo(x - 10 * viewScale, y + 8 * viewScale);
-    this.graphics.closePath();
-    this.graphics.strokePath();
-    this.graphics.lineStyle(1, secondary, isElite ? 0.72 : 0.45);
-    this.graphics.lineBetween(x - 18 * viewScale, y, x + 18 * viewScale, y);
-    if (isElite) {
-      this.graphics.lineBetween(x, y - 11 * viewScale, x, y + 10 * viewScale);
+    this.graphics.fillStyle(primary, 0.12);
+    if (saucer.kind === 'sniper' || saucer.kind === 'skirmisher') {
+      const outline = saucer.kind === 'sniper'
+        ? [[24, -5], [24, 5], [4, 5], [-15, 14], [-21, 0], [-15, -14], [4, -5]]
+        : [[22, 0], [-16, 22], [-8, 4], [-20, 0], [-8, -4], [-16, -22]];
+      const points = outline.map(([forward, side]) => localPoint(forward, side));
+      this.graphics.lineStyle(2, primary, 1);
+      this.graphics.fillPoints(points, true);
+      this.graphics.strokePoints(points, true);
+      const tail = localPoint(-19, 0);
+      const exhaust = localPoint(charging && saucer.kind === 'sniper' ? -23 : -34, 0);
+      this.graphics.lineStyle(3, primary, 0.4);
+      this.graphics.lineBetween(tail.x, tail.y, exhaust.x, exhaust.y);
+    } else {
+      if (isElite) {
+        this.graphics.lineStyle(2, primary, 0.65);
+        this.graphics.strokeTriangle(x - 34 * viewScale, y, x - 22 * viewScale, y - 15 * viewScale, x - 22 * viewScale, y + 15 * viewScale);
+        this.graphics.strokeTriangle(x + 34 * viewScale, y, x + 22 * viewScale, y - 15 * viewScale, x + 22 * viewScale, y + 15 * viewScale);
+      }
+      this.graphics.lineStyle(isElite ? 3 : 2, primary, 0.9);
+      this.graphics.beginPath();
+      this.graphics.moveTo(x - width * viewScale, y);
+      this.graphics.lineTo(x - cap * viewScale, y - 9 * viewScale);
+      this.graphics.lineTo(x + cap * viewScale, y - 9 * viewScale);
+      this.graphics.lineTo(x + width * viewScale, y);
+      this.graphics.lineTo(x + 10 * viewScale, y + 8 * viewScale);
+      this.graphics.lineTo(x - 10 * viewScale, y + 8 * viewScale);
+      this.graphics.closePath();
+      this.graphics.strokePath();
+      this.graphics.lineStyle(1, secondary, isElite ? 0.72 : 0.45);
+      this.graphics.lineBetween(x - 18 * viewScale, y, x + 18 * viewScale, y);
+      if (isElite) {
+        this.graphics.lineBetween(x, y - 11 * viewScale, x, y + 10 * viewScale);
+      }
+    }
+    this.graphics.fillStyle(charging ? 0xffffff : primary, 0.8);
+    this.graphics.fillCircle(x, y, (2.5 + charge * 3) * viewScale);
+    if ((saucer.shotFlashFor ?? 0) > 0) {
+      this.graphics.lineStyle(2, 0xffffff, (saucer.shotFlashFor ?? 0) / 0.18);
+      this.graphics.strokeCircle(x, y, (saucer.radius + 12 * (1 - (saucer.shotFlashFor ?? 0) / 0.18)) * viewScale);
     }
   }
 
@@ -1249,7 +1373,7 @@ export class VectorRenderer {
   }
 
   private getViewScale(state: GameState): number {
-    return state.width <= 720 ? 0.78 : 1;
+    return getWorldViewScale(state.width);
   }
 
   private isCircleOnScreen(state: GameState, worldX: number, worldY: number, radius: number): boolean {

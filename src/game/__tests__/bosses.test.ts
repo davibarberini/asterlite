@@ -59,6 +59,24 @@ const createCrusher = (overrides: Partial<AsteroidState> = {}): AsteroidState =>
   ...overrides
 });
 
+const createPrism = (overrides: Partial<AsteroidState> = {}): AsteroidState => ({
+  id: 4,
+  position: { x: 260, y: 0 },
+  velocity: { x: 0, y: 0 },
+  rotation: 0,
+  rotationSpeed: 1.1,
+  radius: 84,
+  size: 'large',
+  variant: 'dense',
+  hp: 150,
+  maxHp: 150,
+  shape: [1, 1, 1],
+  bossType: 'prism',
+  bossZoneIndex: 2,
+  bossFireCooldown: 0,
+  ...overrides
+});
+
 const centerState = (): GameState => {
   const state = createGameState(800, 600);
   state.camera = { x: 0, y: 0 };
@@ -171,6 +189,8 @@ describe('mothership boss', () => {
     updateMothership(state, boss, 1);
 
     expect(state.bullets.length).toBeGreaterThan(0);
+    expect(state.audioEvents.some((event) => event.type === 'bossMothershipRing')).toBe(true);
+    expect(state.audioEvents.some((event) => event.type === 'bossShoot')).toBe(false);
     expect(state.bullets.some((bullet) =>
       bullet.position.x >= state.camera.x - state.width / 2 &&
       bullet.position.x <= state.camera.x + state.width / 2 &&
@@ -212,6 +232,9 @@ describe('mothership boss', () => {
       fireCooldown: expect.any(Number)
     });
     expect(phase2State.bullets.some((bullet) => bullet.owner === 'saucer')).toBe(true);
+    expect(phase2State.audioEvents.some((event) => event.type === 'bossMothershipSummon')).toBe(true);
+    expect(phase2State.audioEvents.some((event) => event.type === 'bossSeekerHum')).toBe(true);
+    expect(phase2State.audioEvents.some((event) => event.type === 'bossSeekerShoot')).toBe(true);
   });
 
   it('telegraphs the beam before activating damage', () => {
@@ -237,6 +260,7 @@ describe('mothership boss', () => {
     updateMothership(state, boss, 0.2);
 
     expect(boss.bossBeamFor ?? 0).toBeGreaterThan(0);
+    expect(state.audioEvents.some((event) => event.type === 'bossMothershipBeam')).toBe(true);
     expect(state.ship.hp).toBe(hpBefore);
 
     updateMothership(state, boss, 0.65);
@@ -255,6 +279,9 @@ describe('mothership boss', () => {
 
     expect(phase3State.bullets.length).toBeGreaterThan(phase1State.bullets.length);
     expect(phase3State.bossMinions.length).toBeGreaterThan(0);
+    expect(phase3State.audioEvents.some((event) => event.type === 'bossMothershipRing')).toBe(true);
+    expect(phase3State.audioEvents.some((event) => event.type === 'bossMothershipFan')).toBe(true);
+    expect(phase3State.audioEvents.some((event) => event.type === 'bossMothershipSummon')).toBe(true);
   });
 
   it('removes Mothership seekers when the mothership is defeated', () => {
@@ -335,6 +362,8 @@ describe('chase boss personalities', () => {
     expect(boss.bossTelegraphFor).toBe(0);
     expect(boss.bossFireCooldown ?? 0).toBeGreaterThan(0);
     expect(state.bullets).toHaveLength(1);
+    expect(state.audioEvents.some((event) => event.type === 'bossSentinelVolley')).toBe(true);
+    expect(state.audioEvents.some((event) => event.type === 'bossShoot')).toBe(false);
   });
 
   it('fires denser Sentinel precision volleys in phase 3', () => {
@@ -378,6 +407,8 @@ describe('chase boss personalities', () => {
     expect(boss.bossTelegraphFor).toBe(0);
     expect(boss.bossFireCooldown ?? 0).toBeGreaterThan(0);
     expect(state.bullets).toHaveLength(8);
+    expect(state.audioEvents.some((event) => event.type === 'bossCrusherShockwave')).toBe(true);
+    expect(state.audioEvents.some((event) => event.type === 'bossShoot')).toBe(false);
   });
 
   it('fires denser Crusher shockwaves in phase 3', () => {
@@ -399,5 +430,18 @@ describe('chase boss personalities', () => {
 
     expect(phase1Bullets).toBe(8);
     expect(phase3Bullets).toBeGreaterThan(phase1Bullets);
+  });
+
+  it('plays a distinct metallic ricochet sound for Prism shots', () => {
+    const state = centerState();
+    const boss = createPrism();
+    state.asteroids = [boss];
+
+    updateBosses(state, 1);
+
+    expect(state.bullets.length).toBeGreaterThan(0);
+    expect(state.bullets.every((bullet) => bullet.kind === 'ricochet')).toBe(true);
+    expect(state.audioEvents.some((event) => event.type === 'bossPrismRicochet')).toBe(true);
+    expect(state.audioEvents.some((event) => event.type === 'bossShoot')).toBe(false);
   });
 });

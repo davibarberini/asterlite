@@ -3,13 +3,17 @@ import './styles/main-menu.css';
 import './styles/hud.css';
 import './styles/tutorial.css';
 import './styles/bottomNav.css';
-import './styles/skillTree.css';
 import './styles/zoneMap.css';
 import './styles/settings.css';
+import './styles/skillTree.css';
 import './styles/shopModal.css';
 import './styles/hangar.css';
 import './styles.css';
+import './styles/runFlow.css';
 import { GameScene } from './phaser/scenes/GameScene';
+import { mountUiIcons } from './phaser/ui/uiIcons';
+
+mountUiIcons();
 
 const installMobileZoomGuards = (): void => {
   let lastTouchEnd = 0;
@@ -58,7 +62,7 @@ const registerServiceWorker = (): void => {
   }
 
   window.addEventListener('load', () => {
-    const swUrl = `${baseUrl}sw.js?v=${encodeURIComponent(__ASTERIDLE_BUILD_ID__)}`;
+    const swUrl = `${baseUrl}sw.js?v=${encodeURIComponent(__ASTERLITE_BUILD_ID__)}`;
     navigator.serviceWorker.register(swUrl, { scope: baseUrl }).catch(() => {
       // The game remains playable if PWA registration is unavailable.
     });

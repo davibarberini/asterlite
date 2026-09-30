@@ -16,7 +16,6 @@ import { emitAudio, emitReward } from '../events';
 import { WARP_UNLOCK_DEFINITIONS, getAvailableWarpCores, getWarpUnlockNodeState } from '../../progression/warpUnlocks';
 import {
   getAchievementMultiplier,
-  getEffectiveMaxHp,
   syncAchievements,
   ACHIEVEMENT_BONUS_LABELS
 } from '../../progression/achievements';
@@ -25,9 +24,10 @@ import { emitShipUnlock, updateShipUnlockProgress } from '../../progression/ship
 import { balance } from '../../balance';
 import { hasShieldBubbleUnlocked } from '../state';
 export const updateGame = (state: GameState, input: InputActions, dt: number): void => {
+  if (!state.ship.alive) return;
+  state.run.elapsedSeconds += Math.max(0, dt);
   state.width = Math.max(320, state.width);
   state.height = Math.max(320, state.height);
-  state.deathPenaltyFor = Math.max(0, state.deathPenaltyFor - dt);
   state.droneRebootFor = Math.max(0, state.droneRebootFor - dt);
   updateShieldBubble(state, dt);
 
@@ -41,6 +41,7 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
   updateSaucer(state, dt);
   updateParticles(state, dt);
   resolveCollisions(state, dt);
+  if (state.phase === 'ended') return;
   updateSurvival(state, dt);
   updateShipUnlockProgress(state, dt, (id) => emitShipUnlock(state, id));
   updateRareSpawns(state, dt);
@@ -50,14 +51,6 @@ export const updateGame = (state: GameState, input: InputActions, dt: number): v
   maintainAsteroidField(state);
   syncAchievements(state.progression, (def) => {
     emitReward(state, `Conquista: ${def.name} (+${def.bonusPercent}% ${ACHIEVEMENT_BONUS_LABELS[def.bonusCategory]})`, 'achievement');
-    if (def.bonusCategory === 'maxHp') {
-      const effectiveMaxHp = getEffectiveMaxHp(state.progression);
-      const hpGain = effectiveMaxHp - state.ship.maxHp;
-      if (hpGain > 0) {
-        state.ship.maxHp = effectiveMaxHp;
-        state.ship.hp += hpGain;
-      }
-    }
   });
   syncAffordableWarpUnlockAnnouncements(state);
   syncGuidedMissions(state);

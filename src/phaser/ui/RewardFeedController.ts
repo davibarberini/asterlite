@@ -5,8 +5,10 @@ export class RewardFeedController {
 
   showEvents(events: GameRewardEvent[]): void {
     events
-      .splice(0, 5)
+      .splice(0)
+      .filter((event) => event.kind !== undefined && event.kind !== 'payout')
       .sort((a, b) => this.getRewardPriority(a.kind) - this.getRewardPriority(b.kind))
+      .slice(-3)
       .forEach((event) => this.prependEvent(event));
 
     this.prune();

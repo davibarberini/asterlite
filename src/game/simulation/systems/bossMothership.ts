@@ -1,5 +1,6 @@
 import { fireBullet } from './weapons';
 import { balance } from '../../balance';
+import { emitAudio } from '../events';
 import type { AsteroidState, BossAttackKind, BossMinionState, GameState, Vec2 } from '../types';
 import { distance, normalize } from '../vector';
 import { damageShip } from './playerDamage';
@@ -76,6 +77,7 @@ const updateEdgeAnchorState = (state: GameState, boss: AsteroidState, phase: num
   }
   if (boss.bossLastPhase !== phase) {
     beginEdgeRetreat(boss, phase);
+    emitAudio(state, { type: 'bossMothershipPhaseShift' });
   }
   const wasRetreating = (boss.bossRetreatFor ?? 0) > 0;
   boss.bossRetreatFor = Math.max(0, (boss.bossRetreatFor ?? 0) - dt);
@@ -193,6 +195,7 @@ const fireRing = (state: GameState, boss: AsteroidState, phase: number): void =>
   const spin = cursor * cfg.ringSpinPerCast;
   const gapStart = cursor % count;
   const origin = getMothershipMuzzlePosition(state, boss);
+  emitAudio(state, { type: 'bossMothershipRing' });
 
   for (let i = 0; i < count; i += 1) {
     const withinGap = (i - gapStart + count) % count < cfg.ringGapSlots;
@@ -200,7 +203,7 @@ const fireRing = (state: GameState, boss: AsteroidState, phase: number): void =>
       continue;
     }
     const angle = spin + (i / count) * Math.PI * 2;
-    fireBullet(state, 'boss', origin, angle, cfg.ringBulletSpeed, damage);
+    fireBullet(state, 'boss', origin, angle, cfg.ringBulletSpeed, damage, { x: 0, y: 0 }, 0, 'standard', null, 0, 'silent');
   }
 };
 
@@ -215,6 +218,7 @@ const beginBeam = (state: GameState, boss: AsteroidState): void => {
   boss.bossBeamSweepDirection = direction;
   boss.bossBeamAngle = base - direction * cfg.beamSweepRadians / 2;
   boss.bossBeamHitCooldown = 0;
+  emitAudio(state, { type: 'bossMothershipBeam' });
 };
 
 const updateMothershipBeam = (state: GameState, boss: AsteroidState, dt: number): void => {
@@ -259,6 +263,7 @@ const summonMinions = (state: GameState, boss: AsteroidState, phase: number): vo
   const cfg = balance.bosses.mothership;
   const count = getPhaseValue(cfg.summonCountByPhase, phase);
   const origin = getMothershipMuzzlePosition(state, boss);
+  emitAudio(state, { type: 'bossMothershipSummon' });
   for (let index = 0; index < count; index += 1) {
     const side = index % 2 === 0 ? -1 : 1;
     const lane = Math.floor(index / 2);
@@ -294,10 +299,12 @@ const summonMinions = (state: GameState, boss: AsteroidState, phase: number): vo
 const updateMothershipMinions = (state: GameState, dt: number): void => {
   const cfg = balance.bosses.mothership;
   const maxDistance = Math.max(state.width, state.height) * cfg.summonMinionDespawnDistanceMultiplier;
+  let activeMinions = false;
   state.bossMinions.forEach((minion) => {
     if (!minion.alive) {
       return;
     }
+    activeMinions = true;
 
     const toShip = normalize({
       x: state.ship.position.x - minion.position.x,
@@ -316,11 +323,29 @@ const updateMothershipMinions = (state: GameState, dt: number): void => {
 
     if (minion.fireCooldown <= 0 && state.ship.alive) {
       const aim = Math.atan2(state.ship.position.y - minion.position.y, state.ship.position.x - minion.position.x);
-      fireBullet(state, 'saucer', minion.position, aim, cfg.summonMinionBulletSpeed, cfg.summonMinionBulletDamage);
+      emitAudio(state, { type: 'bossSeekerShoot' });
+      fireBullet(
+        state,
+        'saucer',
+        minion.position,
+        aim,
+        cfg.summonMinionBulletSpeed,
+        cfg.summonMinionBulletDamage,
+        { x: 0, y: 0 },
+        0,
+        'standard',
+        null,
+        0,
+        'silent'
+      );
       minion.fireCooldown = cfg.summonMinionFireCooldown[0] +
         ((minion.id % 5) / 4) * (cfg.summonMinionFireCooldown[1] - cfg.summonMinionFireCooldown[0]);
     }
   });
+
+  if (activeMinions) {
+    emitAudio(state, { type: 'bossSeekerHum' });
+  }
 
   state.bossMinions = state.bossMinions.filter((minion) =>
     minion.alive && distance(minion.position, state.camera) <= maxDistance
@@ -334,10 +359,11 @@ const fireAimedFan = (state: GameState, boss: AsteroidState, phase: number): voi
   const origin = getMothershipMuzzlePosition(state, boss);
   const base = boss.bossAimAngle ?? Math.atan2(state.ship.position.y - origin.y, state.ship.position.x - origin.x);
   const step = count > 1 ? cfg.fanSpreadRadians / (count - 1) : 0;
+  emitAudio(state, { type: 'bossMothershipFan' });
 
   for (let i = 0; i < count; i += 1) {
     const angle = base - cfg.fanSpreadRadians / 2 + step * i;
-    fireBullet(state, 'boss', origin, angle, cfg.fanBulletSpeed, damage);
+    fireBullet(state, 'boss', origin, angle, cfg.fanBulletSpeed, damage, { x: 0, y: 0 }, 0, 'standard', null, 0, 'silent');
   }
 };
 

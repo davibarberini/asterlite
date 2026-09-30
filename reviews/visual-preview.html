@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Asterlite visual QA</title>
+<script type="module">
+import Phaser from 'phaser';
+import '../src/styles/hud.css';
+import '../src/styles/bottomNav.css';
+import '../src/styles.css';
+import { mountUiIcons } from '../src/phaser/ui/uiIcons.ts';
+import { createGameState } from '../src/game/simulation/state.ts';
+import { createAsteroid } from '../src/game/simulation/systems/asteroids.ts';
+import { burstParticles, updateParticles } from '../src/game/simulation/systems/particles.ts';
+import { fireBullet, updateBullets } from '../src/game/simulation/systems/weapons.ts';
+import { VectorRenderer } from '../src/phaser/view/VectorRenderer.ts';
+import { Starfield } from '../src/phaser/view/Starfield.ts';
+const source = new DOMParser().parseFromString(await (await fetch('../index.html')).text(), 'text/html');
+const app = source.querySelector('#app');
+for (const id of ['main-menu','ui-modal','priority-popup','shop-panel','shop-drawer-backdrop']) app.querySelector('#'+id)?.remove();
+document.body.append(app);
+app.querySelector('.bottom-nav').classList.add('is-collapsed');
+mountUiIcons();
+const controls = document.createElement('div');
+controls.style.cssText = 'position:fixed;bottom:78px;right:12px;z-index:20;display:grid;gap:6px;max-width:150px';
+controls.innerHTML = '<select aria-label="Scenario"><option value="normal">Normal</option><option value="critical">Critical + boss</option><option value="survival">Survival</option><option value="stress">Stress</option></select><button>Reset field</button><output aria-label="Render metrics" style="font:10px monospace;background:#000c;color:white;padding:4px"></output>';
+document.body.append(controls);
+const select = controls.querySelector('select');
+const output = controls.querySelector('output');
+let sceneRef;
+const configure = () => {
+  const mode = select.value;
+  app.classList.toggle('is-survival-hud', mode === 'survival');
+  app.querySelector('#boss-health').classList.toggle('is-hidden', mode !== 'critical');
+  app.querySelector('#boss-health-name').textContent = 'Nova Matriarch';
+  app.querySelector('#boss-health-value').textContent = '124K / 369K';
+  app.querySelector('#boss-health').style.setProperty('--boss-health-progress','34%');
+  const hp = app.querySelector('#hp-meter');
+  hp.dataset.condition = mode === 'critical' ? 'critical' : 'healthy';
+  hp.style.setProperty('--hp-fill', mode === 'critical' ? '18%' : '82%');
+  app.querySelector('#hp').textContent = mode === 'critical' ? '18.2K / 100K' : '82 / 100';
+  app.querySelector('#money').textContent = '$128B';
+  app.querySelector('#crystals').textContent = '999M';
+  app.querySelector('#ship-level').textContent = 'Nv 12';
+  app.querySelector('#ship-xp-meter').style.setProperty('--ship-xp-fill','63%');
+  app.querySelector('#first-warp-goal').classList.toggle('is-hidden', mode === 'critical');
+  app.querySelector('#first-warp-goal-title').textContent = 'Abrir rota para Cygnus Reef';
+  app.querySelector('#first-warp-goal-progress-text').textContent = '24/37';
+  app.querySelector('#first-warp-goal-progress').style.setProperty('--goal-progress','65%');
+  app.querySelector('#route-toggle').classList.toggle('is-hidden', mode === 'survival');
+  app.querySelector('#survival-timer').textContent = '3:42';
+  app.querySelector('#survival-threat').textContent = '8';
+  app.querySelector('#survival-threat-fill').style.setProperty('--threat-fill','67%');
+  app.querySelector('#route-toggle').disabled = false;
+  app.querySelector('#route-target').textContent = 'Nova Crown';
+  if (sceneRef) sceneRef.populate(mode === 'stress');
+};
+select.onchange = configure;
+configure();
+new Phaser.Game({type:Phaser.WEBGL,parent:'game-root',width:innerWidth,height:innerHeight,backgroundColor:'#000',scene:{
+  create() {
+    sceneRef = this;
+    this.state = createGameState(innerWidth,innerHeight);
+    this.state.ship.invulnerableFor = 0;
+    this.stars = new Starfield(this);
+    this.renderer = new VectorRenderer(this);
+    this.samples = [];
+    this.populate = (stress) => {
+      this.state.asteroids = Array.from({length:stress ? 160 : 14},(_,i) => createAsteroid(this.state,['large','medium','small'][i%3],{x:30+(i*137)%(innerWidth-60),y:170+(i*173)%Math.max(100,innerHeight-230)}, {x:0,y:0}, ['common','common','metallic','dense','crystal'][i%5]));
+      this.state.bullets = [];
+      if (stress) {
+        for(let i=0;i<100;i++) fireBullet(this.state,i%3 ? 'player':'boss',{x:i*73%innerWidth,y:i*47%innerHeight},i,0,1);
+        this.state.runCards.shieldCharges = 10000;
+      } else this.state.runCards.shieldCharges = 0;
+      this.renderer.clear();
+      this.samples = [];
+    };
+    this.populate(false);
+    controls.querySelector('button').onclick = () => { this.stars.reset(innerWidth,innerHeight); this.populate(select.value === 'stress'); };
+  },
+  update(_time, delta) {
+    const start = performance.now();
+    const dt = Math.min(0.04,delta/1000);
+    this.state.asteroids.forEach(a => a.rotation += dt * .08);
+    if (select.value === 'stress' && this.state.particles.length < 50) burstParticles(this.state,this.state.ship.position,150,160);
+    updateParticles(this.state,dt);
+    this.stars.update(dt,{x:6,y:0});
+    this.renderer.render(this.state,false);
+    this.samples.push(performance.now()-start);
+    if(this.samples.length > 600) this.samples.shift();
+    if(this.game.loop.frame % 60 === 0) {
+      const sorted = [...this.samples].sort((a,b)=>a-b);
+      output.textContent = `CPU p95 ${sorted[Math.floor(sorted.length*.95)].toFixed(2)}ms | stars ${this.stars.stars.length} | bodies ${this.stars.bodies.length} | objects ${this.children.length} | textures ${this.textures.getTextureKeys().length}`;
+    }
+  }
+}});
+</script>
+</html>

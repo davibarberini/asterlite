@@ -1,5 +1,5 @@
 {
-  "name": "asteridle",
+  "name": "asterlite",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -23,6 +23,7 @@
     "@capacitor/android": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
+    "lucide": "^1.48.0",
     "phaser": "^3.90.0"
   },
   "devDependencies": {

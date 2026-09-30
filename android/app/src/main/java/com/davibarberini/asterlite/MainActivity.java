@@ -1,4 +1,4 @@
-package com.davibarberini.asteridle;
+package com.davibarberini.asterlite;
 
 import com.getcapacitor.BridgeActivity;
 

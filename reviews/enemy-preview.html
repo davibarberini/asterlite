@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enemy visual QA</title>
+<style>
+body { margin:0; background:#050708; color:white; font:14px system-ui; }
+nav { position:fixed; top:8px; left:8px; z-index:2; display:flex; gap:8px; }
+select,button { min-height:44px; background:#172321; color:white; border:1px solid #729b95; border-radius:4px; padding:8px; }
+canvas { display:block; }
+</style>
+<nav><select aria-label="Enemy"><option>normal</option><option>skirmisher</option><option>sniper</option><option>elite</option></select><button>Pause</button></nav>
+<script type="module">
+import Phaser from 'phaser';
+import { createGameState } from '../src/game/simulation/state.ts';
+import { VectorRenderer } from '../src/phaser/view/VectorRenderer.ts';
+import { updateSaucer } from '../src/game/simulation/systems/enemies.ts';
+import { updateBullets } from '../src/game/simulation/systems/weapons.ts';
+const picker = document.querySelector('select');
+let paused = false;
+document.querySelector('button').onclick = (event) => { paused = !paused; event.target.textContent = paused ? 'Resume' : 'Pause'; };
+new Phaser.Game({ type:Phaser.CANVAS, width:innerWidth, height:innerHeight, backgroundColor:'#050708', scene:{
+  create() {
+    this.state = createGameState(innerWidth, innerHeight);
+    this.state.asteroids = [];
+    this.state.ship.invulnerableFor = 0;
+    this.renderer = new VectorRenderer(this);
+    this.resetEnemy = () => {
+      const kind = picker.value;
+      this.state.bullets = [];
+      this.state.saucer = { id:100, kind, position:{x:this.state.camera.x - 90, y:this.state.camera.y - 130}, velocity:{x:10,y:0}, radius:kind === 'normal' ? 18 : kind === 'skirmisher' ? 20 : 22, alive:true, fireCooldown:0 };
+    };
+    picker.onchange = this.resetEnemy;
+    this.resetEnemy();
+  },
+  update(_time, delta) {
+    if (!paused) {
+      const dt = Math.min(delta / 1000, 0.05);
+      this.state.run.elapsedSeconds += dt;
+      updateSaucer(this.state, dt);
+      updateBullets(this.state, dt);
+      if (!this.state.saucer || Math.abs(this.state.saucer.position.x - this.state.camera.x) > 125) this.resetEnemy();
+    }
+    this.renderer.render(this.state, false);
+  }
+}});
+</script>
+</html>

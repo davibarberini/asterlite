@@ -1,21 +1,16 @@
 import type { InputActions } from '../../input/actions';
 import { getAchievementMultiplier } from '../../progression/achievements';
-import { resetShip } from '../state';
 import type { GameState } from '../types';
 import { clampMagnitude } from '../vector';
 import { firePlayerWeapon } from './weapons';
 import { balance } from '../../balance';
-import { getPropulsionSkillMultiplier } from '../../progression/talentTree';
-import { getShipFrameBonusMultiplier } from '../../progression/shipFrames';
+import { getShipFrameBonusMultiplier, getShipFrameWeaponIdentity } from '../../progression/shipFrames';
+import { getRunCardDashImpulseMultiplier } from '../../progression/runCards';
 
 export const updateShipMovement = (state: GameState, input: InputActions, dt: number): void => {
   const ship = state.ship;
 
   if (!ship.alive) {
-    ship.respawnFor -= dt;
-    if (ship.respawnFor <= 0) {
-      resetShip(state);
-    }
     return;
   }
 
@@ -27,7 +22,7 @@ export const updateShipMovement = (state: GameState, input: InputActions, dt: nu
       const impulse =
         (balance.ship.swipeImpulseMinSpeed +
           (balance.ship.swipeImpulseMaxSpeed - balance.ship.swipeImpulseMinSpeed) * easedPower) *
-        getSpeedMultiplier(state);
+        getSpeedMultiplier(state) * getRunCardDashImpulseMultiplier(state);
       ship.velocity.x += Math.cos(ship.rotation) * impulse;
       ship.velocity.y += Math.sin(ship.rotation) * impulse;
     }
@@ -84,7 +79,8 @@ export const updateShipMovement = (state: GameState, input: InputActions, dt: nu
   ship.phaseShieldCooldown = Math.max(0, ship.phaseShieldCooldown - dt);
   ship.phaseShieldFlashFor = Math.max(0, ship.phaseShieldFlashFor - dt);
 
-  const shouldAutoFire = state.progression.activeShipFrameId === 'nivitron';
+  const weaponIdentity = getShipFrameWeaponIdentity(state.progression);
+  const shouldAutoFire = weaponIdentity === 'turret' || weaponIdentity === 'aura';
   if ((input.fire || shouldAutoFire) && ship.fireCooldown === 0) {
     firePlayerWeapon(state);
   }
@@ -98,6 +94,5 @@ export const updateCamera = (state: GameState, dt: number): void => {
 
 const getSpeedMultiplier = (state: GameState): number =>
   (1 + state.progression.shipSpeedLevel * balance.ship.speedBonusPerLevel) *
-  getPropulsionSkillMultiplier(state.progression) *
   getAchievementMultiplier(state.progression, 'speed') *
   getShipFrameBonusMultiplier(state.progression, 'speedMultiplier');

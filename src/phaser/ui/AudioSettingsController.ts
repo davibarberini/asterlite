@@ -3,8 +3,8 @@ type AudioSettingsCallbacks = {
   setMusicVolume: (volume: number) => void;
 };
 
-const volumeStorageKey = 'asteridle.settings.volume';
-const musicVolumeStorageKey = 'asteridle.settings.musicVolume';
+const volumeStorageKey = 'asterlite.settings.volume';
+const musicVolumeStorageKey = 'asterlite.settings.musicVolume';
 const maxSfxVolume = 1.2;
 const maxMusicVolume = 1;
 const defaultSfxVolume = 0.75;

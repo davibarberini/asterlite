@@ -1,5 +1,5 @@
 /*
- * Skill / talent / warp tech-tree surface styles.
+ * Shared technology-tree surface styles.
  *
  * Extracted from styles.css to give the growing tree UI its own file.
  * Imported before styles.css so base tree rules keep their original

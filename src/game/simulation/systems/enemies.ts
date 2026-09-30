@@ -1,11 +1,12 @@
 import { createZoneBossFromPending } from './asteroids';
 import { updateMothership } from './bossMothership';
 import { fireBullet } from './weapons';
-import { emitReward } from '../events';
-import type { AsteroidState, GameState, Vec2 } from '../types';
+import { emitAudio, emitReward } from '../events';
+import type { AsteroidState, GameState, SaucerState, Vec2 } from '../types';
 import { distance, normalize, randomRange } from '../vector';
 import { balance } from '../../balance';
 import { isSurvivalZone } from './survival';
+import { getWorldViewScale } from '../view';
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
@@ -116,6 +117,7 @@ export const updateBosses = (state: GameState, dt: number): void => {
       return;
     }
 
+    emitAudio(state, { type: boss.bossType === 'prism' ? 'bossPrismRicochet' : 'bossShoot' });
     bossStats.bulletAngleOffsets.forEach((offset) => {
       fireBullet(
         state,
@@ -128,7 +130,8 @@ export const updateBosses = (state: GameState, dt: number): void => {
         0,
         boss.bossType === 'prism' ? 'ricochet' : 'standard',
         null,
-        boss.bossType === 'prism' ? balance.bosses.ricochetBounces : 0
+        boss.bossType === 'prism' ? balance.bosses.ricochetBounces : 0,
+        'silent'
       );
     });
     boss.bossFireCooldown = Math.max(bossStats.fireCooldownMin, bossStats.fireCooldownBase - (boss.bossZoneIndex ?? 0) * bossStats.fireCooldownPerZone);
@@ -148,6 +151,7 @@ const fireCrusherShockwave = (state: GameState, boss: AsteroidState, phase: numb
   const damage = stats.bulletDamage * stats.signatureDamageMultiplier;
   const spin = (boss.bossPatternCursor ?? 0) * 0.18;
   boss.bossPatternCursor = (boss.bossPatternCursor ?? 0) + 1;
+  emitAudio(state, { type: 'bossCrusherShockwave' });
 
   for (let index = 0; index < count; index += 1) {
     fireBullet(
@@ -156,7 +160,13 @@ const fireCrusherShockwave = (state: GameState, boss: AsteroidState, phase: numb
       boss.position,
       spin + (index / count) * Math.PI * 2,
       speed,
-      damage
+      damage,
+      { x: 0, y: 0 },
+      0,
+      'standard',
+      null,
+      0,
+      'silent'
     );
   }
 };
@@ -176,6 +186,7 @@ const fireSentinelVolley = (state: GameState, boss: AsteroidState, phase: number
     state.ship.position.x - boss.position.x
   );
   const step = count > 1 ? spread / (count - 1) : 0;
+  emitAudio(state, { type: 'bossSentinelVolley' });
 
   for (let index = 0; index < count; index += 1) {
     fireBullet(
@@ -184,7 +195,13 @@ const fireSentinelVolley = (state: GameState, boss: AsteroidState, phase: number
       boss.position,
       base - spread / 2 + step * index,
       stats.bulletSpeed * stats.signatureBulletSpeedMultiplier,
-      stats.bulletDamage * stats.signatureDamageMultiplier
+      stats.bulletDamage * stats.signatureDamageMultiplier,
+      { x: 0, y: 0 },
+      0,
+      'standard',
+      null,
+      0,
+      'silent'
     );
   }
 };
@@ -240,7 +257,7 @@ export const updateSaucer = (state: GameState, dt: number): void => {
 
   if (!state.saucer && state.saucerTimer <= 0) {
     const fromLeft = Math.random() > 0.5;
-    const kind = shouldSpawnEliteSaucer(state) ? 'elite' : 'normal';
+    const kind = chooseSaucerKind(state);
     state.saucer = {
       id: state.nextId++,
       kind,
@@ -252,7 +269,7 @@ export const updateSaucer = (state: GameState, dt: number): void => {
         x: fromLeft ? randomRange(balance.saucer.speedX[0], balance.saucer.speedX[1]) : randomRange(-balance.saucer.speedX[1], -balance.saucer.speedX[0]),
         y: randomRange(balance.saucer.speedY[0], balance.saucer.speedY[1])
       },
-      radius: kind === 'elite' ? balance.saucer.elite.radius : balance.saucer.radius,
+      radius: kind === 'normal' ? balance.saucer.radius : balance.saucer[kind].radius,
       fireCooldown: balance.saucer.initialFireCooldown,
       alive: true
     };
@@ -262,16 +279,40 @@ export const updateSaucer = (state: GameState, dt: number): void => {
   if (!saucer) {
     return;
   }
+  if (!saucer.alive) {
+    state.saucer = null;
+    state.saucerTimer = randomRange(...balance.saucer.respawnTimer);
+    return;
+  }
 
-  saucer.position.x += saucer.velocity.x * dt;
-  saucer.position.y += saucer.velocity.y * dt;
+  const charging = (saucer.telegraphFor ?? 0) > 0;
+  const movement = saucer.kind === 'sniper' && charging ? 0 : saucer.kind === 'sniper' ? 0.6 : 1;
+  saucer.position.x += saucer.velocity.x * dt * movement;
+  saucer.position.y += (saucer.velocity.y + (saucer.kind === 'skirmisher'
+    ? Math.sin(state.run.elapsedSeconds * 2.4 + saucer.id) * balance.saucer.skirmisher.weaveSpeed : 0)) * dt * movement;
+  saucer.shotFlashFor = Math.max(0, (saucer.shotFlashFor ?? 0) - dt);
   saucer.fireCooldown -= dt;
 
-  if (saucer.fireCooldown <= 0 && state.ship.alive) {
-    fireSaucerPattern(state);
-    saucer.fireCooldown = saucer.kind === 'elite'
-      ? randomRange(balance.saucer.elite.fireCooldown[0], balance.saucer.elite.fireCooldown[1])
-      : randomRange(balance.saucer.fireCooldown[0], balance.saucer.fireCooldown[1]);
+  const scale = getWorldViewScale(state.width);
+  const screenX = (saucer.position.x - state.camera.x) * scale + state.width / 2;
+  const screenY = (saucer.position.y - state.camera.y) * scale + state.height / 2;
+  const margin = (saucer.radius + 8) * scale;
+  // Keep the entire charge cue away from the HUD and viewport edges.
+  const visible = screenX > margin && screenX < state.width - margin &&
+    screenY > Math.min(220, state.height * 0.33) + margin && screenY < state.height - margin;
+  if (!visible || !state.ship.alive) {
+    saucer.telegraphFor = 0;
+  } else if (charging) {
+    saucer.telegraphFor = Math.max(0, (saucer.telegraphFor ?? 0) - dt);
+    if (saucer.telegraphFor === 0) {
+      fireSaucerPattern(state);
+      saucer.shotFlashFor = 0.18;
+      const config = saucer.kind === 'normal' ? balance.saucer : balance.saucer[saucer.kind];
+      saucer.fireCooldown = randomRange(config.fireCooldown[0], config.fireCooldown[1]);
+    }
+  } else if (saucer.fireCooldown <= 0) {
+    saucer.aimAngle = Math.atan2(state.ship.position.y - saucer.position.y, state.ship.position.x - saucer.position.x);
+    saucer.telegraphFor = getSaucerTelegraphSeconds(saucer.kind);
   }
 
   if (distance(saucer.position, state.camera) > Math.max(state.width, state.height) * balance.saucer.despawnDistanceMultiplier || !saucer.alive) {
@@ -279,6 +320,16 @@ export const updateSaucer = (state: GameState, dt: number): void => {
     state.saucerTimer = randomRange(balance.saucer.respawnTimer[0], balance.saucer.respawnTimer[1]);
   }
 };
+
+export const chooseSaucerKind = (state: GameState, roll = Math.random()): SaucerState['kind'] => {
+  if (shouldSpawnEliteSaucer(state)) return 'elite';
+  if (state.progression.currentZoneIndex >= 2 && roll >= 0.65) return 'sniper';
+  if (state.progression.currentZoneIndex >= 1 && roll >= 0.3) return 'skirmisher';
+  return 'normal';
+};
+
+export const getSaucerTelegraphSeconds = (kind: SaucerState['kind']): number =>
+  kind === 'sniper' || kind === 'skirmisher' ? balance.saucer[kind].telegraphSeconds : balance.saucer.telegraphSeconds;
 
 const shouldSpawnEliteSaucer = (state: GameState): boolean =>
   isSurvivalZone(state) &&
@@ -291,20 +342,17 @@ const fireSaucerPattern = (state: GameState): void => {
     return;
   }
 
-  const direction = normalize({
-    x: state.ship.position.x - saucer.position.x + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter),
-    y: state.ship.position.y - saucer.position.y + randomRange(-balance.saucer.aimJitter, balance.saucer.aimJitter)
-  });
-  const aimAngle = Math.atan2(direction.y, direction.x);
-  const offsets = saucer.kind === 'elite' ? balance.saucer.elite.bulletAngleOffsets : [0];
+  const aimAngle = saucer.aimAngle ?? 0;
+  const config = saucer.kind === 'normal' ? balance.saucer : balance.saucer[saucer.kind];
+  const offsets = saucer.kind === 'elite' || saucer.kind === 'skirmisher' ? balance.saucer[saucer.kind].bulletAngleOffsets : [0];
   offsets.forEach((offset) => {
     fireBullet(
       state,
       'saucer',
       saucer.position,
       aimAngle + offset,
-      saucer.kind === 'elite' ? balance.saucer.elite.bulletSpeed : balance.saucer.bulletSpeed,
-      saucer.kind === 'elite' ? balance.saucer.elite.bulletDamage : balance.saucer.bulletDamage
+      config.bulletSpeed,
+      config.bulletDamage
     );
   });
 };

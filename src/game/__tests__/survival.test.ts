@@ -18,7 +18,6 @@ import {
   novaCrownClearThreatLevel
 } from '../progression/novaCrownDifficulty';
 import { getNovaCrownCoreReward } from '../progression/novaCrownRewards';
-import { queueThreatMilestoneRewardChoice } from '../progression/bossRewards';
 
 const createLocalStorage = (): Storage => {
   const store = new Map<string, string>();
@@ -70,13 +69,12 @@ describe('nova crown survival', () => {
     expect(state.progression.survivalBestThreatLevel).toBe(2);
 
     state.ship.alive = false;
-    state.ship.respawnFor = 1;
     updateGame(state, neutralInput(), 0.1);
 
-    expect(state.survival.active).toBe(false);
-    expect(state.survival.currentSeconds).toBe(0);
+    expect(state.survival.active).toBe(true);
+    expect(state.survival.currentSeconds).toBeCloseTo(balance.survival.threatLevelSeconds + 0.5);
     expect(state.progression.survivalBestThreatLevel).toBe(2);
-    expect(state.progression.currentZoneIndex).toBe(zones.length - 2);
+    expect(state.progression.currentZoneIndex).toBe(zones.length - 1);
   });
 
   it('adds asteroid pressure as survival threat rises', () => {
@@ -100,7 +98,6 @@ describe('nova crown survival', () => {
       currentSeconds: 76,
       threatLevel: 3,
       lastAnnouncedThreatLevel: 3,
-      nextRewardThreatLevel: 10,
       hazardSpawnCooldown: 0,
       hunterSpawnCooldown: 0,
       timedEventCooldown: 0,
@@ -117,7 +114,6 @@ describe('nova crown survival', () => {
     expect(loaded.progression.currentZoneIndex).toBe(zones.length - 1);
     expect(loaded.survival.currentSeconds).toBe(76);
     expect(loaded.survival.threatLevel).toBe(3);
-    expect(loaded.survival.nextRewardThreatLevel).toBe(10);
     expect(loaded.progression.survivalBestSeconds).toBe(76);
     expect(loaded.progression.survivalBestThreatLevel).toBe(3);
     expect(getNovaCrownBestSeconds(loaded.progression.novaCrownBestSecondsByDifficulty, 1)).toBe(76);
@@ -174,35 +170,14 @@ describe('nova crown survival', () => {
     expect(state.progression.novaCrownCoreRewardedDifficultyKeys).toEqual(['4']);
   });
 
-  it('queues run reward choices at Nova Crown threat milestones', () => {
+  it('does not create a second temporary reward choice at Nova Crown threat milestones', () => {
     const state = createGameState(800, 600);
     putInFinalZone(state);
 
     updateGame(state, neutralInput(), balance.survival.threatLevelSeconds * 9 + 0.1);
 
     expect(state.survival.threatLevel).toBe(10);
-    expect(state.survival.nextRewardThreatLevel).toBe(20);
-    expect(state.bossRewards.pendingChoiceIds).toEqual(['rapidFire', 'droneOverdrive', 'salvageSurge']);
-    expect(state.rewardEvents.some((event) => event.text.includes('Nova Crown threat 10'))).toBe(true);
-
-    saveGameState(state);
-    const loaded = loadGameState(800, 600);
-
-    expect(loaded.survival.nextRewardThreatLevel).toBe(20);
-    expect(loaded.bossRewards.pendingChoiceIds).toEqual(['rapidFire', 'droneOverdrive', 'salvageSurge']);
-  });
-
-  it('rotates later threat reward choices into new modifiers and tradeoffs', () => {
-    const state = createGameState(800, 600);
-    state.survival.active = true;
-    state.survival.threatLevel = 20;
-    state.survival.nextRewardThreatLevel = 20;
-    state.bossRewards.activeIds = ['rapidFire'];
-
-    expect(queueThreatMilestoneRewardChoice(state)).toBe(true);
-
-    expect(state.bossRewards.pendingChoiceIds).toEqual(['salvageSurge', 'glassReactor', 'overchargedCannons']);
-    expect(state.survival.nextRewardThreatLevel).toBe(30);
+    expect(state.runCards.pendingChoiceIds).toEqual([]);
   });
 
   it('spawns proximity mines only after survival threat reaches the mine threshold', () => {
@@ -627,7 +602,7 @@ describe('nova crown survival', () => {
 
     updateSaucer(normalState, 0);
 
-    expect(normalState.saucer?.kind).toBe('normal');
+    expect(normalState.saucer?.kind).not.toBe('elite');
 
     const eliteState = createGameState(800, 600);
     putInFinalZone(eliteState);
@@ -657,6 +632,9 @@ describe('nova crown survival', () => {
     state.saucer!.position = { x: state.ship.position.x - 120, y: state.ship.position.y };
     state.saucer!.fireCooldown = 0;
     updateSaucer(state, 0);
+    expect(state.bullets).toHaveLength(0);
+    state.saucer!.velocity = { x: 0, y: 0 };
+    updateSaucer(state, balance.saucer.telegraphSeconds);
 
     expect(state.bullets).toHaveLength(balance.saucer.elite.bulletAngleOffsets.length);
     expect(state.bullets[0]?.damage).toBe(balance.saucer.elite.bulletDamage);

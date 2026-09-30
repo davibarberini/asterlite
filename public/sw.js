@@ -1,4 +1,4 @@
-const CACHE_PREFIX = 'asteridle-shell-';
+const CACHE_PREFIX = 'asterlite-shell-';
 const CACHE_VERSION = new URL(self.location.href).searchParams.get('v') ?? 'dev';
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
 const APP_SCOPE = new URL(self.registration.scope).pathname;
@@ -7,7 +7,6 @@ const CORE_ASSETS = [
   `${APP_SCOPE}index.html`,
   `${APP_SCOPE}manifest.webmanifest`,
   `${APP_SCOPE}pwa-icon.svg`,
-  `${APP_SCOPE}skill-icons.svg`,
   `${APP_SCOPE}audio/zone-1.mp3`
 ];
 

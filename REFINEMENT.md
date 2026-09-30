@@ -1,4 +1,4 @@
-# Asteridle Refinement Queue
+# Asterlite Refinement Queue
 
 Ideas here are directionally useful, but not ready for `develop-feature`. Move an item into `BACKLOG.md` only after the player value, timing, UI footprint, and smallest safe implementation slice are clear.
 

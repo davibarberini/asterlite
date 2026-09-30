@@ -35,11 +35,23 @@ const stateLabelsPtBr: Record<WarpUnlockNodeState, string> = {
 };
 
 const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect: string; impact: string }> = {
+  launchLoadout: {
+    title: 'Preparação de Lançamento',
+    summary: 'Escolha um card temporário no início de cada nova run.',
+    effect: 'Cada nova run começa com uma escolha de card.',
+    impact: 'Novas runs: uma escolha normal antes do combate.'
+  },
+  expandedDraft: {
+    title: 'Escolha Ampliada',
+    summary: 'Mais opções, preservando as raridades e restrições de cada nave.',
+    effect: 'Escolha um entre quatro cards em vez de três.',
+    impact: 'Novas ofertas de nível, boss e preparação de lançamento.'
+  },
   droneSystems: {
     title: 'Sistemas de Drones',
-    summary: 'Libera a baía de drones e transforma tecnologias em novas opções de gameplay.',
-    effect: 'Permite comprar drones semi-auto com créditos.',
-    impact: 'Aba Drones: libera a compra de drones Semi-Auto.'
+    summary: 'Adiciona drones sentinela ao conjunto de cards da run.',
+    effect: 'Libera o card Sentry Wing.',
+    impact: 'Cards: Sentry Wing recruta um drone sentinela temporário.'
   },
   deflectorFrame: {
     title: 'Estrutura Defletora',
@@ -67,15 +79,15 @@ const unlockPtBr: Record<WarpUnlockId, { title: string; summary: string; effect:
   },
   rangerHangar: {
     title: 'Hangar Ranger',
-    summary: 'Amplia a baía para drones shotgun.',
-    effect: 'Permite comprar drones shotgun com créditos.',
-    impact: 'Aba Drones: libera a compra de drones Shotgun.'
+    summary: 'Adiciona drones shotgun ao conjunto de cards da run.',
+    effect: 'Libera o card Ranger Wing.',
+    impact: 'Cards: Ranger Wing recruta um drone shotgun temporário.'
   },
   missileFoundry: {
     title: 'Fundição de Mísseis',
-    summary: 'Abre os sistemas necessários para drones de míssil.',
-    effect: 'Permite comprar drones de míssil com créditos.',
-    impact: 'Aba Drones: libera a compra de drones de Míssil.'
+    summary: 'Adiciona drones de mísseis ao conjunto de cards da run.',
+    effect: 'Libera o card Breaker Wing.',
+    impact: 'Cards: Breaker Wing recruta um drone de mísseis temporário.'
   }
 };
 

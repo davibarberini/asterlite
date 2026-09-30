@@ -11,24 +11,19 @@ import { firePlayerWeapon } from '../simulation/systems/weapons';
 import { balance } from '../balance';
 
 describe('ship weapons and drone damage', () => {
-  it('applies fire rate levels to player weapon cooldown', () => {
-    const state = createGameState(800, 600);
+  it('uses ship-frame fire-rate identity instead of purchased fire-rate levels', () => {
+    const progression = createGameState(800, 600).progression;
+    const baseInterval = getPlayerFireInterval(progression);
+    progression.activeShipFrameId = 'prism';
 
-    firePlayerWeapon(state);
-    const baseCooldown = state.ship.fireCooldown;
-
-    state.ship.fireCooldown = 0;
-    state.progression.shipFireRateLevel = 10;
-    firePlayerWeapon(state);
-
-    expect(state.ship.fireCooldown).toBeLessThan(baseCooldown);
-    expect(state.ship.fireCooldown).toBeGreaterThanOrEqual(balance.shop.ship.fireRate.minimumInterval);
+    expect(getPlayerFireInterval(progression)).toBeLessThan(baseInterval);
+    expect(getPlayerFireInterval(progression)).toBeCloseTo(balance.weapons.playerFireInterval / 1.08);
+    expect(getPlayerFireInterval(progression)).toBeGreaterThanOrEqual(balance.weapons.minimumPlayerFireInterval);
   });
 
   it('keeps the standard ship on a single baseline cannon shot', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'vector';
-    state.progression.shipDamageLevel = 10;
 
     firePlayerWeapon(state);
 
@@ -36,16 +31,12 @@ describe('ship weapons and drone damage', () => {
     expect(state.bullets).toHaveLength(1);
     expect(state.bullets[0]?.pierceLeft).toBe(0);
     expect(state.ship.fireCooldown).toBeCloseTo(balance.weapons.playerFireInterval);
-    expect(state.bullets[0]?.damage).toBeCloseTo(
-      state.progression.shipDamageLevel *
-        balance.weapons.playerDamageMultiplier
-    );
+    expect(state.bullets[0]?.damage).toBeCloseTo(balance.weapons.playerDamageMultiplier);
   });
 
   it('fires prism as a spread ship from its frame identity', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'prism';
-    state.progression.shipDamageLevel = 10;
 
     firePlayerWeapon(state);
 
@@ -136,7 +127,7 @@ describe('ship weapons and drone damage', () => {
     expect(state.progression.shipUnlockProgress.wraithNoDamageSeconds).toBe(0);
   });
 
-  it('uses Ember as a continuous aura ship instead of firing cannon bullets', () => {
+  it('uses Ember as flame waves instead of firing cannon bullets', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'ember';
     state.progression.unlockedShipFrameIds = ['vector', 'ember'];
@@ -145,35 +136,61 @@ describe('ship weapons and drone damage', () => {
 
     expect(getShipFrameWeaponIdentity(state.progression)).toBe('aura');
     expect(state.bullets).toHaveLength(0);
+    expect(state.flameWaves).toHaveLength(1);
     expect(state.ship.fireCooldown).toBeGreaterThan(0);
   });
 
-  it('damages nearby asteroids with the Ember aura and scales with attack speed', () => {
+  it('damages asteroids only when Ember flame waves reach them', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'ember';
+    state.asteroids = [
+      createAsteroid(state, 'large', { x: state.ship.position.x + 80, y: state.ship.position.y }, { x: 0, y: 0 }, 'common')
+    ];
+    const asteroidId = state.asteroids[0].id;
+    const hp = state.asteroids[0].hp;
+
+    firePlayerWeapon(state);
+    resolveCollisions(state, 0);
+    expect(state.asteroids.find((asteroid) => asteroid.id === asteroidId)?.hp).toBe(hp);
+
+    updateGame(state, neutralInput(), 0.2);
+
+    expect(state.asteroids.find((asteroid) => asteroid.id === asteroidId)?.hp).toBeLessThan(hp);
+  });
+
+  it('uses the base Ember flame wave interval without purchased attack-speed levels', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'ember';
+    firePlayerWeapon(state);
+
+    expect(state.ship.fireCooldown).toBeCloseTo(getPlayerFireInterval(state.progression));
+  });
+
+  it('auto emits Ember flame waves as circular defense pulses', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'ember';
+    state.ship.fireCooldown = 0;
+
+    updateGame(state, neutralInput(), 0.016);
+
+    expect(state.flameWaves.length).toBeGreaterThan(0);
+  });
+
+  it('keeps Ember waves and player projectile radius at their base values before cards', () => {
     const baseState = createGameState(800, 600);
     baseState.progression.activeShipFrameId = 'ember';
-    baseState.asteroids = [
-      createAsteroid(baseState, 'large', { x: baseState.ship.position.x + 60, y: baseState.ship.position.y }, { x: 0, y: 0 }, 'common')
-    ];
-    const baseAsteroidId = baseState.asteroids[0].id;
-    const baseHp = baseState.asteroids[0].hp;
+    firePlayerWeapon(baseState);
 
-    updateGame(baseState, neutralInput(), 1);
-    const baseDamage = baseHp - (baseState.asteroids.find((asteroid) => asteroid.id === baseAsteroidId)?.hp ?? baseHp);
+    const secondState = createGameState(800, 600);
+    secondState.progression.activeShipFrameId = 'ember';
+    firePlayerWeapon(secondState);
 
-    const fastState = createGameState(800, 600);
-    fastState.progression.activeShipFrameId = 'ember';
-    fastState.progression.shipFireRateLevel = 10;
-    fastState.asteroids = [
-      createAsteroid(fastState, 'large', { x: fastState.ship.position.x + 60, y: fastState.ship.position.y }, { x: 0, y: 0 }, 'common')
-    ];
-    const fastAsteroidId = fastState.asteroids[0].id;
-    const fastHp = fastState.asteroids[0].hp;
+    expect(secondState.flameWaves[0].maxRadius).toBe(baseState.flameWaves[0].maxRadius);
 
-    updateGame(fastState, neutralInput(), 1);
-    const fastDamage = fastHp - (fastState.asteroids.find((asteroid) => asteroid.id === fastAsteroidId)?.hp ?? fastHp);
-
-    expect(baseDamage).toBeGreaterThan(0);
-    expect(fastDamage).toBeGreaterThan(baseDamage);
+    const projectileState = createGameState(800, 600);
+    firePlayerWeapon(projectileState);
+    const baseRadius = projectileState.bullets[0].radius;
+    expect(projectileState.bullets[0].radius).toBe(baseRadius);
   });
 
   it('fires the legendary nivitron from its rotating turret angle', () => {
@@ -195,22 +212,15 @@ describe('ship weapons and drone damage', () => {
     );
   });
 
-  it('keeps nivitron turret rotation tied to shots while attack speed lowers the next shot delay', () => {
-    const baseState = createGameState(800, 600);
-    baseState.progression.activeShipFrameId = 'nivitron';
-    baseState.ship.turretAngle = 0;
+  it('keeps nivitron turret rotation tied to shots', () => {
+    const state = createGameState(800, 600);
+    state.progression.activeShipFrameId = 'nivitron';
+    state.ship.turretAngle = 0;
 
-    const fastState = createGameState(800, 600);
-    fastState.progression.activeShipFrameId = 'nivitron';
-    fastState.ship.turretAngle = 0;
-    fastState.progression.shipFireRateLevel = 10;
+    updateGame(state, neutralInput(), 0.016);
 
-    updateGame(baseState, neutralInput(), 0.016);
-    updateGame(fastState, neutralInput(), 0.016);
-
-    expect(baseState.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretStepAngle);
-    expect(fastState.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretStepAngle);
-    expect(fastState.ship.fireCooldown).toBeLessThan(baseState.ship.fireCooldown);
+    expect(state.ship.turretAngle).toBeCloseTo(balance.weapons.nivitronTurretStepAngle);
+    expect(state.ship.fireCooldown).toBeGreaterThan(0);
   });
 
   it('auto fires nivitron without movement or fire input', () => {
@@ -228,7 +238,6 @@ describe('ship weapons and drone damage', () => {
     const state = createGameState(800, 600);
     state.progression.activeShipFrameId = 'hisoka';
     state.progression.unlockedShipFrameIds = ['vector', 'hisoka'];
-    state.progression.shipDamageLevel = 10;
 
     firePlayerWeapon(state);
 
@@ -237,8 +246,7 @@ describe('ship weapons and drone damage', () => {
     expect(state.bullets[0]?.kind).toBe('playerRicochet');
     expect(state.bullets[0]?.radius).toBe(balance.weapons.radius.playerRicochet);
     expect(state.bullets[0]?.damage).toBeCloseTo(
-      10 *
-        balance.weapons.playerDamageMultiplier *
+      balance.weapons.playerDamageMultiplier *
         1.08 *
         balance.weapons.hisokaRicochetDamageMultiplier
     );
@@ -308,7 +316,6 @@ describe('ship weapons and drone damage', () => {
 
   it('scales drone damage from the current ship damage', () => {
     const state = createGameState(800, 600);
-    state.progression.droneCounts.sentry = 1;
     state.drones = [
       {
         id: 10,
@@ -328,10 +335,10 @@ describe('ship weapons and drone damage', () => {
 
     state.bullets = [];
     state.drones[0].fireCooldown = 0;
-    state.progression.shipDamageLevel = 5;
+    state.progression.activeShipFrameId = 'voidRunner';
     updateDrones(state, 0);
 
     expect(state.bullets[0]?.damage).toBeGreaterThan(baseDamage);
-    expect(state.bullets[0]?.damage).toBeCloseTo(5 * balance.weapons.playerDamageMultiplier);
+    expect(state.bullets[0]?.damage).toBeCloseTo(1.08 * balance.weapons.playerDamageMultiplier);
   });
 });

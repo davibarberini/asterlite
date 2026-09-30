@@ -57,8 +57,8 @@ export class Starfield {
         x: Math.random() * width,
         y: Math.random() * height,
         depth,
-        size: Math.random() > 0.88 ? 1.8 : 1,
-        alpha: Phaser.Math.Clamp(0.18 + depth * 0.5, 0.14, 0.78),
+        size: Math.random() > 0.94 ? 1.15 : 0.65,
+        alpha: Phaser.Math.Clamp(0.1 + depth * 0.22, 0.14, 0.42),
         bright: Math.random() > 0.92
       };
     });
@@ -93,12 +93,13 @@ export class Starfield {
       const x = this.wrap(star.x - this.drift.x * star.depth, width);
       const y = this.wrap(star.y - this.drift.y * star.depth, height);
 
-      this.graphics.fillStyle(0xdcefff, star.alpha);
+      this.graphics.fillStyle(star.bright ? 0xf4e4c4 : 0xc3d8de, star.alpha);
       this.graphics.fillCircle(x, y, star.size * star.depth);
 
       if (star.bright) {
-        this.graphics.fillStyle(0xffffff, star.alpha * 0.45);
-        this.graphics.fillCircle(x, y, star.size * star.depth * 1.7);
+        this.graphics.lineStyle(1, 0xdcefff, star.alpha * 0.4);
+        this.graphics.lineBetween(x - 2, y, x + 2, y);
+        this.graphics.lineBetween(x, y - 2, x, y + 2);
       }
     }
   }
@@ -180,8 +181,8 @@ export class Starfield {
         phase: Math.random() * Math.PI * 2
       },
       {
-        x: width * 0.66,
-        y: height * 0.62,
+        x: this.scene.scale.width * 0.78,
+        y: this.scene.scale.height * 0.72,
         depth: 0.28,
         alpha: 0.64,
         glow: 0.75,
@@ -202,7 +203,7 @@ export class Starfield {
         depth: 0.72 + Math.random() * 0.42,
         alpha: 1,
         glow: 0.72,
-        radius: 84 + Math.random() * 58,
+        radius: 60 + Math.random() * 36,
         kind: 'sun',
         color: 0xffd18a,
         accent: 0xfff1a8,
@@ -252,13 +253,13 @@ export class Starfield {
       const glow = this.scene.add.image(0, 0, 'glow-sun');
       glow.setBlendMode(Phaser.BlendModes.ADD);
       glow.setDepth(-11);
-      const glowScale = body.depth > 0.5 ? 5.8 : 8.1;
+      const glowScale = 2.8;
       glow.setDisplaySize(body.radius * glowScale, body.radius * glowScale);
-      glow.setAlpha(Math.min(0.76, (body.depth > 0.5 ? 0.54 : 0.64) * body.glow * body.alpha));
+      glow.setAlpha(0.09 * body.glow * body.alpha);
       glow.setVisible(false);
 
-      const bodySprite = this.scene.add.circle(0, 0, body.radius, body.accent, 1);
-      bodySprite.setStrokeStyle(1, 0xfff7d1, 0.34 * body.alpha);
+      const bodySprite = this.scene.add.circle(0, 0, body.radius, body.color, 0.035);
+      bodySprite.setStrokeStyle(1, body.accent, 0.13 * body.alpha);
       bodySprite.setDepth(body.depth > 0.5 ? -8 : -9);
       bodySprite.setVisible(false);
       return { glow, body: bodySprite };
@@ -272,19 +273,19 @@ export class Starfield {
       const glow = this.scene.add.image(0, 0, this.getGlowTextureKey(body.accent));
       glow.setBlendMode(Phaser.BlendModes.ADD);
       glow.setDepth(-11);
-      glow.setDisplaySize(body.radius * 3.2, body.radius * 3.2);
-      glow.setAlpha(Math.min(0.45, 0.24 * body.glow * body.alpha));
+      glow.setDisplaySize(body.radius * 2.3, body.radius * 2.3);
+      glow.setAlpha(0.08 * body.glow * body.alpha);
       glow.setVisible(false);
 
-      const planet = this.scene.add.circle(0, 0, body.radius, body.color, 0.24 * body.alpha);
-      planet.setStrokeStyle(1, body.accent, 0.28 * body.alpha);
+      this.addRingSprites(container, body);
+      const planet = this.scene.add.circle(0, 0, body.radius, 0x090e12, 0.96);
+      planet.setStrokeStyle(1, body.accent, 0.24 * body.alpha);
       container.add(planet);
       this.addBodySurfaceLines(container, body);
-      this.addRingSprites(container, body);
       return { glow, body: container };
     }
 
-    const moon = this.scene.add.circle(0, 0, body.radius, body.color, 0.18 * body.alpha);
+    const moon = this.scene.add.circle(0, 0, body.radius, 0x0c1216, 0.9);
     moon.setStrokeStyle(1, body.accent, 0.32 * body.alpha);
     container.add(moon);
     this.addBodySurfaceLines(container, body);
@@ -324,19 +325,30 @@ export class Starfield {
     }
 
     const ringA = this.scene.add.ellipse(0, 0, body.radius * 3.8, body.radius * 1.08);
-    ringA.setStrokeStyle(2, body.accent, 0.18 * body.alpha);
+    ringA.setStrokeStyle(1, body.accent, 0.22 * body.alpha);
+    ringA.setRotation(-0.35);
     const ringB = this.scene.add.ellipse(0, 0, body.radius * 4.25, body.radius * 1.28);
     ringB.setStrokeStyle(1, body.accent, 0.08 * body.alpha);
+    ringB.setRotation(-0.35);
     container.add([ringA, ringB]);
   }
 
   private addBodySurfaceLines(container: Phaser.GameObjects.Container, body: CelestialBody): void {
-    const lineA = this.scene.add.line(0, 0, -body.radius * 0.42, -body.radius * 0.2, body.radius * 0.5, -body.radius * 0.34, body.accent, 0.12 * body.alpha);
-    container.add(lineA);
-    if (body.kind === 'planet') {
-      const lineB = this.scene.add.line(0, 0, -body.radius * 0.58, body.radius * 0.24, body.radius * 0.38, body.radius * 0.12, body.accent, 0.12 * body.alpha);
-      container.add(lineB);
+    // Static geometry is built once per field reset, never in the frame loop.
+    const surface = this.scene.add.graphics();
+    surface.fillStyle(body.color, 0.08 * body.alpha);
+    surface.fillEllipse(-body.radius * 0.25, 0, body.radius * 1.4, body.radius * 1.7);
+    surface.lineStyle(1, body.accent, 0.24 * body.alpha);
+    surface.beginPath();
+    surface.arc(0, 0, body.radius * 0.95, Math.PI * 0.85, Math.PI * 1.55);
+    surface.strokePath();
+    surface.lineStyle(1, body.accent, 0.1 * body.alpha);
+    for (let i = 0; i < 3; i += 1) {
+      const angle = body.phase + i * 2.1;
+      surface.strokeEllipse(Math.cos(angle) * body.radius * 0.45, Math.sin(angle) * body.radius * 0.45,
+        body.radius * 0.26, body.radius * 0.16);
     }
+    container.add(surface);
   }
 
   private positionBodySprites(sprites: CelestialSprites, x: number, y: number): void {

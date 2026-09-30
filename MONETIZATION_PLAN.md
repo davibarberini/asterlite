@@ -1,4 +1,4 @@
-# Asteridle Monetization Plan
+# Asterlite Monetization Plan
 
 This plan is intentionally not an implementation request. Monetization should only be built after the core loop, mid-game progression, and economy pacing are stable enough that paid or ad-based rewards do not distort the game.
 

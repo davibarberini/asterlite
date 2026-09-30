@@ -1,12 +1,10 @@
 import type { DroneState, DroneType, GameState, ProgressionState, ShieldBubbleState, ShipState } from './types';
 import { createAchievementStats, createUnlockedAchievements, getEffectiveMaxHp } from '../progression/achievements';
-import { createBossRewardState } from '../progression/bossRewards';
+import { createRunCardState } from '../progression/runCards';
 import { createGuidedMissionState } from '../progression/guidedMissions';
 import { getShipFrameBonusMultiplier } from '../progression/shipFrames';
 import { createShipUnlockProgress } from '../progression/shipUnlocks';
-import { createTalentRanks } from '../progression/talentTree';
-import { emitAudio } from './events';
-import { createAsteroidField } from './systems/asteroids';
+import { createStartingAsteroidField } from './systems/asteroids';
 import { createRareSpawnState } from './systems/rareSpawns';
 import { createSurvivalState } from './systems/survival';
 import { maxTravelLevel } from './zones';
@@ -26,7 +24,6 @@ const createShip = (width: number, height: number, progression: ProgressionState
     armor: progression.armor,
     alive: true,
     invulnerableFor: balance.ship.startingInvulnerableFor,
-    respawnFor: 0,
     fireCooldown: 0,
     turretAngle: -Math.PI / 2,
     phaseShieldCooldown: 0,
@@ -60,28 +57,10 @@ export const syncShieldBubbleState = (state: GameState): void => {
 };
 
 export const createProgression = (): ProgressionState => ({
-  passiveIncomeLevel: 0,
-  shipDamageLevel: 1,
-  shipFireRateLevel: 0,
   shipSpeedLevel: 0,
   deflectorLevel: 0,
-  droneDamageLevel: 1,
-  droneFireRateLevel: 0,
-  droneCounts: {
-    sentry: 0,
-    ranger: 0,
-    breaker: 0
-  },
-  activeDroneCounts: {
-    sentry: 0,
-    ranger: 0,
-    breaker: 0
-  },
-  talentRanks: createTalentRanks(),
   shipXp: 0,
   shipLevel: 1,
-  shipSkillPoints: 0,
-  spentShipSkillPoints: 0,
   mapUnlocked: false,
   travelLevel: 0,
   currentZoneIndex: 0,
@@ -102,13 +81,10 @@ export const createProgression = (): ProgressionState => ({
   activeShipFrameId: 'vector',
   unlockedShipFrameIds: ['vector'],
   shipUnlockProgress: createShipUnlockProgress(),
-  shipRuns: {},
   prestigeCores: 0,
   ownedWarpUnlockIds: [],
   announcedAffordableWarpUnlockIds: [],
-  maxHp: 100,
   armor: 0,
-  dronesPurchased: 0,
   achievementStats: createAchievementStats(),
   unlockedAchievements: createUnlockedAchievements()
 });
@@ -117,34 +93,23 @@ export const getDroneOrbitRadius = (_progression: ProgressionState, index: numbe
   return balance.drones.orbitRadius[type] + (index % 3) * balance.drones.orbitRadiusStep;
 };
 
-export const getOwnedDroneCount = (progression: ProgressionState): number =>
-  droneTypes.reduce((total, type) => total + progression.droneCounts[type], 0);
-
-export const getActiveDroneCounts = (progression: ProgressionState): Record<DroneType, number> => ({
-  sentry: Math.max(0, Math.min(progression.droneCounts.sentry, Math.floor(progression.activeDroneCounts.sentry))),
-  ranger: Math.max(0, Math.min(progression.droneCounts.ranger, Math.floor(progression.activeDroneCounts.ranger))),
-  breaker: Math.max(0, Math.min(progression.droneCounts.breaker, Math.floor(progression.activeDroneCounts.breaker)))
-});
-
-export const getActiveDroneCount = (progression: ProgressionState): number =>
-  droneTypes.reduce((total, type) => total + getActiveDroneCounts(progression)[type], 0);
-
 export const createDrone = (state: GameState, type: DroneType = 'sentry', index = state.drones.length): DroneState => ({
   id: state.nextId++,
   type,
   position: { ...state.ship.position },
-  angle: (index / Math.max(1, getActiveDroneCount(state.progression))) * Math.PI * 2,
+  angle: (index / Math.max(1, state.runCards.selectedStacks.sentryWing + state.runCards.selectedStacks.rangerWing + state.runCards.selectedStacks.breakerWing)) * Math.PI * 2,
   orbitRadius: getDroneOrbitRadius(state.progression, index, type),
   fireCooldown: balance.drones.initialFireCooldown.base + (index % balance.drones.initialFireCooldown.cycle) * balance.drones.initialFireCooldown.step
 });
 
 export const syncActiveDrones = (state: GameState): void => {
-  const activeDroneCounts = getActiveDroneCounts(state.progression);
-  state.progression.activeDroneCounts = activeDroneCounts;
+  const existingDrones = [...state.drones];
   state.drones = [];
   droneTypes.forEach((type) => {
-    for (let i = 0; i < activeDroneCounts[type]; i += 1) {
-      state.drones.push(createDrone(state, type));
+    const count = state.runCards.selectedStacks[type === 'sentry' ? 'sentryWing' : type === 'ranger' ? 'rangerWing' : 'breakerWing'];
+    const existing = existingDrones.filter((drone) => drone.type === type);
+    for (let i = 0; i < count; i += 1) {
+      state.drones.push(existing[i] ?? createDrone(state, type));
     }
   });
 };
@@ -166,16 +131,14 @@ export const createGameState = (width: number, height: number, progression = cre
   );
 
   const state: GameState = {
+    run: { elapsedSeconds: 0, asteroidsDestroyed: 0, coresEarned: 0, survivalMilestones: 0 },
     width,
     height,
     camera: { x: width / 2, y: height / 2 },
     money,
     crystals: 0,
-    lastRepairCost: 0,
-    lastOfflineEarnings: 0,
-    deathPenaltyFor: 0,
     droneRebootFor: 0,
-    bossRewards: createBossRewardState(),
+    runCards: createRunCardState(),
     rareSpawns: createRareSpawnState(),
     phase: 'playing',
     ship: createShip(width, height, progression),
@@ -184,11 +147,13 @@ export const createGameState = (width: number, height: number, progression = cre
     drones: [],
     progression: normalizedProgression,
     asteroids: [],
+    asteroidDestructionEvents: [],
     hazards: [],
     survivalEvents: [],
     bullets: [],
     particles: [],
     levelShockwaves: [],
+    flameWaves: [],
     audioEvents: [],
     rewardEvents: [],
     pendingBoss: null,
@@ -200,12 +165,6 @@ export const createGameState = (width: number, height: number, progression = cre
 
   syncActiveDrones(state);
 
-  state.asteroids = createAsteroidField(state);
+  state.asteroids = createStartingAsteroidField(state);
   return state;
-};
-
-export const resetShip = (state: GameState): void => {
-  state.ship = createShip(state.width, state.height, state.progression, { ...state.ship.position });
-  state.phase = 'playing';
-  emitAudio(state, { type: 'shipRespawned' });
 };

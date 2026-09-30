@@ -6,8 +6,8 @@ import {
 } from '../../game/progression/shipFrames';
 import { SHIP_UNLOCK_DEFINITIONS, getShipUnlockProgress, getShipUnlockProgressLabel } from '../../game/progression/shipUnlocks';
 import type { GameState, ShipFrameId } from '../../game/simulation/types';
-import { formatCrystalUnit, type LanguageCode } from '../../game/i18n';
-import { NIVITRON_HAND_DIAMOND_CENTER, NIVITRON_HAND_PATHS, NIVITRON_HAND_VIEWBOX } from '../view/nivitronHandShape';
+import type { LanguageCode } from '../../game/i18n';
+import { createShipFramePreview } from './shipPreview';
 
 type HangarRenderOptions = {
   state: GameState;
@@ -57,7 +57,7 @@ export class HangarController {
     kicker.className = 'action-panel__kicker';
     kicker.textContent = 'Hangar';
     const title = document.createElement('strong');
-    title.textContent = options.language === 'pt-BR' ? 'Naves e progresso individual' : 'Ships and individual progress';
+    title.textContent = options.language === 'pt-BR' ? 'Coleção de naves' : 'Ship collection';
     titleWrap.append(kicker, title);
 
     const button = document.createElement('button');
@@ -79,11 +79,10 @@ export class HangarController {
       .forEach((frame) => {
         const unlocked = options.state.progression.unlockedShipFrameIds.includes(frame.id);
         const active = options.state.progression.activeShipFrameId === frame.id;
-        const run = this.getShipFrameRunSummary(options.state, frame.id);
-        const item = document.createElement('button');
+                const item = document.createElement('button');
         item.className = 'ship-frame-item';
         item.type = 'button';
-        item.disabled = active;
+        item.disabled = active || (unlocked && options.state.phase !== 'ended');
         item.addEventListener('click', () => {
           if (unlocked) {
             options.onSwitchShipFrame(frame.id);
@@ -96,12 +95,11 @@ export class HangarController {
         });
         item.classList.toggle('is-locked', !unlocked);
         item.classList.toggle('is-active', active);
-        item.classList.toggle('has-run', Boolean(run));
         if (!unlocked) {
           item.setAttribute('aria-label', `${frame.name}: ${this.getShipUnlockDescription(options.language, frame.id)}`);
         }
 
-        const preview = this.createShipFramePreview(frame.id);
+        const preview = createShipFramePreview(frame.id);
         const body = document.createElement('span');
         body.className = 'ship-frame-item__body';
 
@@ -124,9 +122,9 @@ export class HangarController {
 
         const stats = document.createElement('span');
         stats.className = 'ship-frame-item__stats';
-        stats.textContent = run
-          ? `${options.formatMoney(run.money)} · ${run.crystals} ${formatCrystalUnit(options.language, run.crystals)} · D${run.damageLevel}/A${run.fireRateLevel}`
-          : (unlocked ? (options.language === 'pt-BR' ? 'Slot novo' : 'Fresh slot') : `${getShipUnlockProgressLabel(options.state.progression, frame.id)} · ${this.getShipFrameBonusText(options.language, frame.id)}`);
+        stats.textContent = unlocked
+          ? this.getShipFrameBonusText(options.language, frame.id)
+          : getShipUnlockProgressLabel(options.state.progression, frame.id);
 
         body.append(header, meta, stats);
         item.append(preview, body);
@@ -183,71 +181,6 @@ export class HangarController {
     detail.replaceChildren(header, objective, progressRow, progressBar);
   }
 
-  private getShipFrameRunSummary(state: GameState, id: ShipFrameId): { money: number; crystals: number; damageLevel: number; fireRateLevel: number } | null {
-    if (id === state.progression.activeShipFrameId) {
-      return {
-        money: state.money,
-        crystals: state.crystals,
-        damageLevel: state.progression.shipDamageLevel,
-        fireRateLevel: state.progression.shipFireRateLevel
-      };
-    }
-
-    const run = state.progression.shipRuns[id];
-    if (!run) {
-      return null;
-    }
-
-    return {
-      money: run.money,
-      crystals: run.crystals,
-      damageLevel: run.shipDamageLevel,
-      fireRateLevel: run.shipFireRateLevel
-    };
-  }
-
-  private createShipFramePreview(id: ShipFrameId): Element {
-    const frame = SHIP_FRAME_BY_ID[id];
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.classList.add('ship-frame-preview');
-    svg.setAttribute('viewBox', id === 'nivitron' ? NIVITRON_HAND_VIEWBOX : '-26 -24 52 48');
-    svg.setAttribute('aria-hidden', 'true');
-
-    if (id === 'nivitron') {
-      const handPaths = NIVITRON_HAND_PATHS.map((pathData) => {
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        path.setAttribute('class', 'ship-frame-preview__hull ship-frame-preview__hull--nivitron');
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('stroke-linejoin', 'round');
-        return path;
-      });
-
-      const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      diamond.setAttribute(
-        'points',
-        `${NIVITRON_HAND_DIAMOND_CENTER.x},${NIVITRON_HAND_DIAMOND_CENTER.y - 2.8} ${NIVITRON_HAND_DIAMOND_CENTER.x + 2.8},${NIVITRON_HAND_DIAMOND_CENTER.y} ${NIVITRON_HAND_DIAMOND_CENTER.x},${NIVITRON_HAND_DIAMOND_CENTER.y + 2.8} ${NIVITRON_HAND_DIAMOND_CENTER.x - 2.8},${NIVITRON_HAND_DIAMOND_CENTER.y}`
-      );
-      diamond.setAttribute('class', 'ship-frame-preview__core');
-      svg.append(...handPaths, diamond);
-      return svg;
-    }
-
-    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    polygon.setAttribute('points', frame.shape.map((point) => `${point.x},${point.y}`).join(' '));
-    polygon.setAttribute('class', 'ship-frame-preview__hull');
-
-    const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    core.setAttribute('cx', '0');
-    core.setAttribute('cy', '0');
-    core.setAttribute('r', '4');
-    core.setAttribute('class', 'ship-frame-preview__core');
-
-    svg.append(polygon, core);
-    return svg;
-  }
-
   private getShipFrameBonusText(language: LanguageCode, id: ShipFrameId): string {
     const frame = SHIP_FRAME_BY_ID[id];
     const bonuses = frame.bonuses;
@@ -263,9 +196,6 @@ export class HangarController {
     }
     if (bonuses.maxHpMultiplier) {
       parts.push(language === 'pt-BR' ? 'Vida' : 'Hull');
-    }
-    if (bonuses.incomeMultiplier) {
-      parts.push(language === 'pt-BR' ? 'Renda' : 'Income');
     }
     return parts.join(' + ');
   }

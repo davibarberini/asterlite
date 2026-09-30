@@ -24,7 +24,6 @@ export type ShipFrameDefinition = {
     fireRateMultiplier?: number;
     speedMultiplier?: number;
     maxHpMultiplier?: number;
-    incomeMultiplier?: number;
   };
 };
 
@@ -113,8 +112,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
       { x: 3, y: -10 }
     ],
     bonuses: {
-      damageMultiplier: 1.08,
-      incomeMultiplier: 1.08
+      damageMultiplier: 1.08
     }
   },
   {
@@ -150,8 +148,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
       { x: 8, y: -13 }
     ],
     bonuses: {
-      maxHpMultiplier: 1.18,
-      incomeMultiplier: 1.04
+      maxHpMultiplier: 1.18
     }
   },
   {
@@ -216,8 +213,7 @@ export const SHIP_FRAME_DEFINITIONS: ShipFrameDefinition[] = [
     ],
     bonuses: {
       damageMultiplier: 1.08,
-      speedMultiplier: 1.08,
-      incomeMultiplier: 1.08
+      speedMultiplier: 1.08
     }
   },
   {

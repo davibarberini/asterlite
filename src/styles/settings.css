@@ -68,3 +68,10 @@
   margin: 0;
   color: rgba(198, 222, 238, 0.76);
 }
+
+.settings-devtools-actions .input-mode-option {
+  min-height: 44px;
+  padding: 6px 8px;
+  line-height: 1.15;
+  white-space: normal;
+}

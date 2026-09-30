@@ -1,4 +1,4 @@
-name: Deploy web build to asteridle
+name: Deploy web build to asterlite
 
 on:
   push:
@@ -26,13 +26,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
 
-      - name: Push dist to davibarberini/asteridle
+      - name: Push dist to davibarberini/asterlite
         env:
-          DEPLOY_TOKEN: ${{ secrets.ASTERIDLE_DEPLOY_TOKEN }}
+          DEPLOY_TOKEN: ${{ secrets.ASTERLITE_DEPLOY_TOKEN }}
         run: |
           if [ -z "$DEPLOY_TOKEN" ]; then
-            echo "ASTERIDLE_DEPLOY_TOKEN is not configured. Skipping deploy."
-            echo "Add a PAT with repo write access to asteridle in asteride-repo secrets."
+            echo "ASTERLITE_DEPLOY_TOKEN is not configured. Skipping deploy."
+            echo "Add a PAT with repo write access to asterlite in this repo secrets."
             exit 0
           fi
 
@@ -41,6 +41,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "deploy: asteride-repo @ ${GITHUB_SHA::7}"
-          git remote add deploy "https://x-access-token:${DEPLOY_TOKEN}@github.com/davibarberini/asteridle.git"
+          git commit -m "deploy: asterlite @ ${GITHUB_SHA::7}"
+          git remote add deploy "https://x-access-token:${DEPLOY_TOKEN}@github.com/davibarberini/asterlite.git"
           git push deploy HEAD:main --force
