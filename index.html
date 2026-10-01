@@ -12,8 +12,8 @@
     <link rel="icon" href="/asterlite/pwa-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/asterlite/pwa-icon.svg" />
     <title>Asterlite</title>
-    <script type="module" crossorigin src="/asterlite/assets/index-CUtgczf0.js"></script>
-    <link rel="stylesheet" crossorigin href="/asterlite/assets/index-DAdto5PE.css">
+    <script type="module" crossorigin src="/asterlite/assets/index-BJxB7YFI.js"></script>
+    <link rel="stylesheet" crossorigin href="/asterlite/assets/index-DobuWlU_.css">
   </head>
   <body>
     <div id="app">
@@ -50,6 +50,7 @@
           <span></span>
         </div>
       </section>
+      <button class="settings-toggle" id="settings-toggle" type="button" aria-label="Open settings" aria-expanded="false" data-ui-icon="settings"></button>
       <div id="hud">
         <section class="hud-panel hud-panel--left">
           <div class="money-readout">
@@ -99,13 +100,6 @@
             <span class="route-toggle__icon" data-ui-icon="route" aria-hidden="true"></span>
             <span id="route-target" class="route-toggle__label">Route</span>
           </button>
-          <button class="map-toggle is-hidden" id="map-toggle" type="button" aria-label="Open zone map" disabled>
-            <span class="map-toggle__icon" data-ui-icon="map" aria-hidden="true"></span>
-            <span id="sector" class="map-toggle__label">Map</span>
-          </button>
-          <div class="settings-control-panel">
-            <button class="settings-toggle" id="settings-toggle" type="button" aria-label="Open settings" aria-expanded="false" data-ui-icon="settings"></button>
-          </div>
         </div>
       </div>
       <div id="idle-dock" aria-label="Idle systems">
@@ -123,13 +117,6 @@
           <div class="shop-stats" id="shop-stats"></div>
           <div class="shop-actions" id="shop-actions"></div>
         </section>
-        <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-ui-icon="menu"></button>
-        <nav class="bottom-nav" aria-label="Shop tabs">
-          <button class="nav-button" type="button" data-tab="map">Map</button>
-          <button class="nav-button" type="button" data-tab="warp">Technologies</button>
-          <button class="nav-button" type="button" data-tab="hangar">Hangar</button>
-          <button class="nav-button" type="button" data-tab="achievements">Achievements</button>
-        </nav>
       </div>
       <div id="ui-modal" class="ui-modal is-hidden" aria-hidden="true">
         <div id="ui-modal-backdrop" class="ui-modal__backdrop"></div>
