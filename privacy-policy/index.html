@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#050a0e">
-    <meta name="description" content="Política de privacidade do jogo Asterlite.">
+    <meta name="description" content="Política de privacidade do Asterlite: conta, progresso, compras e anúncios opcionais.">
     <link rel="canonical" href="https://davibarberini.github.io/asterlite/privacy-policy/">
     <link rel="stylesheet" href="./privacy-policy.css">
     <title>Política de privacidade · Asterlite</title>
@@ -13,89 +13,106 @@
     <main class="policy-shell">
       <a class="back-link" href="../">← Voltar para Asterlite</a>
       <header class="policy-hero">
-        <p class="eyebrow">ASTERLITE · TRANSMISSION 05</p>
+        <p class="eyebrow">ASTERLITE · PRIVACY CHANNEL</p>
         <h1>Política de privacidade</h1>
-        <p class="hero-copy">Como protegemos os dados da sua tripulação durante cada run.</p>
-        <p class="updated">Última atualização: 7 de outubro de 2026</p>
+        <p class="hero-copy">Como os dados da sua tripulação são usados durante cada run.</p>
+        <p class="updated">Última atualização: 1 de novembro de 2026</p>
       </header>
 
       <section class="signal-card" aria-label="Resumo do estado atual">
         <span class="signal-dot" aria-hidden="true"></span>
         <div>
-          <strong>Estado atual do jogo</strong>
-          <p>O Asterlite não exige conta, não usa cloud save e não tem compras ativas. O progresso fica no dispositivo. Anúncios rewarded existem somente no app nativo e são opcionais.</p>
+          <strong>Sua conta. Suas escolhas.</strong>
+          <p>Você pode jogar como visitante. Nos apps nativos, há login opcional com Apple no iOS e Google no Android. Contas vinculadas usam carteira e inventário no servidor; as compras estão em testes sandbox. Os anúncios recompensados são opcionais e usam inventário de teste nesta fase.</p>
         </div>
       </section>
 
       <nav class="contents" aria-label="Índice">
-        <a href="#dados">Dados tratados</a>
+        <a href="#dados">Dados e conta</a>
         <a href="#anuncios">Anúncios</a>
-        <a href="#armazenamento">Armazenamento local</a>
+        <a href="#compras">Compras</a>
+        <a href="#armazenamento">Armazenamento</a>
         <a href="#direitos">Seus controles</a>
         <a href="#contato">Contato</a>
       </nav>
 
       <article class="policy-card">
         <section id="dados">
-          <p class="section-kicker">01 · TELEMETRIA</p>
-          <h2>Quais dados tratamos</h2>
-          <p>O Asterlite é um jogo mobile-first de ficção científica. Na versão atual, você pode jogar como visitante: não pedimos nome, e-mail, senha, contatos, localização precisa ou uma conta para iniciar uma partida.</p>
-          <p>O jogo guarda localmente no aparelho ou navegador os dados necessários para continuar a experiência, como progresso, preferências, idioma, áudio e estado da partida. Esses dados não são enviados para um servidor pelo jogo atual.</p>
-          <p>O app pode receber informações técnicas necessárias para funcionar, como modelo do aparelho, sistema operacional, versão do app, estado da rede e diagnósticos fornecidos pela plataforma ou por bibliotecas nativas. Não usamos esses dados para identificar você diretamente.</p>
+          <p class="section-kicker">01 · IDENTIDADE DA TRIPULAÇÃO</p>
+          <h2>Dados e login opcional</h2>
+          <p>O Asterlite é um jogo de ficção científica desenvolvido por Davi Barberini. Uma conta não é necessária para jogar como visitante. Para vincular uma conta e usar os recursos de carteira e compras disponíveis no app nativo, você pode entrar com Apple no iOS ou Google no Android.</p>
+          <p>A autenticação é processada pelo provedor escolhido e pelo Supabase Auth. Eles podem tratar seu identificador de conta, e-mail e informações básicas de perfil disponibilizadas pelo provedor. O login Apple pode fornecer um endereço de retransmissão quando você escolhe ocultar seu e-mail. O jogo não recebe sua senha Apple ou Google.</p>
+          <p>No aparelho, mantemos tokens de sessão para recuperar seu login. Nosso backend recebe a sessão autenticada, verifica sua validade e associa a conta a identificadores internos. Um identificador interno, em vez da sua senha, é usado para vincular as compras no RevenueCat.</p>
+          <p>Também tratamos dados de progresso e preferências necessários ao jogo, como idioma, áudio, nave selecionada, desbloqueios e estado da partida. Na conta vinculada, o servidor mantém saldo, inventário, revisões e registros das operações para confirmar ações e impedir duplicação ou fraude. Não solicitamos contatos, fotos ou localização precisa.</p>
         </section>
 
         <section id="anuncios">
           <p class="section-kicker">02 · SINAL REWARDED</p>
           <h2>Anúncios opcionais</h2>
-          <p>Nas versões nativas, o Asterlite pode oferecer um anúncio rewarded opcional para uma única oportunidade de reviver na run. O anúncio não é obrigatório para jogar, não aparece durante uma partida sem sua ação e a versão atual não exibe intersticiais.</p>
-          <p>O provedor de anúncios é o Google AdMob. Conforme a região, o consentimento e a configuração aplicáveis, o SDK do AdMob pode coletar ou compartilhar identificadores de publicidade, endereço IP, informações do dispositivo, país aproximado, desempenho do anúncio e eventos de interação para entregar, limitar, medir ou evitar fraude em anúncios.</p>
-          <p>Você pode recusar ou alterar as opções de privacidade no próprio jogo quando a plataforma solicitar. Recusar anúncios não impede o uso normal do Asterlite. Durante o desenvolvimento, usamos inventário oficial de teste; anúncios de teste não geram receita.</p>
-          <p>Para saber como o Google trata dados, consulte a <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Política de privacidade do Google</a> e as opções de anúncios da sua conta.</p>
+          <p>Nos apps nativos, você pode escolher assistir a um anúncio recompensado para receber um benefício indicado na tela, como reviver ou refazer uma escolha. O anúncio não é obrigatório para jogar e a versão atual não exibe intersticiais automáticos. Nesta fase de desenvolvimento, usamos anúncios de demonstração do Google, que não geram receita.</p>
+          <p>O SDK do Google AdMob pode coletar e compartilhar endereço IP, localização aproximada derivada do IP, identificadores do dispositivo ou de publicidade, interações com anúncios, diagnósticos e dados de desempenho. O tratamento serve à entrega e medição dos anúncios, à segurança e à prevenção de fraude, conforme as configurações e escolhas aplicáveis.</p>
+          <p>Quando aplicável à região, o Google User Messaging Platform (UMP) apresenta opções de consentimento e permite gerenciá-las pelo controle de privacidade de anúncios no jogo. Se houver solicitação de rastreamento no iOS, ela depende de uma autorização separada da Apple. Você pode recusar o rastreamento e continuar jogando; a disponibilidade ou personalização dos anúncios pode variar.</p>
+          <p>Consulte a <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Política de privacidade do Google</a> e a <a href="https://developers.google.com/admob/ios/privacy/data-disclosure" rel="noopener noreferrer">descrição de dados do SDK AdMob</a>.</p>
         </section>
 
         <section id="compras">
-          <p class="section-kicker">03 · ECONOMIA</p>
-          <h2>Compras e pagamentos</h2>
-          <p>A loja exibida no jogo é atualmente um catálogo de preparação: os botões de compra estão desativados. O Asterlite não recebe número de cartão, dados bancários ou dinheiro nesta versão.</p>
-          <p>Se compras de créditos ou cristais forem ativadas no futuro, a App Store ou o Google Play processarão o pagamento. Antes de qualquer lançamento com dinheiro real, documentaremos os dados e controles envolvidos e atualizaremos esta política.</p>
+          <p class="section-kicker">03 · ECONOMIA DE BORDO</p>
+          <h2>Compras, validação e carteira</h2>
+          <p>Os apps nativos têm integração de pacotes consumíveis de créditos e cristais com a App Store ou o Google Play e com o RevenueCat. A integração está sendo validada em ambiente sandbox. A compra no TestFlight usa o ambiente de testes da Apple; confira sempre a identificação do ambiente na tela da loja.</p>
+          <p>A loja processa o pagamento. O Asterlite não recebe número completo de cartão, código de segurança ou sua senha da loja. RevenueCat e nosso backend tratam identificadores de produto e transação, vínculo com a conta, quantidade e estado de compra ou reembolso para verificar a operação e atualizar a carteira. O SDK também pode tratar informações técnicas do app e do dispositivo conforme a política do serviço.</p>
+          <p>O sucesso da tela de pagamento, sozinho, não concede saldo: o servidor confirma a transação e mantém um histórico para evitar crédito duplicado, recuperar operações pendentes e tratar reembolsos. Dados de sandbox não equivalem a saldo de produção.</p>
+          <p>Consulte as políticas da <a href="https://www.apple.com/legal/privacy/" rel="noopener noreferrer">Apple</a>, do <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google</a> e do <a href="https://www.revenuecat.com/privacy" rel="noopener noreferrer">RevenueCat</a>.</p>
         </section>
 
         <section id="armazenamento">
           <p class="section-kicker">04 · MEMÓRIA DE BORDO</p>
-          <h2>Armazenamento e exclusão</h2>
-          <p>O progresso local pode ser removido apagando os dados do app, desinstalando o app ou limpando o armazenamento do navegador/PWA. Essa ação pode apagar permanentemente a progressão que não tenha sido exportada ou sincronizada.</p>
-          <p>Não há conta Asterlite nem banco de dados de perfil para excluir na versão atual. Se login, cloud save ou carteira de compras forem adicionados, ofereceremos controles próprios para acesso, correção e exclusão e atualizaremos esta página.</p>
+          <h2>Onde os dados ficam e por quanto tempo</h2>
+          <p>O progresso de visitante e as preferências ficam no armazenamento do aparelho ou navegador. A conta vinculada usa também armazenamento local de sessão e perfil, enquanto a carteira, o inventário e os registros de operações ficam no servidor. Isso não representa um backup automático completo de todas as partidas nem uma fusão automática entre o progresso de visitante e a conta.</p>
+          <p>Apagar os dados do app, desinstalá-lo ou limpar o armazenamento do navegador pode remover os dados locais. Isso não exclui, por si só, a conta no Supabase, a carteira ou o histórico de transações no servidor. Sair da conta encerra a sessão local, sem apagar esses registros remotos.</p>
+          <p>Mantemos os dados necessários enquanto a conta e seus recursos forem usados. Registros de operações, segurança, reembolso e prevenção de duplicação podem precisar ser conservados para atender obrigações aplicáveis e resolver disputas, inclusive após uma solicitação de exclusão. A avaliação depende do tipo de registro e da finalidade; dados não necessários devem ser excluídos ou anonimizados quando possível.</p>
+          <p>Usamos serviços de infraestrutura como Supabase, Google Cloud e GitHub Pages. Dados podem ser processados em outros países, conforme a infraestrutura e as políticas desses provedores. Ao acessar o site, o provedor de hospedagem também pode tratar informações técnicas da conexão, como IP e registros de acesso.</p>
         </section>
 
         <section id="direitos">
           <p class="section-kicker">05 · CONTROLE DA TRIPULAÇÃO</p>
-          <h2>Seus controles</h2>
+          <h2>Seus controles e solicitações</h2>
           <ul>
-            <li>Jogar sem criar uma conta.</li>
-            <li>Recusar anúncios opcionais e alterar as opções de privacidade disponíveis no app.</li>
-            <li>Apagar o progresso local pelas configurações do aparelho ou navegador.</li>
+            <li>Jogar como visitante, sem vincular uma conta.</li>
+            <li>Sair da conta e apagar os dados locais pelo aparelho ou navegador.</li>
+            <li>Recusar anúncios opcionais e alterar as opções de privacidade disponíveis.</li>
+            <li>Gerenciar as permissões de Apple, Google e rastreamento nas configurações desses serviços.</li>
+            <li>Solicitar informações, acesso, correção ou exclusão de dados pelo contato abaixo, conforme os direitos aplicáveis.</li>
           </ul>
-          <p>Não vendemos dados pessoais e não usamos o progresso local para publicidade comportamental. Um canal privado de privacidade será publicado nesta página antes de qualquer lançamento que exija solicitações formais de acesso ou exclusão.</p>
+          <p>Para solicitações sobre conta e dados, escreva para <a href="mailto:barberiniservices@gmail.com">barberiniservices@gmail.com</a>. Podemos precisar confirmar sua identidade antes de tratar informações da conta. A versão de testes ainda não possui exclusão automática de conta dentro do app; as solicitações devem ser encaminhadas por e-mail. Explicaremos eventuais limitações de retenção aplicáveis.</p>
+          <p>Não comercializamos diretamente seu cadastro de conta. Compartilhamos dados com os serviços necessários às funções descritas nesta política, incluindo autenticação, infraestrutura, compras e anúncios, respeitando as escolhas e configurações aplicáveis. O uso de dados pelos serviços de publicidade está descrito na seção de anúncios. Se você é responsável por uma criança e acredita que ela forneceu dados indevidamente, entre em contato para análise.</p>
         </section>
 
         <section id="terceiros">
           <p class="section-kicker">06 · SISTEMAS EXTERNOS</p>
-          <h2>Serviços de terceiros</h2>
-          <p>O jogo pode depender de serviços da plataforma (Google Play, App Store e sistemas do aparelho) e, nas versões nativas, Google AdMob. Cada serviço tem seus próprios termos e políticas. O Asterlite não controla práticas de privacidade de terceiros; recomendamos ler as políticas deles antes de usar esses recursos.</p>
+          <h2>Serviços utilizados</h2>
+          <ul>
+            <li>Apple e Google: autenticação e processamento de compras nas respectivas plataformas.</li>
+            <li><a href="https://supabase.com/privacy" rel="noopener noreferrer">Supabase</a>: autenticação e infraestrutura de dados.</li>
+            <li><a href="https://www.revenuecat.com/privacy" rel="noopener noreferrer">RevenueCat</a>: validação e acompanhamento das compras.</li>
+            <li><a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google AdMob, UMP e Google Cloud</a>: anúncios, opções de consentimento e infraestrutura do backend.</li>
+            <li><a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub Pages</a>: hospedagem do site e desta política.</li>
+          </ul>
+          <p>Esses serviços têm práticas próprias, descritas nos links acima. O vínculo da conta e a confirmação de compras exigem conexão com os serviços correspondentes.</p>
         </section>
 
         <section id="mudancas">
           <p class="section-kicker">07 · CARTA DE NAVEGAÇÃO</p>
           <h2>Alterações nesta política</h2>
-          <p>Podemos atualizar esta página quando o jogo mudar, especialmente se adicionarmos conta, sincronização, compras, analytics ou novos parceiros. A data no topo indicará a versão mais recente. Mudanças relevantes serão descritas no jogo ou nas notas da atualização quando aplicável.</p>
+          <p>Atualizaremos esta página quando mudarem as funcionalidades ou as práticas de tratamento de dados, incluindo a liberação de pagamentos em produção, novos provedores ou controles de conta. A data no topo indica a versão mais recente. Mudanças relevantes serão comunicadas pelo jogo ou pelas notas de atualização, quando aplicável.</p>
         </section>
 
         <section id="contato" class="contact-section">
           <p class="section-kicker">08 · CANAL ABERTO</p>
-          <h2>Contato</h2>
-          <p>O responsável atual pelo projeto é Davi Barberini. Para acompanhar o projeto e enviar dúvidas gerais, use o perfil do desenvolvedor:</p>
-          <a class="contact-link" href="https://github.com/davibarberini" rel="noopener noreferrer">github.com/davibarberini ↗</a>
-          <p class="small-note">Não inclua senha, token, dados de pagamento ou outras informações sensíveis em uma issue pública. Para uma solicitação formal de privacidade, aguarde o canal privado que será indicado nesta página antes do lançamento comercial.</p>
+          <h2>Contato de privacidade e suporte</h2>
+          <p>Responsável pelo Asterlite: Davi Barberini.</p>
+          <a class="contact-link" href="mailto:barberiniservices@gmail.com">barberiniservices@gmail.com</a>
+          <p>Use esse e-mail para dúvidas, suporte e solicitações relacionadas aos seus dados e à sua conta.</p>
+          <p class="small-note">Nunca envie senhas, tokens de sessão, chaves ou dados completos de pagamento. Não publique informações pessoais em issues públicas.</p>
         </section>
       </article>
 
