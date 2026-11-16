@@ -16,14 +16,14 @@
         <p class="eyebrow">ASTERLITE · PRIVACY CHANNEL</p>
         <h1>Política de privacidade</h1>
         <p class="hero-copy">Como os dados da sua tripulação são usados durante cada run.</p>
-        <p class="updated">Última atualização: 1 de novembro de 2026</p>
+        <p class="updated">Última atualização: 16 de novembro de 2026 · <a href="#privacy-english" lang="en">English</a></p>
       </header>
 
       <section class="signal-card" aria-label="Resumo do estado atual">
         <span class="signal-dot" aria-hidden="true"></span>
         <div>
           <strong>Sua conta. Suas escolhas.</strong>
-          <p>Você pode jogar como visitante. Nos apps nativos, há login opcional com Apple no iOS e Google no Android. Contas vinculadas usam carteira e inventário no servidor; as compras estão em testes sandbox. Os anúncios recompensados são opcionais e usam inventário de teste nesta fase.</p>
+          <p>Você pode jogar como visitante. Nos apps nativos, há login opcional com Apple no iOS e Google no Android. Contas vinculadas usam carteira e inventário no servidor. Compras e anúncios recompensados são opcionais; versões de teste usam ambientes separados da produção.</p>
         </div>
       </section>
 
@@ -44,21 +44,23 @@
           <p>A autenticação é processada pelo provedor escolhido e pelo Supabase Auth. Eles podem tratar seu identificador de conta, e-mail e informações básicas de perfil disponibilizadas pelo provedor. O login Apple pode fornecer um endereço de retransmissão quando você escolhe ocultar seu e-mail. O jogo não recebe sua senha Apple ou Google.</p>
           <p>No aparelho, mantemos tokens de sessão para recuperar seu login. Nosso backend recebe a sessão autenticada, verifica sua validade e associa a conta a identificadores internos. Um identificador interno, em vez da sua senha, é usado para vincular as compras no RevenueCat.</p>
           <p>Também tratamos dados de progresso e preferências necessários ao jogo, como idioma, áudio, nave selecionada, desbloqueios e estado da partida. Na conta vinculada, o servidor mantém saldo, inventário, revisões e registros das operações para confirmar ações e impedir duplicação ou fraude. Não solicitamos contatos, fotos ou localização precisa.</p>
+          <p>Para calcular recompensas de contas conectadas, o servidor registra a sessão da partida, sinais periódicos de atividade ou pausa, tempo confirmado e recibos de encerramento. O celular não pode enviar um valor de moeda como prova de recompensa. Esses dados são usados para conceder benefícios, limitar abuso e recuperar operações interrompidas.</p>
         </section>
 
         <section id="anuncios">
           <p class="section-kicker">02 · SINAL REWARDED</p>
           <h2>Anúncios opcionais</h2>
-          <p>Nos apps nativos, você pode escolher assistir a um anúncio recompensado para receber um benefício indicado na tela, como reviver ou refazer uma escolha. O anúncio não é obrigatório para jogar e a versão atual não exibe intersticiais automáticos. Nesta fase de desenvolvimento, usamos anúncios de demonstração do Google, que não geram receita.</p>
-          <p>O SDK do Google AdMob pode coletar e compartilhar endereço IP, localização aproximada derivada do IP, identificadores do dispositivo ou de publicidade, interações com anúncios, diagnósticos e dados de desempenho. O tratamento serve à entrega e medição dos anúncios, à segurança e à prevenção de fraude, conforme as configurações e escolhas aplicáveis.</p>
+          <p>Nos apps nativos, você pode escolher assistir a um anúncio recompensado para receber um benefício indicado na tela, como reviver ou refazer uma escolha. O anúncio não é obrigatório para jogar e a versão atual não exibe intersticiais automáticos. Versões distribuídas podem usar anúncios reais do Google AdMob; ambientes de teste podem usar anúncios de demonstração.</p>
+          <p>O SDK do Google AdMob pode coletar e compartilhar endereço IP, localização aproximada derivada do IP, identificadores do dispositivo ou de publicidade, anúncios visualizados, interações com o app e anúncios, registros de falhas, dados de desempenho e outros diagnósticos técnicos. O tratamento serve à publicidade, à entrega e medição dos anúncios, à análise, à segurança e à prevenção de fraude, conforme as configurações e escolhas aplicáveis. O UMP também trata informações necessárias às opções de consentimento. Dados de anúncios e identificadores podem estar associados ao dispositivo mesmo sem uma conta vinculada.</p>
           <p>Quando aplicável à região, o Google User Messaging Platform (UMP) apresenta opções de consentimento e permite gerenciá-las pelo controle de privacidade de anúncios no jogo. Se houver solicitação de rastreamento no iOS, ela depende de uma autorização separada da Apple. Você pode recusar o rastreamento e continuar jogando; a disponibilidade ou personalização dos anúncios pode variar.</p>
+          <p>Quando autorizado e aplicável, identificadores de publicidade podem ser usados pelos serviços de anúncios para relacionar atividades entre apps e sites de outras empresas para publicidade personalizada ou medição. Não enviamos seu nome ou e-mail de login ao AdMob para essa finalidade. A permissão de rastreamento pode ser alterada nos Ajustes do iOS.</p>
           <p>Consulte a <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Política de privacidade do Google</a> e a <a href="https://developers.google.com/admob/ios/privacy/data-disclosure" rel="noopener noreferrer">descrição de dados do SDK AdMob</a>.</p>
         </section>
 
         <section id="compras">
           <p class="section-kicker">03 · ECONOMIA DE BORDO</p>
           <h2>Compras, validação e carteira</h2>
-          <p>Os apps nativos têm integração de pacotes consumíveis de créditos e cristais com a App Store ou o Google Play e com o RevenueCat. A integração está sendo validada em ambiente sandbox. A compra no TestFlight usa o ambiente de testes da Apple; confira sempre a identificação do ambiente na tela da loja.</p>
+          <p>Os apps nativos oferecem pacotes consumíveis de créditos e cristais por meio da App Store ou do Google Play, com validação pelo RevenueCat e pelo nosso servidor. Preços e confirmação de pagamento são apresentados pela loja da plataforma. Compras do TestFlight usam o ambiente de testes da Apple, separado da produção.</p>
           <p>A loja processa o pagamento. O Asterlite não recebe número completo de cartão, código de segurança ou sua senha da loja. RevenueCat e nosso backend tratam identificadores de produto e transação, vínculo com a conta, quantidade e estado de compra ou reembolso para verificar a operação e atualizar a carteira. O SDK também pode tratar informações técnicas do app e do dispositivo conforme a política do serviço.</p>
           <p>O sucesso da tela de pagamento, sozinho, não concede saldo: o servidor confirma a transação e mantém um histórico para evitar crédito duplicado, recuperar operações pendentes e tratar reembolsos. Dados de sandbox não equivalem a saldo de produção.</p>
           <p>Consulte as políticas da <a href="https://www.apple.com/legal/privacy/" rel="noopener noreferrer">Apple</a>, do <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google</a> e do <a href="https://www.revenuecat.com/privacy" rel="noopener noreferrer">RevenueCat</a>.</p>
@@ -83,7 +85,8 @@
             <li>Gerenciar as permissões de Apple, Google e rastreamento nas configurações desses serviços.</li>
             <li>Solicitar informações, acesso, correção ou exclusão de dados pelo contato abaixo, conforme os direitos aplicáveis.</li>
           </ul>
-          <p>Para solicitações sobre conta e dados, escreva para <a href="mailto:barberiniservices@gmail.com">barberiniservices@gmail.com</a>. Podemos precisar confirmar sua identidade antes de tratar informações da conta. A versão de testes ainda não possui exclusão automática de conta dentro do app; as solicitações devem ser encaminhadas por e-mail. Explicaremos eventuais limitações de retenção aplicáveis.</p>
+          <p>Para excluir sua conta, abra a Loja no app e selecione a lixeira na área da conta. O app pede confirmação e pode solicitar nova autorização Apple para revogar o vínculo. A exclusão remove a identidade e os dados de progresso associados, mantendo somente registros necessários para transações, reembolsos, prevenção de duplicação, segurança e obrigações aplicáveis. Se um serviço estiver temporariamente indisponível, a solicitação aceita permanece em andamento para nova tentativa; não é apresentada como concluída antes da confirmação.</p>
+          <p>Para outras solicitações sobre conta e dados ou ajuda com a exclusão, escreva para <a href="mailto:barberiniservices@gmail.com">barberiniservices@gmail.com</a>. Podemos precisar confirmar sua identidade. Sair da conta, revogar permissões no provedor ou apagar o app não substitui a solicitação de exclusão dentro do jogo.</p>
           <p>Não comercializamos diretamente seu cadastro de conta. Compartilhamos dados com os serviços necessários às funções descritas nesta política, incluindo autenticação, infraestrutura, compras e anúncios, respeitando as escolhas e configurações aplicáveis. O uso de dados pelos serviços de publicidade está descrito na seção de anúncios. Se você é responsável por uma criança e acredita que ela forneceu dados indevidamente, entre em contato para análise.</p>
         </section>
 
@@ -104,6 +107,17 @@
           <p class="section-kicker">07 · CARTA DE NAVEGAÇÃO</p>
           <h2>Alterações nesta política</h2>
           <p>Atualizaremos esta página quando mudarem as funcionalidades ou as práticas de tratamento de dados, incluindo a liberação de pagamentos em produção, novos provedores ou controles de conta. A data no topo indica a versão mais recente. Mudanças relevantes serão comunicadas pelo jogo ou pelas notas de atualização, quando aplicável.</p>
+        </section>
+
+        <section id="privacy-english" lang="en">
+          <h2>Privacy information in English</h2>
+          <p>Asterlite is developed by Davi Barberini. Guest play is available without an account. Optional Apple sign-in on iOS or Google sign-in on Android uses Supabase Auth. We process the account identifier, email and profile name provided by the identity provider; we do not receive your Apple or Google password.</p>
+          <p>Preferences and run state are stored on your device. Linked accounts also use server-held currency, inventory, operation records and confirmed online activity time for capped run rewards and interruption recovery. Sign-in is not a complete cloud backup or an automatic merge of guest progress.</p>
+          <p>Optional consumable purchases are processed by Apple or Google and verified through RevenueCat and our backend. Product and transaction identifiers, quantities, account associations and refund status are used to deliver purchases once. We do not receive full card details. Test balances and purchases are separate from production.</p>
+          <p>Optional rewarded ads use Google AdMob and UMP. Google may process IP address, approximate location derived from IP, device or advertising identifiers, ads viewed, app and ad interactions, crash logs, performance data and other technical diagnostics for advertising, analytics, delivery, measurement, security and fraud prevention. UMP also processes information needed for consent choices. Some data can be associated with your device even without a linked account.</p>
+          <p>Where authorized and applicable, advertising identifiers may be used by advertising services to link activity across other companies' apps and websites for personalized advertising or measurement. We do not send your sign-in name or email to AdMob for that purpose. Consent choices are offered where applicable; iOS tracking permission is separate and can be changed in iOS Settings. You may decline tracking and continue playing.</p>
+          <p>To delete your account, open Store and select the account trash icon. Confirm the request and, when required, authorize Apple again to revoke its connection. Nonessential account/progression data is removed or anonymized. Necessary financial, refund, security and deduplication records may be retained for their applicable purposes and obligations. An interrupted external operation remains pending for retry, not falsely completed. Signing out or uninstalling does not delete your server account.</p>
+          <p>Supabase, Google Cloud, RevenueCat, Apple, Google and GitHub Pages provide the services described above and may process data internationally. Their privacy links are in this policy. For access, correction, deletion assistance or support, contact <a href="mailto:barberiniservices@gmail.com">barberiniservices@gmail.com</a>. Never send passwords, tokens or full payment information.</p>
         </section>
 
         <section id="contato" class="contact-section">
