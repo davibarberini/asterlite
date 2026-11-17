@@ -12,8 +12,8 @@
     <link rel="icon" href="/asterlite/pwa-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/asterlite/pwa-icon.svg" />
     <title>Asterlite</title>
-    <script type="module" crossorigin src="/asterlite/assets/index-C1Z96Od_.js"></script>
-    <link rel="stylesheet" crossorigin href="/asterlite/assets/index-B-6edBVQ.css">
+    <script type="module" crossorigin src="/asterlite/assets/index-DEO2obF4.js"></script>
+    <link rel="stylesheet" crossorigin href="/asterlite/assets/index-DU_Bl7TQ.css">
   </head>
   <body>
     <div id="app">
@@ -51,7 +51,7 @@
         </div>
       </section>
       <button class="settings-toggle" id="settings-toggle" type="button" aria-label="Open settings" aria-expanded="false" data-ui-icon="settings"></button>
-      <button class="gallery-toggle" id="gallery-toggle" type="button" aria-label="Gallery" data-ui-icon="book"></button>
+      <button class="gallery-toggle" id="gallery-toggle" type="button" aria-label="Collection" data-ui-icon="library"></button>
       <div id="hud">
         <section class="hud-panel hud-panel--left">
           <div class="money-readout">
@@ -129,6 +129,13 @@
               <div class="hud-kicker" id="ui-modal-kicker">Info</div>
               <h2 id="ui-modal-title">Details</h2>
               <p id="ui-modal-copy" class="ui-modal__copy"></p>
+            </div>
+            <div class="run-card-reroll-controls">
+              <button id="run-card-reroll" class="run-card-reroll" type="button">
+                <span data-ui-icon="refresh" aria-hidden="true"></span>
+                <span id="run-card-reroll-label"></span>
+              </button>
+              <span id="run-card-reroll-status" class="run-card-reroll__status" role="status" aria-live="polite"></span>
             </div>
             <button id="ui-modal-close" class="ui-modal__close" type="button" aria-label="Close modal" data-ui-icon="close"></button>
           </header>
